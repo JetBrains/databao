@@ -4,13 +4,10 @@ from sqlalchemy import Engine
 import logging
 import re
 
-from langchain_openai import ChatOpenAI
+from langchain_core.language_models.chat_models import BaseChatModel
 from portus.meta_fetcher import DBEngineMetaFetcher
 
 logger = logging.getLogger(__name__)
-# Attach a NullHandler so importing apps without logging config don’t get warnings.
-if not logger.handlers:
-    logger.addHandler(logging.NullHandler())
 
 
 class SqlGen(ABC):
@@ -18,13 +15,11 @@ class SqlGen(ABC):
     def gen(self,
             prompt: str,
             engine: Engine,
+            llm: BaseChatModel,
             *,
             target_schema: Optional[str] = None,
             table_limit: int = 100,
             columns_per_table_limit: int = 50,
-            model: Optional[str] = None,
-            temperature: float = 0.0,
-            llm: Optional[object] = None,
             max_rows: Optional[int] = 1000
             ) -> str:
         pass
@@ -61,13 +56,11 @@ class OneShotSqlGen(SqlGen):
     def gen(self,
             prompt: str,
             engine: Engine,
+            llm: BaseChatModel,
             *,
             target_schema: Optional[str] = None,
             table_limit: int = 100,
             columns_per_table_limit: int = 50,
-            model: Optional[str] = None,
-            temperature: float = 0.0,
-            llm: Optional[object] = None,
             max_rows: Optional[int] = 1000
             ) -> str:
         fetcher = DBEngineMetaFetcher(engine)
@@ -77,7 +70,6 @@ class OneShotSqlGen(SqlGen):
         logger.info("Using dialect=%s", dialect_name)
         logger.debug("Fetched DB schema overview:\n%s", schema_text)
 
-        chat_llm = ChatOpenAI(model=model or "gpt-4o-mini", temperature=temperature)
         try:
             # Support both message-based and string-based invocation
             system_prompt = self.__build_system_prompt(dialect_name, max_rows)
@@ -87,7 +79,7 @@ class OneShotSqlGen(SqlGen):
                 "Return only the SQL query:"
             )
             try:
-                result = chat_llm.invoke(
+                result = llm.invoke(
                     [
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": user_prompt},
@@ -98,7 +90,7 @@ class OneShotSqlGen(SqlGen):
             except TypeError:
                 # Fallback to simple string invocation
                 combined = system_prompt + "\n\n" + user_prompt
-                result = chat_llm.invoke(combined)  # type: ignore
+                result = llm.invoke(combined)  # type: ignore
                 content = getattr(result, "content", result)
                 sql_query = self.__strip_sql_fences(content if isinstance(content, str) else str(content))
         except Exception as e:

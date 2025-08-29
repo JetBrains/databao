@@ -1,4 +1,4 @@
-# Portus: NL queries for `pandas`
+# Portus: NL queries for data
 
 ## Setup connection
 
@@ -10,29 +10,17 @@ engine = create_engine(
 )
 ```
 
-## SQL query with `sqlalchemy` + `pandas`
+## Create portus session
 
 ```python
-import pandas
-
-df = pd.read_sql(
-    """
-    SELECT *
-    FROM netflix_shows
-    WHERE country = 'Germany'
-    """,
-    engine
-)
-print(df)
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+session = portus.create_session(llm)
+session.add_db(engine)
 ```
 
-## NL query with `sqlalchemy` + `pandas` + `portus`
+## Query data
 
 ```python
-import portus
-portus.init()
-
-df = pd.read_ai("list all german shows", engine)
-print(df)
+session.ask("list all german shows").df()
 ```
 
