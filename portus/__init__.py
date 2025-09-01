@@ -4,6 +4,9 @@ from typing import Union
 from langchain.chat_models import init_chat_model
 
 from portus.session import Session, SessionImpl
+from portus.data_executor import DataExecutor
+from portus.duckdb.agent import SimpleDuckDBAgenticExecutor
+from portus.vizualizer import Visualizer, DumbVisualizer
 
 logger = logging.getLogger(__name__)
 # Attach a NullHandler so importing apps without logging config don’t get warnings.
@@ -11,5 +14,14 @@ if not logger.handlers:
     logger.addHandler(logging.NullHandler())
 
 
-def create_session(llm: Union[str, BaseChatModel]) -> Session:
-    return SessionImpl(llm if isinstance(llm, BaseChatModel) else init_chat_model(llm))
+def create_session(
+        llm: Union[str, BaseChatModel],
+        *,
+        data_executor: DataExecutor = SimpleDuckDBAgenticExecutor(),
+        visualizer: Visualizer = DumbVisualizer()
+) -> Session:
+    return SessionImpl(
+        llm if isinstance(llm, BaseChatModel) else init_chat_model(llm),
+        data_executor=data_executor,
+        visualizer=visualizer
+    )

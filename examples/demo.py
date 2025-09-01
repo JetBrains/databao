@@ -1,7 +1,6 @@
 import pandas as pd
 import logging
 from sqlalchemy import create_engine
-from langchain_openai import ChatOpenAI
 import portus
 
 logging.basicConfig(level=logging.INFO)
@@ -27,4 +26,6 @@ data = {
 df = pd.DataFrame(data)
 session.add_df(df)
 
-print(session.ask("list directors of cancelled shows").df())
+ask = session.ask("count cancelled shows by directors")
+print(ask.df())
+ask.plot()

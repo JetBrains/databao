@@ -1,10 +1,11 @@
+from typing import Any
 import importlib
 from pandas import DataFrame
 import duckdb
 from duckdb import DuckDBPyConnection
 
 
-def init_duckdb_con(dbs: dict[str, object], dfs: dict[str, DataFrame]) -> DuckDBPyConnection:
+def init_duckdb_con(dbs: dict[str, Any], dfs: dict[str, DataFrame]) -> DuckDBPyConnection:
     # Loading DB engines dynamically to have NO dependencies on all db-related packages
     try:
         engine_mod = importlib.import_module("sqlalchemy.engine")
