@@ -1,2 +1,3 @@
-sqlalchemy
-langchain-openai
+sqlalchemy==2.0.43
+langchain-openai==0.3.32
+python-dotenv==1.1.1

@@ -1,3 +1,6 @@
+# This is a mock prototype for demonstrating the potential API design
+#The actual implementation may differ from what is shown here
+
 import portus
 from portus.llm import OpenAI
 
@@ -12,7 +15,7 @@ session = portus.create_session(llm=OpenAI(temperature=0),
                                 autosave=False)  # by default, sessions can be automatically saved
 
 # user can connect dataframe / db connection / local files / etc to the context
-session.connect("postgresql://readonly_role:>sU9y95R(e4m@ep-young-breeze-a5cq8xns.us-east-2.aws.neon.tech/netflix")
+session.connect("postgresql://readonly_role:>sU9y95R(e4m@ep-young-breeze-a5cq8xns.us-east-2.aws.neon.tech/netflix?options=endpoint%3Dep-young-breeze-a5cq8xns&sslmode=require")
 session.connect(sample_data)
 session.connect("readme.md")
 session.connect(dce)

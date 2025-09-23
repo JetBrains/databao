@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import List, TypedDict, Any
+from typing import List, TypedDict
 
 from duckdb import DuckDBPyConnection
 from pandas import DataFrame
@@ -9,7 +9,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.tools import tool
 from langgraph.prebuilt import create_react_agent
 
-from portus.data_executor import DataExecutor, DataResult, Meta
+from portus.data_executor import DataExecutor, DataResult
 from portus.duckdb.utils import init_duckdb_con, sql_strip
 
 logger = logging.getLogger(__name__)
@@ -129,7 +129,7 @@ class SimpleDuckDBAgenticExecutor(DataExecutor):
             self,
             query: str,
             llm: BaseChatModel,
-            dbs: dict[str, Any],
+            dbs: dict[str, object],
             dfs: dict[str, DataFrame],
             *,
             rows_limit: int = 100
@@ -138,5 +138,5 @@ class SimpleDuckDBAgenticExecutor(DataExecutor):
         agent, ask = self.__make_react_duckdb_agent(con, llm)
         answer: AgentResponse = ask(query)
         logger.info("Generated query: %s", answer["sql"])
-        df = con.execute(f"SELECT * FROM ({sql_strip(answer["sql"])}) t LIMIT {rows_limit}").df()
-        return DataResult(answer["explanation"], df, Meta(query=query))
+        df = con.execute(f'SELECT * FROM ({sql_strip(answer["sql"])}) t LIMIT {rows_limit}').df()
+        return DataResult(answer["explanation"], df, {})
