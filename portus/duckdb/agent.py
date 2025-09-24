@@ -3,15 +3,15 @@ import logging
 from typing import List, TypedDict
 
 from duckdb import DuckDBPyConnection
-from pandas import DataFrame
-from langchain_core.messages import HumanMessage
 from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.messages import HumanMessage
 from langchain_core.tools import tool
 from langgraph.prebuilt import create_react_agent
 
-from portus.executor import Executor, ExecutionResult
 from portus.duckdb.utils import init_duckdb_con, sql_strip
+from portus.executor import Executor, ExecutionResult
 from portus.opa import Opa
+from portus.session import Session
 
 logger = logging.getLogger(__name__)
 
@@ -128,14 +128,13 @@ class SimpleDuckDBAgenticExecutor(Executor):
 
     def execute(
             self,
+            session: Session,
             opas: list[Opa],
             llm: BaseChatModel,
-            dbs: dict[str, object],
-            dfs: dict[str, DataFrame],
             *,
             rows_limit: int = 100
     ) -> ExecutionResult:
-        con = init_duckdb_con(dbs, dfs)
+        con = init_duckdb_con(session.dbs, session.dfs)
         agent, ask = self.__make_react_duckdb_agent(con, llm)
         answer: AgentResponse = ask(opas[-1].query)
         logger.info("Generated query: %s", answer["sql"])

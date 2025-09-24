@@ -16,7 +16,7 @@ df = pd.read_sql("""
                  """, engine)
 print(df)
 
-session = portus.create_session("gpt-4o-mini")
+session = portus.open_session("my_session")
 session.add_db(engine)
 
 data = {

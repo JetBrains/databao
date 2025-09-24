@@ -3,7 +3,8 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from typing import Union
 from langchain.chat_models import init_chat_model
 
-from portus.session import Session, SessionImpl
+from portus.session import Session
+from portus.core.in_mem_session import InMemSession
 from portus.executor import Executor
 from portus.duckdb.agent import SimpleDuckDBAgenticExecutor
 from portus.vizualizer import Visualizer, DumbVisualizer
@@ -14,14 +15,16 @@ if not logger.handlers:
     logger.addHandler(logging.NullHandler())
 
 
-def create_session(
-        llm: Union[str, BaseChatModel],
+def open_session(
+        name: str,
         *,
+        llm: Union[str, BaseChatModel] = "gpt-4o-mini",
         data_executor: Executor = SimpleDuckDBAgenticExecutor(),
         visualizer: Visualizer = DumbVisualizer(),
         default_rows_limit: int = 1000
 ) -> Session:
-    return SessionImpl(
+    return InMemSession(
+        name,
         llm if isinstance(llm, BaseChatModel) else init_chat_model(llm),
         data_executor=data_executor,
         visualizer=visualizer,
