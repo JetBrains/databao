@@ -9,7 +9,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.tools import tool
 from langgraph.prebuilt import create_react_agent
 
-from portus.data_executor import DataExecutor, DataResult
+from portus.executor import Executor, ExecutionResult
 from portus.duckdb.utils import init_duckdb_con, sql_strip
 from portus.opa import Opa
 
@@ -21,7 +21,7 @@ class AgentResponse(TypedDict):
     explanation: str
 
 
-class SimpleDuckDBAgenticExecutor(DataExecutor):
+class SimpleDuckDBAgenticExecutor(Executor):
     @staticmethod
     def __describe_duckdb_schema(con: DuckDBPyConnection, max_cols_per_table: int = 40) -> str:
         rows = con.execute("""
@@ -134,10 +134,10 @@ class SimpleDuckDBAgenticExecutor(DataExecutor):
             dfs: dict[str, DataFrame],
             *,
             rows_limit: int = 100
-    ) -> DataResult:
+    ) -> ExecutionResult:
         con = init_duckdb_con(dbs, dfs)
         agent, ask = self.__make_react_duckdb_agent(con, llm)
         answer: AgentResponse = ask(opas[-1].query)
         logger.info("Generated query: %s", answer["sql"])
         df = con.execute(f'SELECT * FROM ({sql_strip(answer["sql"])}) t LIMIT {rows_limit}').df()
-        return DataResult(answer["explanation"], df, {"code": answer["sql"]})
+        return ExecutionResult(answer["explanation"], {"code": answer["sql"]}, df)

@@ -4,7 +4,7 @@ from typing import Union
 from langchain.chat_models import init_chat_model
 
 from portus.session import Session, SessionImpl
-from portus.data_executor import DataExecutor
+from portus.executor import Executor
 from portus.duckdb.agent import SimpleDuckDBAgenticExecutor
 from portus.vizualizer import Visualizer, DumbVisualizer
 
@@ -17,7 +17,7 @@ if not logger.handlers:
 def create_session(
         llm: Union[str, BaseChatModel],
         *,
-        data_executor: DataExecutor = SimpleDuckDBAgenticExecutor(),
+        data_executor: Executor = SimpleDuckDBAgenticExecutor(),
         visualizer: Visualizer = DumbVisualizer(),
         default_rows_limit: int = 1000
 ) -> Session:

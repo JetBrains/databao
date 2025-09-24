@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TypedDict, Any
+from typing import TypedDict, Any, Optional
 
 from pandas import DataFrame
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -16,13 +16,13 @@ class Meta(MetaBase, total=False):
 
 
 @dataclass(frozen=True)
-class DataResult:
+class ExecutionResult:
     text: str
-    df: DataFrame
     meta: Meta
+    df: Optional[DataFrame] = None
 
 
-class DataExecutor(ABC):
+class Executor(ABC):
     @abstractmethod
     def execute(
             self,
@@ -32,5 +32,5 @@ class DataExecutor(ABC):
             dfs: dict[str, DataFrame],
             *,
             rows_limit: int = 100
-    ) -> DataResult:
+    ) -> ExecutionResult:
         pass

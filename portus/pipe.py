@@ -7,16 +7,16 @@ from langchain_core.language_models.chat_models import BaseChatModel
 
 from portus.opa import Opa
 from portus.vizualizer import Visualizer, VisualisationResult
-from portus.data_executor import DataExecutor, DataResult
+from portus.executor import Executor, ExecutionResult
 
 
 class Pipe(ABC):
     @abc.abstractmethod
-    def df(self, *, rows_limit: Optional[int] = None) -> DataFrame:
+    def df(self, *, rows_limit: Optional[int] = None) -> Optional[DataFrame]:
         pass
 
     @abc.abstractmethod
-    def plot(self, request: str = "visualize data", *, rows_limit: Optional[int] = None):
+    def plot(self, request: str = "visualize data", *, rows_limit: Optional[int] = None) -> Optional[Any]:
         pass
 
     @abc.abstractmethod
@@ -36,7 +36,7 @@ class LazyPipe(Pipe):
     def __init__(
             self,
             llm: BaseChatModel,
-            data_executor: DataExecutor,
+            data_executor: Executor,
             visualizer: Visualizer,
             dbs: dict[str, Any],
             dfs: dict[str, DataFrame],
@@ -52,18 +52,20 @@ class LazyPipe(Pipe):
 
         self.__data_materialized = False
         self.__data_materialized_rows: Optional[int] = None
-        self.__data_result: Optional[DataResult] = None
+        self.__data_result: Optional[ExecutionResult] = None
         self.__visualization_materialized = False
         self.__visualization_result: Optional[VisualisationResult] = None
         self.__opas: list[Opa] = []
+        self.__meta = {}
 
-    def __materialize_data(self, rows_limit: Optional[int]) -> DataResult:
+    def __materialize_data(self, rows_limit: Optional[int]) -> ExecutionResult:
         rows_limit = rows_limit if rows_limit else self.__default_rows_limit
         if not self.__data_materialized or rows_limit != self.__data_materialized_rows:
             self.__data_result = self.__data_executor.execute(self.__opas, self.__llm, self.__dbs, self.__dfs,
                                                               rows_limit=rows_limit)
             self.__data_materialized = True
             self.__data_materialized_rows = rows_limit
+            self.__meta.update(self.__data_result.meta)
         return self.__data_result
 
     def __materialize_visualization(self, request: str, rows_limit: Optional[int]) -> VisualisationResult:
@@ -71,19 +73,18 @@ class LazyPipe(Pipe):
         if not self.__visualization_materialized:
             self.__visualization_result = self.__visualizer.visualize(request, self.__llm, self.__data_result)
             self.__visualization_materialized = True
+            self.__meta.update(self.__visualization_result.meta)
         return self.__visualization_result
 
-    def df(self, *, rows_limit: Optional[int] = None) -> DataFrame:
+    def df(self, *, rows_limit: Optional[int] = None) -> Optional[DataFrame]:
         return self.__materialize_data(rows_limit if rows_limit else self.__data_materialized_rows).df
 
-    def plot(self, request: str = "visualize data", *, rows_limit: Optional[int] = None):
+    def plot(self, request: str = "visualize data", *, rows_limit: Optional[int] = None) -> Optional[Any]:
         return self.__materialize_visualization(request,
                                                 rows_limit if rows_limit else self.__data_materialized_rows).plot
 
     def meta(self) -> dict[str, Any]:
-        if self.__data_materialized:
-            return self.__materialized_meta
-        raise ValueError("Result is not materialized")
+        return self.__meta
 
     def text(self) -> str:
         return self.__materialize_data(self.__data_materialized_rows).text

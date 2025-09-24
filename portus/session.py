@@ -5,7 +5,7 @@ from typing import Optional, Any
 from pandas import DataFrame
 
 from portus.pipe import Pipe, LazyPipe
-from portus.data_executor import DataExecutor
+from portus.executor import Executor
 from portus.vizualizer import Visualizer, DumbVisualizer
 from portus.duckdb.agent import SimpleDuckDBAgenticExecutor
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -30,7 +30,7 @@ class SessionImpl(Session):
             self,
             llm: BaseChatModel,
             *,
-            data_executor: DataExecutor = SimpleDuckDBAgenticExecutor(),
+            data_executor: Executor = SimpleDuckDBAgenticExecutor(),
             visualizer: Visualizer = DumbVisualizer(),
             default_rows_limit: int = 1000
     ):
