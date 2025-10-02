@@ -103,10 +103,7 @@ class ReactDuckDBAgent(BaseAgent):
 
     @staticmethod
     def _make_react_duckdb_agent(con: DuckDBPyConnection, llm: BaseChatModel) -> CompiledStateGraph[Any]:
-        execute_sql_tool = ReactDuckDBAgent._make_duckdb_tool(con)
-        tools = [execute_sql_tool]
         schema_text = ReactDuckDBAgent.describe_duckdb_schema(con)
-
         # TODO move to .jinja (and fix indendation)
         SYSTEM_PROMPT = f"""You are a careful data analyst using the ReAct pattern with tools.
     Use the `execute_sql` tool to run exactly one DuckDB SQL statement when needed.
@@ -124,7 +121,14 @@ class ReactDuckDBAgent(BaseAgent):
     {schema_text}
     """
         # LangGraph prebuilt ReAct agent
-        agent = create_react_agent(llm, tools=tools, prompt=SYSTEM_PROMPT)
+        execute_sql_tool = ReactDuckDBAgent._make_duckdb_tool(con)
+        tools = [execute_sql_tool]
+        agent = create_react_agent(
+            llm,
+            tools=tools,
+            prompt=SYSTEM_PROMPT,
+            response_format=AgentResponse,  # type: ignore[arg-type]
+        )
         return agent
 
     def execute(self, messages: list[BaseMessage]) -> ExecutionResult:

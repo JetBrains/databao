@@ -3,7 +3,7 @@ from typing import Any
 
 from pandas import DataFrame
 
-from portus.agent.lighthouse_agent import LighthouseAgent
+from portus import LighthouseAgent
 from portus.data_source.data_collection import DataCollection
 from portus.data_source.data_source import DataSource
 from portus.langchain_graphs.execute_submit import ExecuteSubmit
@@ -46,6 +46,7 @@ class Session(BaseSession):
             self._llm_config,
             DEFAULT_TEMPLATE_PATH,
         )
+        # agent = ReactDuckDBAgent(self._data_collection, get_chat_model(self._llm_config))
         return Pipe(agent, self._visualizer).ask(query)
 
     @property
