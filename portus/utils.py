@@ -3,9 +3,7 @@ from pathlib import Path
 
 import jinja2
 
-from portus import __file__ as PORTUS_PATH
-
-PROJECT_ROOT = Path(PORTUS_PATH).parent.parent
+from portus.prompts import get_jinja_prompts_env
 
 
 def get_today_date_str() -> str:
@@ -13,11 +11,7 @@ def get_today_date_str() -> str:
 
 
 def read_prompt_template(relative_path: Path) -> jinja2.Template:
-    env = jinja2.Environment(
-        loader=jinja2.FileSystemLoader([PROJECT_ROOT / "prompts", PROJECT_ROOT / "resources"]),
-        trim_blocks=True,  # better whitespace handling
-        lstrip_blocks=True,
-    )
+    env = get_jinja_prompts_env()
     template = env.get_template(str(relative_path))
     return template
 
