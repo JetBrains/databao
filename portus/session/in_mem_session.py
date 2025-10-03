@@ -16,7 +16,7 @@ from portus.vizualizer import DumbVisualizer, Visualizer
 DEFAULT_TEMPLATE_PATH = Path("agent_system.jinja")
 
 
-class Session(BaseSession):
+class InMemSession(BaseSession):
     def __init__(
         self,
         name: str,

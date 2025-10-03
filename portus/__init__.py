@@ -5,7 +5,7 @@ from portus.agent.lighthouse_agent import LighthouseAgent as LighthouseAgent
 from portus.agent.react_duckdb_agent import ReactDuckDBAgent as ReactDuckDBAgent
 from portus.llms import LLMConfig
 from portus.session.base_session import BaseSession
-from portus.session.in_mem_session import Session
+from portus.session.in_mem_session import InMemSession
 from portus.vizualizer import Visualizer
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ def open_session(
     visualizer: Visualizer | None = None,
     default_rows_limit: int = 1000,
 ) -> BaseSession:
-    return Session(
+    return InMemSession(
         name,
         llm if isinstance(llm, LLMConfig) else LLMConfig(name=llm),
         visualizer=visualizer,

@@ -4,8 +4,8 @@ from pathlib import Path
 from portus.utils import get_today_date_str, read_prompt_template
 
 
-@dataclasses.dataclass
-class Context:
+@dataclasses.dataclass(kw_only=True)
+class LighthouseContext:
     """Full context, which provides all necessary information for the agent to answer questions about a specific domain.
     It is designed to help new users to understand what data is needed for precise answers.
     If all fields are filled, the agent is supposed to be able to answer most of the questions.

@@ -2,7 +2,7 @@ from pathlib import Path
 
 import jinja2
 
-_jinja_prompts_env = None
+_jinja_prompts_env: jinja2.Environment | None = None
 
 
 def get_jinja_prompts_env(prompts_dir: Path | None = None) -> jinja2.Environment:
