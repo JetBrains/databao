@@ -13,3 +13,6 @@ dist/
 .DS_Store
 
 .idea/
+
+# Caching artifacts
+cache/

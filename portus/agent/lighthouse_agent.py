@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 from typing import Any
 
@@ -5,19 +6,18 @@ from langchain_core.messages import BaseMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
 from portus.agent.base_agent import BaseAgent, ExecutionResult
-from portus.agent.react_duckdb_agent import ReactDuckDBAgent
-from portus.data_source.data_collection import DataCollection
+from portus.data_source.database_schema import summarize_schema
+from portus.data_source.duckdb.duckdb_collection import DuckDBCollection
+from portus.data_source.schema_inspection_config import InspectionOptions, SchemaSummaryType
 from portus.langchain_graphs.graph import Graph
 from portus.llms import LLMConfig
 from portus.utils import get_today_date_str, read_prompt_template
-
-MAX_ROWS = 12
 
 
 class LighthouseAgent(BaseAgent):
     def __init__(
         self,
-        data_collection: DataCollection,
+        data_collection: DuckDBCollection,
         graph: Graph,
         llm_config: LLMConfig,
         template_path: Path,
@@ -30,11 +30,11 @@ class LighthouseAgent(BaseAgent):
     def render_system_prompt(self) -> str:
         # TODO: Add Context support
         prompt_template = read_prompt_template(self._template_path)
-        db_schema = ReactDuckDBAgent.describe_duckdb_schema(self._data_collection.get_connection())
-
+        db_schema = asyncio.run(self._data_collection.ainspect_schema("full", InspectionOptions()))  # TODO non-async
+        schema_summary = summarize_schema(db_schema, SchemaSummaryType.FULL)
         prompt = prompt_template.render(
             date=get_today_date_str(),
-            db_schema=db_schema,
+            db_schema=schema_summary,
         )
         return prompt
 

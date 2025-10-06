@@ -2,6 +2,7 @@ import json
 import logging
 from typing import Any, TypedDict
 
+import pandas as pd
 from duckdb import DuckDBPyConnection
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import BaseMessage
@@ -10,8 +11,8 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import create_react_agent
 
 from portus.agent.base_agent import BaseAgent, ExecutionResult
-from portus.data_source.data_collection import DataCollection
-from portus.duckdb.utils import sql_strip
+from portus.data_source.duckdb.duckdb_collection import DuckDBCollection
+from portus.data_source.duckdb.utils import sql_strip
 
 logger = logging.getLogger(__name__)
 
@@ -24,11 +25,10 @@ class AgentResponse(TypedDict):
 class ReactDuckDBAgent(BaseAgent):
     def __init__(
         self,
-        data_collection: DataCollection,
+        data_collection: DuckDBCollection,
         llm: BaseChatModel,
     ):
         self._data_collection = data_collection
-        self._connection = self._data_collection.get_connection()
         self._compiled_graph = self._make_react_duckdb_agent(self._connection, llm)
         self._rows_limit = 100
 
@@ -135,5 +135,10 @@ class ReactDuckDBAgent(BaseAgent):
         state = self._compiled_graph.invoke({"messages": messages})
         answer: AgentResponse = state["structured_response"]
         logger.info("Generated query: %s", answer["sql"])
-        df = self._connection.execute(f"SELECT * FROM ({sql_strip(answer['sql'])}) t LIMIT {self._rows_limit}").df()
-        return ExecutionResult(text=answer["explanation"], sql=answer["sql"], df=df)
+        df = self._data_collection.execute(f"SELECT * FROM ({sql_strip(answer['sql'])}) t LIMIT {self._rows_limit}")
+        return ExecutionResult(
+            text=answer["explanation"],
+            sql=answer["sql"],
+            df=df if isinstance(df, pd.DataFrame) else None,
+            messages=state["messages"],
+        )

@@ -2,14 +2,14 @@ from typing import Any
 from urllib.parse import quote, urlsplit, urlunsplit
 
 import duckdb
+import sqlalchemy as sa
 from duckdb import DuckDBPyConnection
 from pandas import DataFrame
-from sqlalchemy import Engine
 
 
 def is_sqlalchemy_engine(obj: Any) -> bool:
-    return obj.__class__.__name__ == "Engine" and getattr(obj.__class__, "__module__", "").startswith(
-        "sqlalchemy.engine"
+    return isinstance(obj, sa.Engine) or (
+        obj.__class__.__name__ == "Engine" and getattr(obj.__class__, "__module__", "").startswith("sqlalchemy.engine")
     )
 
 
@@ -52,20 +52,30 @@ def sqlalchemy_to_duckdb_mysql(sa_url: str, keep_query: bool = True) -> str:
     return urlunsplit(("mysql", netloc, path, query, ""))
 
 
-def register_sqlalchemy(con: DuckDBPyConnection, sqlalchemy_engine: Engine, name: str) -> None:
+def register_duckdb_dialect(con: DuckDBPyConnection | sa.Connection, *, dialect: str, name: str, url: str) -> None:
+    def execute(s: str) -> None:
+        if isinstance(con, DuckDBPyConnection):
+            con.execute(s)
+        else:
+            con.execute(sa.text(s))
+
+    if dialect.startswith("postgres"):
+        execute("INSTALL postgres_scanner;")
+        execute("LOAD postgres_scanner;")
+        execute(f"ATTACH '{url}' AS {name} (TYPE POSTGRES);")
+    elif dialect.startswith(("mysql", "mariadb")):
+        execute("INSTALL mysql;")
+        execute("LOAD mysql;")
+        mysql_url = sqlalchemy_to_duckdb_mysql(url)
+        execute(f"ATTACH '{mysql_url}' AS {name} (TYPE MYSQL);")
+    else:
+        raise ValueError(f"Database engine '{dialect}' is not supported yet")
+
+
+def register_sqlalchemy(con: DuckDBPyConnection | sa.Connection, sqlalchemy_engine: sa.Engine, name: str) -> None:
     url = sqlalchemy_engine.url.render_as_string(hide_password=False)
     dialect = getattr(getattr(sqlalchemy_engine, "dialect", None), "name", "")
-    if dialect.startswith("postgres"):
-        con.execute("INSTALL postgres_scanner;")
-        con.execute("LOAD postgres_scanner;")
-        con.execute(f"ATTACH '{url}' AS {name} (TYPE POSTGRES);")
-    elif dialect.startswith(("mysql", "mariadb")):
-        con.execute("INSTALL mysql;")
-        con.execute("LOAD mysql;")
-        mysql_url = sqlalchemy_to_duckdb_mysql(str(url))
-        con.execute(f"ATTACH '{mysql_url}' AS {name} (TYPE MYSQL);")
-    else:
-        raise ValueError(f"Database engine '{sqlalchemy_engine.dialect.name}' is not supported yet")
+    register_duckdb_dialect(con, dialect=dialect, name=name, url=url)
 
 
 def init_duckdb_con(dbs: dict[str, Any], dfs: dict[str, DataFrame]) -> DuckDBPyConnection:

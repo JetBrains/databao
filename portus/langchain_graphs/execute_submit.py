@@ -1,7 +1,6 @@
 from typing import Annotated, Any, Literal, TypedDict
 
 import pandas as pd
-from duckdb import DuckDBPyConnection
 from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
 from langchain_core.tools import BaseTool, tool
 from langgraph.constants import END, START
@@ -9,6 +8,7 @@ from langgraph.graph import add_messages
 from langgraph.graph.state import CompiledStateGraph, StateGraph
 
 from portus.agent.base_agent import ExecutionResult
+from portus.data_source.data_source import DataSource
 from portus.langchain_graphs.graph import Graph
 from portus.llms import LLMConfig, chat, get_chat_model, model_bind_tools
 from portus.utils import exception_to_string
@@ -25,12 +25,13 @@ class AgentState(TypedDict):
     ready_for_user: bool
 
 
+# TODO move into lighthouse_agent.py
 class ExecuteSubmit(Graph):
     """Simple graph with two tools: run_sql_query and submit_query_id.
     All context must be in the SystemMessage."""
 
-    def __init__(self, connection: DuckDBPyConnection):
-        self._connection = connection
+    def __init__(self, data_source: DataSource):
+        self._data_source = data_source
 
     def init_state(self, messages: list[BaseMessage]) -> dict[str, Any]:
         state: dict[str, Any] = {
@@ -81,7 +82,7 @@ class ExecuteSubmit(Graph):
             Args:
                 sql: SQL query
             """
-            df_or_error = self._connection.execute(sql).df()
+            df_or_error = self._data_source.execute(sql)
             if isinstance(df_or_error, pd.DataFrame):
                 df_csv = df_or_error.head(MAX_ROWS).to_csv(index=False)
                 df_markdown = df_or_error.head(MAX_ROWS).to_markdown(index=False)

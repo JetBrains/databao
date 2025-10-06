@@ -2,6 +2,8 @@
 
 ## Setup connection
 
+Create a `.env` file in the project root from `.env.template` file.
+
 ```python
 from sqlalchemy import create_engine
 
@@ -24,3 +26,12 @@ session.add_db(engine)
 session.ask("list all german shows").df()
 ```
 
+## Installation & Setup
+
+```bash
+# Install dependencies
+uv sync
+
+# Install pre-commit hooks for development
+uv run pre-commit install
+```
