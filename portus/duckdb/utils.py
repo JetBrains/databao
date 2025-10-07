@@ -1,15 +1,14 @@
 from typing import Any
-from urllib.parse import urlsplit, urlunsplit, quote
+from urllib.parse import quote, urlsplit, urlunsplit
 
 import duckdb
 from duckdb import DuckDBPyConnection
 from pandas import DataFrame
 
 
-def is_sqlalchemy_engine(obj: Any):
-    return (
-            obj.__class__.__name__ == "Engine"
-            and getattr(obj.__class__, "__module__", "").startswith("sqlalchemy.engine")
+def is_sqlalchemy_engine(obj: Any) -> bool:
+    return obj.__class__.__name__ == "Engine" and getattr(obj.__class__, "__module__", "").startswith(
+        "sqlalchemy.engine"
     )
 
 
@@ -52,7 +51,7 @@ def sqlalchemy_to_duckdb_mysql(sa_url: str, keep_query: bool = True) -> str:
     return urlunsplit(("mysql", netloc, path, query, ""))
 
 
-def register_sqlalchemy(con: DuckDBPyConnection, sqlalchemy_engine: Any, name: str):
+def register_sqlalchemy(con: DuckDBPyConnection, sqlalchemy_engine: Any, name: str) -> None:
     url = sqlalchemy_engine.url.render_as_string(hide_password=False)
     dialect = getattr(getattr(sqlalchemy_engine, "dialect", None), "name", "")
     if dialect.startswith("postgres"):
@@ -69,7 +68,7 @@ def register_sqlalchemy(con: DuckDBPyConnection, sqlalchemy_engine: Any, name: s
 
 
 def init_duckdb_con(dbs: dict[str, Any], dfs: dict[str, DataFrame]) -> DuckDBPyConnection:
-    con = duckdb.connect(database=':memory:', read_only=False)
+    con = duckdb.connect(database=":memory:", read_only=False)
     for name, db in dbs.items():
         if is_sqlalchemy_engine(db):
             register_sqlalchemy(con, db, name)

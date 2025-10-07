@@ -1,9 +1,10 @@
 import abc
 from abc import ABC
-from typing import Optional, Any, TYPE_CHECKING
-from langchain_core.language_models.chat_models import BaseChatModel
+from typing import TYPE_CHECKING, Any
 
+from langchain_core.language_models.chat_models import BaseChatModel
 from pandas import DataFrame
+
 from portus.pipe import Pipe
 
 if TYPE_CHECKING:
@@ -13,11 +14,11 @@ if TYPE_CHECKING:
 
 class Session(ABC):
     @abc.abstractmethod
-    def add_db(self, connection: Any, *, name: Optional[str] = None) -> None:
+    def add_db(self, connection: Any, *, name: str | None = None) -> None:
         pass
 
     @abc.abstractmethod
-    def add_df(self, df: DataFrame, *, name: Optional[str] = None) -> None:
+    def add_df(self, df: DataFrame, *, name: str | None = None) -> None:
         pass
 
     @abc.abstractmethod

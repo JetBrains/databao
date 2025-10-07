@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from pandas import DataFrame
@@ -13,18 +13,13 @@ from portus.session import Session
 class ExecutionResult:
     text: str
     meta: dict[str, Any]
-    code: Optional[str] = None
-    df: Optional[DataFrame] = None
+    code: str | None = None
+    df: DataFrame | None = None
 
 
 class Executor(ABC):
     @abstractmethod
     def execute(
-            self,
-            session: Session,
-            opas: list[Opa],
-            llm: BaseChatModel,
-            *,
-            rows_limit: int = 100
+        self, session: Session, opas: list[Opa], llm: BaseChatModel, *, rows_limit: int = 100
     ) -> ExecutionResult:
         pass
