@@ -19,6 +19,7 @@ dependencies = [
     "pydantic>=2.11.9",
     "diskcache>=5.6.3",
     "duckdb-engine>=0.17.0",
+    "nest-asyncio>=1.6.0",
 ]
 
 [project.optional-dependencies]

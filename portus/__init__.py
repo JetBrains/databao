@@ -1,5 +1,7 @@
 import logging
 
+import nest_asyncio  # type: ignore[import-untyped]
+
 from portus.agent.base_agent import BaseAgent as BaseAgent
 from portus.agent.lighthouse_agent import LighthouseAgent as LighthouseAgent
 from portus.agent.react_duckdb_agent import ReactDuckDBAgent as ReactDuckDBAgent
@@ -12,6 +14,9 @@ logger = logging.getLogger(__name__)
 # Attach a NullHandler so importing apps without logging config don’t get warnings.
 if not logger.handlers:
     logger.addHandler(logging.NullHandler())
+
+# Workaround to allow asyncio.run() inside Jupyter notebooks.
+nest_asyncio.apply()
 
 
 def open_session(
