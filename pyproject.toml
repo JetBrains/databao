@@ -18,6 +18,7 @@ dependencies = [
     "tabulate>=0.9.0",
     "psycopg2-binary>=2.9.10",
     "matplotlib>=3.10.6",
+    "edaplot",
 ]
 
 [project.optional-dependencies]
@@ -29,6 +30,10 @@ examples = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.uv.sources]
+# TODO This is a temporary solution until edaplot is published to PyPI
+edaplot = { git = "ssh://git@github.com/JetBrains/edaplot.git" }
 
 [dependency-groups]
 dev = [
