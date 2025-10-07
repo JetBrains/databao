@@ -6,6 +6,17 @@ import sqlalchemy as sa
 from duckdb import DuckDBPyConnection
 from pandas import DataFrame
 
+from portus.data_source.database_schema_types import ColumnSchema, DatabaseSchema, TableSchema
+
+
+def execute(
+    con: DuckDBPyConnection | sa.Connection, s: str, params: Any = None
+) -> DuckDBPyConnection | sa.CursorResult[Any]:
+    if isinstance(con, DuckDBPyConnection):
+        return con.execute(s, parameters=params)
+    else:
+        return con.execute(sa.text(s), parameters=params)
+
 
 def is_sqlalchemy_engine(obj: Any) -> bool:
     return isinstance(obj, sa.Engine) or (
@@ -53,21 +64,15 @@ def sqlalchemy_to_duckdb_mysql(sa_url: str, keep_query: bool = True) -> str:
 
 
 def register_duckdb_dialect(con: DuckDBPyConnection | sa.Connection, *, dialect: str, name: str, url: str) -> None:
-    def execute(s: str) -> None:
-        if isinstance(con, DuckDBPyConnection):
-            con.execute(s)
-        else:
-            con.execute(sa.text(s))
-
     if dialect.startswith("postgres"):
-        execute("INSTALL postgres_scanner;")
-        execute("LOAD postgres_scanner;")
-        execute(f"ATTACH '{url}' AS {name} (TYPE POSTGRES);")
+        execute(con, "INSTALL postgres_scanner;")
+        execute(con, "LOAD postgres_scanner;")
+        execute(con, f"ATTACH '{url}' AS {name} (TYPE POSTGRES);")
     elif dialect.startswith(("mysql", "mariadb")):
-        execute("INSTALL mysql;")
-        execute("LOAD mysql;")
+        execute(con, "INSTALL mysql;")
+        execute(con, "LOAD mysql;")
         mysql_url = sqlalchemy_to_duckdb_mysql(url)
-        execute(f"ATTACH '{mysql_url}' AS {name} (TYPE MYSQL);")
+        execute(con, f"ATTACH '{mysql_url}' AS {name} (TYPE MYSQL);")
     else:
         raise ValueError(f"Database engine '{dialect}' is not supported yet")
 
@@ -94,3 +99,50 @@ def init_duckdb_con(dbs: dict[str, Any], dfs: dict[str, DataFrame]) -> DuckDBPyC
 
 def sql_strip(query: str) -> str:
     return query.strip().rstrip(";")
+
+
+def list_inspectable_duckdb_tables(connection: DuckDBPyConnection | sa.Connection) -> list[tuple[str, str, str]]:
+    rows = execute(
+        connection,
+        """
+        SELECT table_catalog, table_schema, table_name
+        FROM information_schema.tables
+        WHERE table_type IN ('BASE TABLE', 'VIEW')
+          AND table_schema NOT IN ('pg_catalog', 'pg_toast', 'information_schema')
+        ORDER BY table_schema, table_name""",
+    ).fetchall()
+    return rows
+
+
+def inspect_duckdb_schema(
+    connection: DuckDBPyConnection | sa.Connection, schema_prefix: str | None = None
+) -> DatabaseSchema:
+    inspectable_tables = list_inspectable_duckdb_tables(connection)
+    if schema_prefix is not None:
+        inspectable_tables = [
+            (db, schema, table)
+            for db, schema, table in inspectable_tables
+            if f"{db}.{schema}".startswith(schema_prefix)
+        ]
+
+    table_schemas = {}
+    for db, schema, table in inspectable_tables:
+        cols_query = """
+        SELECT column_name, data_type FROM information_schema.columns 
+        WHERE table_schema = {} AND table_name = {} ORDER BY ordinal_position
+        """.format(*(("?", "?") if isinstance(connection, DuckDBPyConnection) else (":schema", ":table")))
+        col_rows = execute(
+            connection,
+            cols_query,
+            [schema, table] if isinstance(connection, DuckDBPyConnection) else dict(schema=schema, table=table),
+        ).fetchall()
+
+        col_schemas = {}
+        for col_name, col_type in col_rows:
+            col_schema = ColumnSchema(name=col_name, dtype=col_type)
+            col_schemas[col_name] = col_schema
+        table_schema = TableSchema(name=table, schema_name=f"{db}.{schema}", columns=col_schemas)
+        table_schemas[table] = table_schema
+
+    db_schema = DatabaseSchema(db_type="duckdb", tables=table_schemas)
+    return db_schema

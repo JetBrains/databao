@@ -31,7 +31,44 @@ def is_id_column(col_name: str) -> bool:
 def is_array_dtype(dtype: str) -> bool:
     """Determine if a data type is an array type in a dialect-agnostic way."""
     dtype_lower = dtype.lower()
-    return "array(" in dtype_lower
+    return any(
+        t.lower() in dtype_lower
+        for t in [
+            "ARRAY",  # BigQuery, PostgreSQL, Snowflake, Hive, Spark, DuckDB, Databricks, Presto, Trino, CockroachDB
+            "VARRAY",  # Oracle (Variable-size array)
+            "TABLE TYPE",  # Oracle, SQL Server
+            "NESTED TABLE",  # Oracle
+            "List",  # ClickHouse
+            "SUPER",  # Redshift (supports arrays in semi-structured data)
+            "JSON",  # MySQL, MariaDB (arrays stored as JSON)
+            "MULTISET",  # Teradata
+            "ARRAY TYPE",  # DB2
+            "REPEATED",  # BigQuery (legacy/alternative syntax for arrays)
+        ]
+    )
+
+
+def is_nested_dtype(dtype: str) -> bool:
+    """
+    Determine if a data type is a struct type in a dialect-agnostic way.
+    """
+    return any(
+        t in dtype
+        for t in [
+            "STRUCT",  # BigQuery, Hive, Spark, DuckDB, Databricks
+            "COMPOSITE TYPE",  # PostgreSQL, CockroachDB
+            "OBJECT TYPE",  # Oracle
+            "User-Defined Table Types",  # SQL Server
+            "OBJECT",  # Snowflake
+            "SUPER",  # Redshift
+            "ROW",  # Presto, Trino, Vertica
+            "Tuple",  # ClickHouse
+            "Nested",  # ClickHouse
+            "MAP",  # Apache Drill
+            "STRUCTURED UDT",  # Teradata
+            "STRUCTURED TYPE",  # DB2
+        ]
+    )
 
 
 def is_aggregate_function(dtype: str) -> bool:

@@ -6,9 +6,9 @@ from langchain_core.messages import BaseMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
 from portus.agent.base_agent import BaseAgent, ExecutionResult
+from portus.data_source.config_classes.schema_inspection_config import InspectionOptions, SchemaSummaryType
 from portus.data_source.database_schema import summarize_schema
 from portus.data_source.duckdb.duckdb_collection import DuckDBCollection
-from portus.data_source.schema_inspection_config import InspectionOptions, SchemaSummaryType
 from portus.langchain_graphs.graph import Graph
 from portus.llms import LLMConfig
 from portus.utils import get_today_date_str, read_prompt_template

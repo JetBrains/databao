@@ -103,33 +103,48 @@ def execute_sql_query_sync(engine: sa.Engine, query: str) -> pd.DataFrame | Exce
         return e
 
 
-def inspect_database_schema(engine: sa.Engine) -> DatabaseSchema:
+def inspect_database_schema(engine: sa.Engine, database_or_schema: str) -> DatabaseSchema:
     inspector = sa.inspect(engine)
     schema = DatabaseSchema(db_type=inspector.dialect.name)
-    all_names = inspector.get_table_names() + inspector.get_view_names()
+
+    all_names = inspector.get_table_names(schema=database_or_schema) + inspector.get_view_names(
+        schema=database_or_schema
+    )
     for table_name in all_names:
         columns = {}
-        for column in inspector.get_columns(table_name):
+        for column in inspector.get_columns(table_name=table_name, schema=database_or_schema):
             columns[column["name"]] = ColumnSchema(name=column["name"], dtype=str(column["type"]))
-        schema.tables[table_name] = TableSchema(
-            name=table_name, schema_name=inspector.default_schema_name, columns=columns
-        )
+        schema.tables[table_name] = TableSchema(name=table_name, schema_name=database_or_schema, columns=columns)
     return schema
 
 
-def fetch_distinct_values(conn: sa.Connection, table_name: str, col_name: str, limit: int | None = None) -> list[Any]:
+def fetch_distinct_values(
+    conn: sa.Connection, database_or_schema: str, table_name: str, col_name: str, limit: int | None = None
+) -> list[Any]:
     """Fetch distinct values for a column in a dialect-agnostic way.."""
     try:
-        tbl = sa.table(table_name, sa.column(col_name))
+        tbl = sa.Table(
+            table_name,
+            sa.MetaData(),
+            sa.Column(col_name),
+            schema=database_or_schema,
+        )
         query = sa.select(tbl.c[col_name]).distinct().order_by(tbl.c[col_name]).limit(limit)
         return list(conn.execute(query).scalars().all())
     except Exception as e:
         raise ValueError(f"Error fetching values for {table_name}.{col_name}: {e}") from e
 
 
-def retrieve_general_stats(conn: sa.Connection, table_name: str, col_name: str) -> GeneralSchemaValueStats:
+def retrieve_general_stats(
+    conn: sa.Connection, database_or_schema: str, table_name: str, col_name: str
+) -> GeneralSchemaValueStats:
     """Counts the number of distinct values, rate of unique values, rate of null values in a dialect-agnostic way."""
-    tbl = sa.table(table_name, sa.column(col_name))
+    tbl = sa.Table(
+        table_name,
+        sa.MetaData(),
+        sa.Column(col_name),
+        schema=database_or_schema,
+    )
     column = tbl.c[col_name]
     query = sa.select(
         sa.func.count(sa.distinct(column)).label("n_unique"),
@@ -147,12 +162,18 @@ def retrieve_general_stats(conn: sa.Connection, table_name: str, col_name: str) 
     )
 
 
-def retrieve_first_order_numeric_stats(conn: sa.Connection, table_name: str, col_name: str) -> FirstOrderNumericStats:
+def retrieve_first_order_numeric_stats(
+    conn: sa.Connection, database_or_schema: str, table_name: str, col_name: str
+) -> FirstOrderNumericStats:
     """Return the min, max, mean and std."""
-    tbl = sa.table(table_name, sa.column(col_name))
+    tbl = sa.Table(
+        table_name,
+        sa.MetaData(),
+        sa.Column(col_name),
+        schema=database_or_schema,
+    )
 
-    # SQLServer throws an "Arithmetic overflow error converting expression to data type int"
-    # when calculating averages so cast to a bigger type
+    # SQLServer throws a "Arithmetic overflow error converting expression to data type int" when calculating averages so cast to a bigger type
     mean_query = (
         sa.func.avg(sa.cast(tbl.c[col_name], sa.DECIMAL)).label("mean")
         if conn.dialect.name == "mssql"
@@ -181,14 +202,20 @@ def retrieve_first_order_numeric_stats(conn: sa.Connection, table_name: str, col
     )
 
 
-def retrieve_formal_string_stats(conn: sa.Connection, table_name: str, col_name: str) -> FormalStringStats:
+def retrieve_formal_string_stats(
+    conn: sa.Connection, database_or_schema: str, table_name: str, col_name: str
+) -> FormalStringStats:
     """
     Get the first order string stats like min/max character length / min/max token length
     """
-    tbl = sa.table(table_name, sa.column(col_name))
-    char_length_subquery = sa.func.length(tbl.c[col_name])
-
+    tbl = sa.Table(
+        table_name,
+        sa.MetaData(),
+        sa.Column(col_name),
+        schema=database_or_schema,
+    )
     column = tbl.c[col_name]
+    char_length_subquery = sa.func.length(column)
 
     # N.B. Use MAX(CASE WHEN ... THEN 1 ELSE 0 END) instead of EXISTS for SQL Server compatibility
     punctuation_pred = sa.or_(*[column.like(f"%{ch}%") for ch in _PUNCTUATION]).label("contains_punctuation")
@@ -243,10 +270,15 @@ def retrieve_formal_string_stats(conn: sa.Connection, table_name: str, col_name:
 
 
 def retrieve_top_k_values(
-    conn: sa.Connection, table_name: str, col_name: str, *, top_k: int = 50
+    conn: sa.Connection, database_or_schema: str, table_name: str, col_name: str, *, top_k: int = 50
 ) -> list[TopKValuesElement]:
     """Return a mapping of the top k values to their frequencies."""
-    tbl = sa.table(table_name, sa.column(col_name))
+    tbl = sa.Table(
+        table_name,
+        sa.MetaData(),
+        sa.Column(col_name),
+        schema=database_or_schema,
+    )
     column = tbl.c[col_name]
     query = (
         sa.select(
@@ -254,7 +286,7 @@ def retrieve_top_k_values(
             sa.func.count(column).label("count"),
         )
         .group_by(column)
-        .order_by(sa.desc("count"))
+        .order_by(sa.desc("count"), sa.desc("value"))
         .limit(top_k)
     )
 

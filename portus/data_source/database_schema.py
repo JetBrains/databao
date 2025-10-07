@@ -1,7 +1,7 @@
 from typing import Any
 
+from portus.data_source.config_classes.schema_inspection_config import SchemaSummaryType
 from portus.data_source.database_schema_types import DatabaseSchema, TableSchema
-from portus.data_source.schema_inspection_config import SchemaSummaryType
 from portus.utils import trim_string
 
 
@@ -18,6 +18,7 @@ def summarize_database_metadata(schema: DatabaseSchema, *, include_name: bool = 
 
 
 def summarize_table_schema(table_schema: TableSchema) -> str:
+    # TODO make it configurable whether to use fully qualified names or not
     s = f"\n## Table `{table_schema.qualified_name}`\n"
     if table_schema.description:
         s += f"{table_schema.description}\n"

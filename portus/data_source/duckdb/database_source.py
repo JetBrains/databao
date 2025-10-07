@@ -9,11 +9,11 @@ from portus.data_source.duckdb.utils import register_sqlalchemy
 
 class DatabaseSource(DuckDBSource):
     def __init__(self, sqlalchemy_engine: sa.Engine, name: str):
-        self.engine = sqlalchemy_engine
-        self.name = name
+        self._engine = sqlalchemy_engine
+        self._name = name
 
     def register(self, connection: DuckDBPyConnection | sa.Connection) -> None:
-        register_sqlalchemy(connection, self.engine, self.name)
+        register_sqlalchemy(connection, self._engine, self._name)
 
     def get_context(self) -> dict[str, Any]:
         return {}

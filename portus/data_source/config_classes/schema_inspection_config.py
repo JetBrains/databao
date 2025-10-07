@@ -74,4 +74,7 @@ class SchemaInspectionConfig(BaseModel):
     cache_final_results: bool = True
     """Whether to cache the final schema inspection results."""
 
+    force_update_final_results_cache: bool = False
+    """Whether to force an update of the cache of the final results. Ignored if cache_final_results is false."""
+
     model_config = ConfigDict(extra="forbid")

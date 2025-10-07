@@ -1,20 +1,21 @@
 import asyncio
+import itertools
 import re
 import warnings
 from collections.abc import Collection
-from typing import Any, Literal, Self
+from typing import Any, Self
 
 import pandas as pd
 import sqlalchemy as sa
-from pydantic import SecretStr
-from sqlalchemy import URL, make_url
 from sqlalchemy.engine.interfaces import DBAPIConnection
 from sqlalchemy.event import listen
 from sqlalchemy.pool import ConnectionPoolEntry
 from tqdm.asyncio import tqdm
 
 from portus.caching.disk_cache import DiskCache, DiskCacheConfig
-from portus.data_source.data_source import DataSource, DataSourceConfig, SemanticDict
+from portus.data_source.config_classes.schema_inspection_config import InspectionOptions, ValueSamplingStrategy
+from portus.data_source.config_classes.sql_alchemy_data_source_config import SqlAlchemyDataSourceConfig
+from portus.data_source.data_source import DataSource, SemanticDict
 from portus.data_source.database_schema import format_values_list
 from portus.data_source.database_schema_types import (
     ColumnSchema,
@@ -32,8 +33,8 @@ from portus.data_source.database_types import (
     is_numeric_dtype,
     is_string_dtype,
 )
-from portus.data_source.schema_inspection_config import InspectionOptions, ValueSamplingStrategy
 from portus.data_source.sqlalchemy_utils import (
+    GeneralSchemaValueStats,
     execute_sql_query,
     execute_sql_query_sync,
     fetch_distinct_values,
@@ -45,83 +46,31 @@ from portus.data_source.sqlalchemy_utils import (
 )
 
 
-class SqlAlchemyConfig(DataSourceConfig):
-    source_type: Literal["sqlalchemy"]
-    db_type: str
-
-    url: SecretStr | None = None
-    """URL to connect to the database. If None, the driver, user, password, host, port, schema, and db_options will be used to construct the URL."""
-
-    driver: SecretStr | None = None
-    user: SecretStr | None = None
-    password: SecretStr | None = None
-    host: SecretStr | None = None
-    port: int | None = None
-    database_or_schema: str | None = None
-    """Database or schema to use for queries. 
-    
-    For some dialects (ClickHouse), this sets the default schema. 
-    For others (PostgreSQL), it sets the default database, in which case you need to specify the default schema using `db_options`. 
-    
-    N.B. metricflow SQL queries will work regardless of which default schema is used because the 
-    generated SQL contains fully qualified tables
-    """
-    db_options: SecretStr | None = None
-    """Options to add to the url, without the initial question mark (?)."""
-
-    limit_max_rows: int | None = 10000
-    """Limit how many rows can be returned by the database for all queries. If None, all rows are returned."""
-    query_timeout: int | None = 120
-    """Database query result timeout in seconds. None means the DB default timeout (usually no timeout).
-    
-    A database can start sending results immediately, but the data transfer can take more time than the timeout.
-    In that case, no timeout exception will be raised. E.g. `select * from customers` might take >10s with no exception 
-    even with a 1s timeout. You can check that the timeout actually works with e.g., `select sleep(3)`.
-    """
-
-    max_concurrent_requests: int = 8
-    """Maximum number of concurrent requests to the database."""
-
-    def get_url(self) -> URL:
-        if self.url is not None:
-            return make_url(self.url.get_secret_value())
-        assert self.driver is not None
-        url = URL.create(
-            drivername=self.driver.get_secret_value(),
-            username=self.user.get_secret_value() if self.user is not None else None,
-            password=self.password.get_secret_value() if self.password is not None else None,
-            host=self.host.get_secret_value() if self.host is not None else None,
-            port=self.port if self.port is not None else None,
-            database=self.database_or_schema if self.database_or_schema is not None else None,
-        )
-        if self.db_options is not None:
-            url = url.update_query_string(self.db_options.get_secret_value())
-        return url
-
-
-class SqlAlchemyDataSource(DataSource):
-    def __init__(self, config: SqlAlchemyConfig, engine: sa.Engine) -> None:
-        self._config = config
+class SqlAlchemyDataSource(DataSource[SqlAlchemyDataSourceConfig]):
+    def __init__(self, config: SqlAlchemyDataSourceConfig, engine: sa.Engine):
+        super().__init__(config)
         self.engine = engine
+        # TODO: a datasource should be able to have multiple databases and just loop thought them at inspection time / theoreticaly to something with them at query time - e.g. have a hook to check if exactly they are called from a larger set of databases within a project - e.g. as is bigquery-public-data.*
 
         # Instance-level semaphore to limit concurrent async operations (queries, schema inspection)
         self._semaphore = asyncio.Semaphore(config.max_concurrent_requests)
 
     @classmethod
-    def from_config(cls, config: SqlAlchemyConfig) -> Self:
+    def from_config(cls, config: SqlAlchemyDataSourceConfig) -> Self:
         engine = create_db_engine(config)
         return cls(config, engine)
 
     @property
-    def config(self) -> SqlAlchemyConfig:
+    def config(self) -> SqlAlchemyDataSourceConfig:
         return self._config
 
     def preprocess_query_hook(self, query: str) -> str:
-        if self.config.db_type == "ms_sqlserver" and self.config.limit_max_rows is not None:
-            # Limit the amount of rows using SET ROWCOUNT as there is no connection-level limit possible in SQL Server.
-            # Using TOP N would be better but much more challenging to implement.
-            # https://learn.microsoft.com/en-us/sql/t-sql/statements/set-rowcount-transact-sql?view=sql-server-ver17
-            query = f"SET ROWCOUNT {self.config.limit_max_rows};\n{query};\nSET ROWCOUNT 0;"
+        if self.config.db_type == "ms_sqlserver":
+            if self.config.limit_max_rows is not None:
+                # Limit the amount of rows using SET ROWCOUNT as there is no connection-level limit possible in SQL Server.
+                # Using TOP N would be better but much more challenging to implement.
+                # https://learn.microsoft.com/en-us/sql/t-sql/statements/set-rowcount-transact-sql?view=sql-server-ver17
+                query = f"SET ROWCOUNT {self.config.limit_max_rows};\n{query};\nSET ROWCOUNT 0;"
         return query
 
     async def aexecute(self, query: str, *, enable_hooks: bool = True) -> pd.DataFrame | Exception:
@@ -138,11 +87,55 @@ class SqlAlchemyDataSource(DataSource):
     def inspect_schema(self, semantic_dict: SemanticDict, options: InspectionOptions) -> DatabaseSchema:
         raise NotImplementedError
 
+    # TODO: improve these names! inspect schema / inspect schema / inspect schema...
     async def ainspect_schema(
         self,
         semantic_dict: SemanticDict,
         options: InspectionOptions,
     ) -> DatabaseSchema:
+        schema_names: list[str]
+        if self.config.database_or_schema is None:
+            schema_names = self._get_all_schema_names()
+        elif isinstance(self.config.database_or_schema, str):
+            schema_names = [self.config.database_or_schema]
+        else:
+            schema_names = self.config.database_or_schema
+
+        if len(schema_names) == 0:
+            raise RuntimeError("No schemas found!")
+
+        database_schemas: list[DatabaseSchema] = await asyncio.gather(
+            *[self._inspect_schema(semantic_dict, options, database_or_schema) for database_or_schema in schema_names]
+        )
+        return self._merge_database_schemas(database_schemas)
+
+    def _merge_database_schemas(self, database_schemas: list[DatabaseSchema]) -> DatabaseSchema:
+        """
+        In case the data source has a group of schemas, we must merge the results of the schema inspection into a
+        single DatabaseSchema object. The plugin classes will need to adjust this to their concrete use cases.
+        """
+        tables: list[TableSchema] = list(itertools.chain(*[schema.tables.values() for schema in database_schemas]))
+        return DatabaseSchema(db_type=self.config.db_type, tables={table.qualified_name: table for table in tables})
+
+    def _inspect_database_schema(self, database_or_schema: str) -> DatabaseSchema:
+        """
+        Wrapper around the inspect_database_schema function so that we can easily override it in plugins.
+        """
+        return inspect_database_schema(self.engine, database_or_schema)
+
+    def _get_all_schema_names(self) -> list[str]:
+        inspector = sa.inspect(self.engine)
+        return inspector.get_schema_names()
+
+    async def _inspect_schema(
+        self,
+        semantic_dict: SemanticDict,
+        options: InspectionOptions,
+        database_or_schema: str,
+    ) -> DatabaseSchema:
+        """
+        Inspect a single database or schema.
+        """
         # TODO move common logic to DataSource?
         if options.cache_intermediate_results:
             # TODO how/when to invalidate the cache?
@@ -158,7 +151,8 @@ class SqlAlchemyDataSource(DataSource):
             cache = None
 
         out_schema = DatabaseSchema(db_type=self.config.db_type, name=self.name, description=None)
-        raw_schema = inspect_database_schema(self.engine)
+
+        raw_schema = self._inspect_database_schema(database_or_schema)
 
         if semantic_dict == "full":
             semantic_dict = {"tables": {table_name: "all" for table_name in raw_schema.tables}}
@@ -180,6 +174,7 @@ class SqlAlchemyDataSource(DataSource):
                     # Run the synchronous column inspection in a thread pool (using the default max_workers of the thread pool)
                     column_values, column_value_stats = await asyncio.to_thread(
                         self._inspect_column_values_helper,
+                        database_or_schema=database_or_schema,
                         table_name=table_name,
                         col_name=col_name,
                         dtype=col_dtype,
@@ -256,7 +251,7 @@ class SqlAlchemyDataSource(DataSource):
         return out_schema
 
     def _inspect_column_values_helper(
-        self, *, table_name: str, col_name: str, dtype: str, options: InspectionOptions
+        self, *, database_or_schema: str, table_name: str, col_name: str, dtype: str, options: InspectionOptions
     ) -> tuple[list[str], ColumnValuesStats]:
         """
         Conduct column profiling.
@@ -270,29 +265,49 @@ class SqlAlchemyDataSource(DataSource):
         # Synchronous version that creates its own connection, to be used in its own thread
         with self.engine.connect() as conn:
             return self._inspect_column_values(
-                conn, table_name=table_name, col_name=col_name, dtype=dtype, options=options
+                conn,
+                database_or_schema=database_or_schema,
+                table_name=table_name,
+                col_name=col_name,
+                dtype=dtype,
+                options=options,
             )
 
+    def _retrieve_general_stats(
+        self, conn: sa.Connection, database_or_schema: str, table_name: str, col_name: str, *, dtype: str
+    ) -> GeneralSchemaValueStats:
+        return retrieve_general_stats(conn, database_or_schema, table_name, col_name)
+
     def _inspect_column_values(
-        self, conn: sa.Connection, *, table_name: str, col_name: str, dtype: str, options: InspectionOptions
+        self,
+        conn: sa.Connection,
+        *,
+        database_or_schema: str,
+        table_name: str,
+        col_name: str,
+        dtype: str,
+        options: InspectionOptions,
     ) -> tuple[list[str], ColumnValuesStats]:
         if options.value_sampling_strategy == ValueSamplingStrategy.NONE and not options.inspect_column_stats:
             return [], ColumnValuesStats()
 
-        general_stats = retrieve_general_stats(conn, table_name, col_name)
+        general_stats = self._retrieve_general_stats(conn, database_or_schema, table_name, col_name, dtype=dtype)
 
         low_cardinality_values: list[str] = []
         top_k_values: list[TopKValuesElement] | None = None
 
-        if options.value_sampling_strategy == ValueSamplingStrategy.CATEGORICAL_ONLY:  # noqa: SIM102
+        if options.value_sampling_strategy == ValueSamplingStrategy.CATEGORICAL_ONLY:
             if (
-                is_low_cardinality_dtype(dtype) or general_stats["n_unique"] < options.max_enum_values
+                is_low_cardinality_dtype(dtype)
+                or (general_stats["n_unique"] is not None and general_stats["n_unique"] < options.max_enum_values)
             ) and is_string_dtype(dtype):
                 # N.B. There is duplication due to identical columns being in different tables.
-                values = fetch_distinct_values(conn, table_name, col_name, options.max_enum_values + 1)
+                values = fetch_distinct_values(
+                    conn, database_or_schema, table_name, col_name, limit=options.max_enum_values + 1
+                )
                 low_cardinality_values = format_values_list(values, max_values=options.max_enum_values)
 
-        if options.value_sampling_strategy == ValueSamplingStrategy.TOP_P:  # noqa: SIM102
+        if options.value_sampling_strategy == ValueSamplingStrategy.TOP_P:
             # We don't need to sample id columns, as they are in most of the cases just long strings / sequences
             # of integers that don't have any meaning and just clutter the context. Same goes for dates and
             # other numerical columns where the uniqueness rate is high - there we don't need to get most
@@ -307,18 +322,18 @@ class SqlAlchemyDataSource(DataSource):
                 )
                 # safety net for the cases where we have small tables and the uniqueness rate is high
                 # - in an industrial setting it would probably be important to provide these values
-                or general_stats["n_unique"] < options.max_enum_values
+                or (general_stats["n_unique"] is not None and general_stats["n_unique"] < options.max_enum_values)
             ):
-                top_k_values = retrieve_top_k_values(conn, table_name, col_name)
+                top_k_values = retrieve_top_k_values(conn, database_or_schema, table_name, col_name)
 
         numeric_stats = (
-            retrieve_first_order_numeric_stats(conn, table_name, col_name)
+            retrieve_first_order_numeric_stats(conn, database_or_schema, table_name, col_name)
             if (is_numeric_dtype(dtype) and not is_id_column(col_name)) and options.inspect_column_stats
             else None
         )
 
         string_stats = (
-            retrieve_formal_string_stats(conn, table_name, col_name)
+            retrieve_formal_string_stats(conn, database_or_schema, table_name, col_name)
             if is_string_dtype(dtype) and options.inspect_column_stats
             else None
         )
@@ -347,11 +362,12 @@ def check_is_db_ready(engine: sa.Engine) -> None:
         raise ValueError("The database is empty. Populate it before running the benchmark.")
 
 
-def create_db_engine(config: SqlAlchemyConfig, *, check_if_ready: bool = False) -> sa.Engine:
+def create_db_engine(config: SqlAlchemyDataSourceConfig, *, check_if_ready: bool = False) -> sa.Engine:
     url = config.get_url()
 
     # N.B. connect_args will work also for metricflow, since the workflow is MF -> SQL -> DB
     connect_args: dict[str, Any] = {}
+    kwargs: dict[str, Any] = {}
     if config.db_type == "clickhouse":
         # See https://clickhouse.com/docs/operations/settings/settings for available settings
         args: dict[str, Any] = {}
@@ -384,7 +400,7 @@ def create_db_engine(config: SqlAlchemyConfig, *, check_if_ready: bool = False) 
         warnings.warn(f"Unverified support for database type {config.db_type}.", stacklevel=2)
 
     # pre-ping for dealing with disconnects: https://docs.sqlalchemy.org/en/20/core/pooling.html#dealing-with-disconnects
-    engine = sa.create_engine(url, pool_pre_ping=True, connect_args=connect_args)
+    engine = sa.create_engine(url, pool_pre_ping=True, connect_args=connect_args, **kwargs)
     if check_if_ready:
         check_is_db_ready(engine)
 
