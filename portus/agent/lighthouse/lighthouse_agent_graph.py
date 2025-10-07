@@ -2,14 +2,18 @@ from typing import Annotated, Any, Literal, TypedDict
 
 import pandas as pd
 from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
+from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import BaseTool, tool
 from langgraph.constants import END, START
 from langgraph.graph import add_messages
 from langgraph.graph.state import CompiledStateGraph, StateGraph
+from langgraph.prebuilt import InjectedState
 
 from portus.agent.base_agent import ExecutionResult
+from portus.agent.graph import Graph
 from portus.data_source.data_source import DataSource
-from portus.langchain_graphs.graph import Graph
+from portus.data_source.database_schema import summarize_table_schemas
+from portus.data_source.database_schema_types import DatabaseSchema
 from portus.llms import LLMConfig, chat, get_chat_model, model_bind_tools
 from portus.utils import exception_to_string
 
@@ -25,18 +29,24 @@ class AgentState(TypedDict):
     ready_for_user: bool
 
 
-# TODO move into lighthouse_agent.py
-class ExecuteSubmit(Graph):
-    """Simple graph with two tools: run_sql_query and submit_query_id.
-    All context must be in the SystemMessage."""
+def get_query_ids_mapping(messages: list[BaseMessage]) -> dict[str, ToolMessage]:
+    query_ids = {}
+    for message in messages:
+        if isinstance(message, ToolMessage) and isinstance(message.artifact, dict) and "query_id" in message.artifact:
+            query_ids[message.artifact["query_id"]] = message
+    return query_ids
 
-    def __init__(self, data_source: DataSource[Any]):
+
+class LighthouseAgentGraph(Graph):
+    def __init__(self, data_source: DataSource[Any], llm_config: LLMConfig, *, enable_inspect_tables_tool: bool):
         self._data_source = data_source
+        self._llm_config = llm_config
+        self._enable_inspect_tables_tool = enable_inspect_tables_tool
 
     def init_state(self, messages: list[BaseMessage]) -> dict[str, Any]:
         state: dict[str, Any] = {
             "messages": messages,
-            "query_ids": {},
+            "query_ids": get_query_ids_mapping(messages),
             "sql": None,
             "df": None,
             "visualization_prompt": None,
@@ -74,6 +84,28 @@ class ExecuteSubmit(Graph):
         return result
 
     def make_tools(self) -> list[BaseTool]:
+        @tool(parse_docstring=True)
+        def inspect_tables(table_names: list[str], graph_state: Annotated[RunnableConfig, InjectedState]) -> str:
+            """
+            Reveal the detailed schema of one or more tables in the database.
+            The output will include a summary of every column in the table, including types, and column descriptions.
+
+            Use this tool before running a SQL query to ensure that the tables and columns you are using are correct.
+
+            Args:
+                table_names: List of fully qualified table names to inspect.
+            """
+            db_schema: DatabaseSchema = graph_state["configurable"]["database_schema"]
+            available_tables = {table.qualified_name for table in db_schema.tables.values()}
+            available_tables_str = ", ".join(f"`{name}`" for name in available_tables)
+            if len(table_names) == 0:
+                return f"No tables specified. Available tables: {available_tables_str}."
+            nonexistent_tables = [name for name in table_names if name not in available_tables]
+            if len(nonexistent_tables) > 0:
+                return f"Tables {nonexistent_tables} do not exist. Available tables: {available_tables_str}."
+
+            return summarize_table_schemas(db_schema, table_names)
+
         @tool(parse_docstring=True)
         def run_sql_query(sql: str) -> dict[str, Any]:
             """
@@ -114,19 +146,21 @@ class ExecuteSubmit(Graph):
             return f"Query {query_id} submitted successfully. Your response is now visible to the user."
 
         tools = [run_sql_query, submit_query_id]
+        if self._enable_inspect_tables_tool:
+            tools.append(inspect_tables)
         return tools
 
-    def compile(self, model_config: LLMConfig) -> CompiledStateGraph[Any]:
+    def compile(self) -> CompiledStateGraph[Any]:
         tools = self.make_tools()
-        llm_model = get_chat_model(model_config)
+        llm_model = get_chat_model(self._llm_config)
         model_with_tools = model_bind_tools(llm_model, tools)
 
         def llm_node(state: AgentState) -> dict[str, Any]:
             messages = state["messages"]
-            response = chat(messages, model_config, model_with_tools)
+            response = chat(messages, self._llm_config, model_with_tools)
             return {"messages": [response[-1]]}
 
-        def tool_executor_node(state: AgentState) -> dict[str, Any]:
+        def tool_executor_node(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
             last_message = state["messages"][-1]
             tool_messages = []
             assert isinstance(last_message, AIMessage)
@@ -186,9 +220,12 @@ class ExecuteSubmit(Graph):
                     continue
 
                 try:
-                    result = tool.invoke(args)
+                    result = tool.invoke(args | {"graph_state": config})
                 except Exception as e:
-                    result = {"error": exception_to_string(e) + f"\nTool: {name}, Args: {args}"}
+                    # TODO distinguish between retryable exceptions (database error)
+                    #  and non-retryable ones (connection issues)
+                    result = {"error": exception_to_string(e)}
+
                 content = ""
                 if name == "run_sql_query":
                     sql = result.get("sql")
@@ -206,6 +243,8 @@ class ExecuteSubmit(Graph):
                             tool_call_id=tool_call_id,
                             artifact=result,
                         )
+                elif name == "inspect_tables":
+                    content = str(result)
                 elif name == "submit_query_id":
                     content = str(result)
                     query_id = tool_call["args"]["query_id"]

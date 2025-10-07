@@ -3,7 +3,7 @@ import logging
 import nest_asyncio  # type: ignore[import-untyped]
 
 from portus.agent.base_agent import BaseAgent as BaseAgent
-from portus.agent.lighthouse_agent import LighthouseAgent as LighthouseAgent
+from portus.agent.lighthouse.lighthouse_agent import LighthouseAgent as LighthouseAgent
 from portus.agent.react_duckdb_agent import ReactDuckDBAgent as ReactDuckDBAgent
 from portus.llms import LLMConfig
 from portus.session.base_session import BaseSession

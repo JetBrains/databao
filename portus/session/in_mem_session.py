@@ -1,19 +1,16 @@
-from pathlib import Path
-
 from pandas import DataFrame
 from sqlalchemy import Engine
 
-from portus import LighthouseAgent
+from portus.agent.lighthouse.lighthouse_agent import LighthouseAgent
+from portus.agent.lighthouse.lighthouse_agent_graph import LighthouseAgentGraph
+from portus.data_source.config_classes.schema_inspection_config import SchemaInspectionConfig, SchemaSummaryType
 from portus.data_source.duckdb.duckdb_collection import DuckDBCollection
 from portus.data_source.duckdb.duckdb_source import DuckDBSource
-from portus.langchain_graphs.execute_submit import ExecuteSubmit
 from portus.llms import LLMConfig
 from portus.pipe.base_pipe import BasePipe
 from portus.pipe.pipe import Pipe
 from portus.session.base_session import BaseSession
 from portus.vizualizer import DumbVisualizer, Visualizer
-
-DEFAULT_TEMPLATE_PATH = Path("agent_system.jinja")
 
 
 class InMemSession(BaseSession):
@@ -43,11 +40,15 @@ class InMemSession(BaseSession):
         # Finalize the data sources for this session
         self._data_collection.commit()
 
+        schema_inspection_config = SchemaInspectionConfig(summary_type=SchemaSummaryType.FULL)
+        enable_inspect_tables_tool = schema_inspection_config.summary_type == SchemaSummaryType.LIST_ALL_TABLES
+        agent_graph = LighthouseAgentGraph(
+            self._data_collection, self._llm_config, enable_inspect_tables_tool=enable_inspect_tables_tool
+        )
         agent = LighthouseAgent(
             self._data_collection,
-            ExecuteSubmit(self._data_collection),
-            self._llm_config,
-            DEFAULT_TEMPLATE_PATH,
+            agent_graph,
+            schema_inspection_config,
         )
         # agent = ReactDuckDBAgent(self._data_collection, get_chat_model(self._llm_config))
         return Pipe(agent, self._visualizer).ask(query)

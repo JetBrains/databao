@@ -87,7 +87,8 @@ class SqlAlchemyDataSource(DataSource[SqlAlchemyDataSourceConfig]):
         return execute_sql_query_sync(self.engine, query)
 
     def inspect_schema(self, semantic_dict: SemanticDict, options: InspectionOptions) -> DatabaseSchema:
-        raise NotImplementedError
+        # TODO Proper non-async version
+        return asyncio.run(self.ainspect_schema(semantic_dict, options))
 
     # TODO: improve these names! inspect schema / inspect schema / inspect schema...
     async def ainspect_schema(
