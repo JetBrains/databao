@@ -173,7 +173,8 @@ def retrieve_first_order_numeric_stats(
         schema=database_or_schema,
     )
 
-    # SQLServer throws a "Arithmetic overflow error converting expression to data type int" when calculating averages so cast to a bigger type
+    # SQLServer throws a "Arithmetic overflow error converting expression to data type int"
+    # when calculating averages so cast to a bigger type
     mean_query = (
         sa.func.avg(sa.cast(tbl.c[col_name], sa.DECIMAL)).label("mean")
         if conn.dialect.name == "mssql"

@@ -68,14 +68,16 @@ class DataSourceConfig(BaseModel, ABC):
     queries involving joins, set operations, etc.  
 
     For some dialects (ClickHouse), this sets the default schema. 
-    For others (PostgreSQL), it sets the default database, in which case you need to specify the default schema using `db_options`. 
+    For others (PostgreSQL), it sets the default database, in which case you need to specify the 
+    default schema using `db_options`. 
 
     Can be None at experiment startup, but some solvers may raise RuntimeErrors if not set at latest at a certain point.
     
     For compatibility reasons, if the value is of type str, then we add it to the database url. Else, however, as there 
-    are multiple databases / schemas which the datasource can connect to, we expect that 1. the names of the databases 
-    are used within the queries of the dataset (e.g. select * from my_database.my_schema.my_table) and 2. that the agent 
-    also correctly adds these names in its queries. 
+    are multiple databases / schemas which the datasource can connect to, we expect that 
+    1. the names of the databases are used within the queries of the dataset 
+       (e.g. select * from my_database.my_schema.my_table) and 
+    2. that the agent also correctly adds these names in its queries. 
     
     N.B. metricflow SQL queries will work regardless of which default schema is used because the 
     generated SQL contains fully qualified tables

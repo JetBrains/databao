@@ -50,7 +50,10 @@ class SqlAlchemyDataSource(DataSource[SqlAlchemyDataSourceConfig]):
     def __init__(self, config: SqlAlchemyDataSourceConfig, engine: sa.Engine):
         super().__init__(config)
         self.engine = engine
-        # TODO: a datasource should be able to have multiple databases and just loop thought them at inspection time / theoreticaly to something with them at query time - e.g. have a hook to check if exactly they are called from a larger set of databases within a project - e.g. as is bigquery-public-data.*
+        # TODO: a datasource should be able to have multiple databases and just loop
+        #  through them at inspection time / theoreticaly to something with them at query time
+        #  - e.g. have a hook to check if exactly they are called from a larger set of databases within a project
+        #  - e.g. as is bigquery-public-data.*
 
         # Instance-level semaphore to limit concurrent async operations (queries, schema inspection)
         self._semaphore = asyncio.Semaphore(config.max_concurrent_requests)
@@ -65,12 +68,11 @@ class SqlAlchemyDataSource(DataSource[SqlAlchemyDataSourceConfig]):
         return self._config
 
     def preprocess_query_hook(self, query: str) -> str:
-        if self.config.db_type == "ms_sqlserver":
-            if self.config.limit_max_rows is not None:
-                # Limit the amount of rows using SET ROWCOUNT as there is no connection-level limit possible in SQL Server.
-                # Using TOP N would be better but much more challenging to implement.
-                # https://learn.microsoft.com/en-us/sql/t-sql/statements/set-rowcount-transact-sql?view=sql-server-ver17
-                query = f"SET ROWCOUNT {self.config.limit_max_rows};\n{query};\nSET ROWCOUNT 0;"
+        if self.config.db_type == "ms_sqlserver" and self.config.limit_max_rows is not None:
+            # Limit the amount of rows using SET ROWCOUNT as there is no connection-level
+            # limit possible in SQL Server. Using TOP N would be better but more challenging to implement.
+            # https://learn.microsoft.com/en-us/sql/t-sql/statements/set-rowcount-transact-sql?view=sql-server-ver17
+            query = f"SET ROWCOUNT {self.config.limit_max_rows};\n{query};\nSET ROWCOUNT 0;"
         return query
 
     async def aexecute(self, query: str, *, enable_hooks: bool = True) -> pd.DataFrame | Exception:
@@ -171,7 +173,8 @@ class SqlAlchemyDataSource(DataSource[SqlAlchemyDataSourceConfig]):
         async def process_column(*, table_name: str, col_name: str, col_desc: str, col_dtype: str) -> ColumnSchema:
             async def _process() -> ColumnSchema:
                 async with self._semaphore:
-                    # Run the synchronous column inspection in a thread pool (using the default max_workers of the thread pool)
+                    # Run the synchronous column inspection in a thread pool
+                    # (using the default max_workers of the thread pool)
                     column_values, column_value_stats = await asyncio.to_thread(
                         self._inspect_column_values_helper,
                         database_or_schema=database_or_schema,
@@ -229,7 +232,8 @@ class SqlAlchemyDataSource(DataSource[SqlAlchemyDataSourceConfig]):
             for col_name, col_desc in semantic_table["columns"].items():
                 if col_name not in raw_table.columns:
                     raise ValueError(
-                        f"Column {table_name}.{col_name} doesn't exist. Available columns: {list(raw_table.columns.keys())}"
+                        f"Column {table_name}.{col_name} doesn't exist. "
+                        f"Available columns: {list(raw_table.columns.keys())}"
                     )
                 col_dtype = raw_table.columns[col_name].dtype
                 column_tasks.append(
@@ -296,7 +300,7 @@ class SqlAlchemyDataSource(DataSource[SqlAlchemyDataSourceConfig]):
         low_cardinality_values: list[str] = []
         top_k_values: list[TopKValuesElement] | None = None
 
-        if options.value_sampling_strategy == ValueSamplingStrategy.CATEGORICAL_ONLY:
+        if options.value_sampling_strategy == ValueSamplingStrategy.CATEGORICAL_ONLY:  # noqa: SIM102
             if (
                 is_low_cardinality_dtype(dtype)
                 or (general_stats["n_unique"] is not None and general_stats["n_unique"] < options.max_enum_values)
@@ -307,7 +311,7 @@ class SqlAlchemyDataSource(DataSource[SqlAlchemyDataSourceConfig]):
                 )
                 low_cardinality_values = format_values_list(values, max_values=options.max_enum_values)
 
-        if options.value_sampling_strategy == ValueSamplingStrategy.TOP_P:
+        if options.value_sampling_strategy == ValueSamplingStrategy.TOP_P:  # noqa: SIM102
             # We don't need to sample id columns, as they are in most of the cases just long strings / sequences
             # of integers that don't have any meaning and just clutter the context. Same goes for dates and
             # other numerical columns where the uniqueness rate is high - there we don't need to get most
