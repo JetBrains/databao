@@ -20,6 +20,7 @@ dependencies = [
     "matplotlib>=3.10.6",
     "edaplot",
     "diskcache>=5.6.3",
+    "nest-asyncio>=1.6.0",
 ]
 
 [project.optional-dependencies]
