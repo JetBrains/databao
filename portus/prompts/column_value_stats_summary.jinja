@@ -20,8 +20,12 @@
         {%- if sampled_values -%}
             Contains a single constant value: {{ sampled_values }}. {% else -%}
             Contains a single constant value: {{ min }}. {% endif -%}
+    {%- elif mean is not none and std is not none -%}
+        The values vary between {{ min }} and {{ max }} with a mean of {{ mean | round(2)  }} and a standard deviation of {{ std | round(2)  }}.
+    {%- elif mean is not none -%}
+        The values vary between {{ min }} and {{ max }} with a mean of {{ mean | round(2)  }}.
     {%- else -%}
-        The values vary between {{ min }} and {{ max }} with a mean of {{ mean | round(2)  }} and a standard deviation of {{ std | round(2)  }}. {% endif -%}
+        The values vary between {{ min }} and {{ max }}. {% endif -%}
 {%- endif -%}
 
 {# --- string-related stats --- #}
