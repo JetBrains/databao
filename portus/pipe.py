@@ -1,17 +1,17 @@
 import abc
 from abc import ABC
-from typing import Optional, Any
+from typing import Any
 
 from pandas import DataFrame
 
 
 class Pipe(ABC):
     @abc.abstractmethod
-    def df(self, *, rows_limit: Optional[int] = None) -> Optional[DataFrame]:
+    def df(self, *, rows_limit: int | None = None) -> DataFrame | None:
         pass
 
     @abc.abstractmethod
-    def plot(self, request: str = "visualize data", *, rows_limit: Optional[int] = None) -> Optional[Any]:
+    def plot(self, request: str = "visualize data", *, rows_limit: int | None = None) -> Any | None:
         pass
 
     @abc.abstractmethod
@@ -29,5 +29,5 @@ class Pipe(ABC):
 
     @property
     @abc.abstractmethod
-    def code(self) -> Optional[str]:
+    def code(self) -> str | None:
         pass

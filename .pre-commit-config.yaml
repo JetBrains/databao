@@ -1,0 +1,34 @@
+repos:
+  - repo: local
+    hooks:
+      - id: uv-lock
+        name: uv-lock
+        description: Check if the uv lockfile is up-to-date
+        entry: uv lock
+        args: ["--check"]
+        pass_filenames: false
+        language: system
+
+      - id: ruff-check
+        name: ruff-check
+        types: [python]
+        description: Lint with ruff
+        entry: uv run ruff check --fix --exit-non-zero-on-fix
+        language: system
+        pass_filenames: false
+
+      - id: ruff-format
+        name: ruff-format
+        types: [python]
+        description: Format with ruff
+        entry: uv run ruff format
+        language: system
+        pass_filenames: false
+
+      - id: mypy
+        name: mypy
+        types: [python]
+        description: Verify types statically
+        entry: uv run mypy .
+        language: system
+        pass_filenames: false
