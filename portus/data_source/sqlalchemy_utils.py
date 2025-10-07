@@ -114,7 +114,8 @@ def inspect_database_schema(engine: sa.Engine, database_or_schema: str | None) -
         columns = {}
         for column in inspector.get_columns(table_name=table_name, schema=database_or_schema):
             columns[column["name"]] = ColumnSchema(name=column["name"], dtype=str(column["type"]))
-        schema.tables[table_name] = TableSchema(name=table_name, schema_name=database_or_schema, columns=columns)
+        table = TableSchema(name=table_name, schema_name=database_or_schema, columns=columns)
+        schema.tables[table.qualified_name] = table
     return schema
 
 

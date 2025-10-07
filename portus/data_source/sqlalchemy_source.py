@@ -137,18 +137,20 @@ class SqlAlchemyDataSource(DataSource[SqlAlchemyDataSourceConfig]):
         out_schema = DatabaseSchema(db_type=self.config.db_type, name=self.name, description=None)
 
         raw_schema = self._inspect_database_schema(database_or_schema)
+        raw_table_names = {t.name: t for t in raw_schema.tables.values()}
 
+        # TODO handle fully qualified table names in semantic_dict?
         if semantic_dict == "full":
-            semantic_dict = {"tables": {table_name: "all" for table_name in raw_schema.tables}}
+            semantic_dict = {"tables": {t.name: "all" for t in raw_schema.tables.values()}}
 
         if options.tables_regex is not None:
             tables_regex = re.compile(options.tables_regex)
-            for table_name in raw_schema.tables:
+            for table in raw_schema.tables.values():
                 # semantic dict always takes precedence
-                if table_name in semantic_dict["tables"]:
+                if table.name in semantic_dict["tables"]:
                     continue
-                if tables_regex.fullmatch(table_name):
-                    semantic_dict["tables"][table_name] = "__all__"  # to distinguish from a user provided "all"
+                if tables_regex.fullmatch(table.name):
+                    semantic_dict["tables"][table.name] = "__all__"  # to distinguish from a user provided "all"
 
         semantic_tables = semantic_dict["tables"]
 
@@ -185,10 +187,10 @@ class SqlAlchemyDataSource(DataSource[SqlAlchemyDataSourceConfig]):
             return column
 
         async def process_table(table_name: str) -> TableSchema:
-            if table_name not in raw_schema.tables:
+            if table_name not in raw_table_names:
                 raise ValueError(f"Table {table_name} doesn't exist.")
 
-            raw_table = raw_schema.tables[table_name]
+            raw_table = raw_table_names[table_name]
             semantic_table: dict[str, Any]
             if semantic_tables[table_name] in ("all", "__all__"):
                 semantic_table = {"description": "", "columns": {col_name: "" for col_name in raw_table.columns}}

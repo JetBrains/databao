@@ -64,6 +64,7 @@ class DataSource[T: DataSourceConfig](abc.ABC):
         """
         # TODO "semantic_dict" pydantic model!
         # TODO semantic dict should also have schema information for each table
+        # TODO <table_name> should be fully qualified. For now, it's not.
         pass
 
 

@@ -161,6 +161,6 @@ class DatabaseSchema(BaseModel):
     db_type: str
     name: str | None = None
     description: str | None = None
-    tables: dict[str, TableSchema] = Field(default_factory=dict)
+    tables: dict[str, TableSchema] = Field(default_factory=dict)  # TODO list instead of dict to avoid key confusion
 
     model_config = ConfigDict(extra="forbid")
