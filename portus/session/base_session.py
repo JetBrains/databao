@@ -1,13 +1,13 @@
 import abc
 from abc import ABC
-from typing import Optional, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from pandas import DataFrame
+
 from portus.data_source.data_source import DataSource
-from portus.pipe import BasePipe
+from portus.pipe.base_pipe import BasePipe
 
 if TYPE_CHECKING:
-    from portus.executor import Executor
     from portus.vizualizer import Visualizer
 
 
@@ -15,11 +15,11 @@ class BaseSession(ABC):
     """Session is a factory of Pipes. New Pipe is created after each 'ask' method call."""
 
     @abc.abstractmethod
-    def add_db(self, connection: Any, *, name: Optional[str] = None) -> None:
+    def add_db(self, connection: Any, *, name: str | None = None) -> None:
         pass
 
     @abc.abstractmethod
-    def add_df(self, df: DataFrame, *, name: Optional[str] = None) -> None:
+    def add_df(self, df: DataFrame, *, name: str | None = None) -> None:
         pass
 
     @abc.abstractmethod

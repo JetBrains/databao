@@ -1,16 +1,16 @@
-from typing import TypedDict, Annotated, Literal, Any
+from typing import Annotated, Any, Literal, TypedDict
 
 import pandas as pd
 from duckdb import DuckDBPyConnection
-from langchain_core.messages import BaseMessage, ToolMessage, AIMessage
+from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
 from langchain_core.tools import BaseTool, tool
-from langgraph.constants import START, END
+from langgraph.constants import END, START
 from langgraph.graph import add_messages
 from langgraph.graph.state import CompiledStateGraph, StateGraph
 
-from portus.core.llms import get_chat_model, model_bind_tools, chat, LLMConfig
-from portus.agent import ExecutionResult
+from portus.agent.base_agent import ExecutionResult
 from portus.langchain_graphs.graph import Graph
+from portus.llms import LLMConfig, chat, get_chat_model, model_bind_tools
 from portus.utils import exception_to_string
 
 MAX_ROWS = 12
@@ -28,12 +28,20 @@ class AgentState(TypedDict):
 class ExecuteSubmit(Graph):
     """Simple graph with two tools: run_sql_query and submit_query_id.
     All context must be in the SystemMessage."""
+
     def __init__(self, connection: DuckDBPyConnection):
         self._connection = connection
 
-    def init_state(self, messages: list[BaseMessage]) -> AgentState:
-        return AgentState(messages=messages, query_ids={}, sql=None, df=None, visualization_prompt=None,
-                          ready_for_user=False)
+    def init_state(self, messages: list[BaseMessage]) -> dict[str, Any]:
+        state: dict[str, Any] = {
+            "messages": messages,
+            "query_ids": {},
+            "sql": None,
+            "df": None,
+            "visualization_prompt": None,
+            "ready_for_user": False,
+        }
+        return state
 
     def get_result(self, state: dict[str, Any]) -> ExecutionResult:
         last_ai_message = None
@@ -44,7 +52,9 @@ class ExecuteSubmit(Graph):
         if last_ai_message is None:
             raise RuntimeError("No AI message found in message log")
         if len(last_ai_message.tool_calls) == 0:
-            result = ExecutionResult(text=last_ai_message.content, df=None, sql="", messages=state["messages"])
+            content = last_ai_message.content
+            text = content if isinstance(content, str) else str(content)
+            result = ExecutionResult(text=text, df=None, sql="", messages=state["messages"])
         elif len(last_ai_message.tool_calls) > 1:
             raise RuntimeError("Expected exactly one tool call in AI message")
         elif last_ai_message.tool_calls[0]["name"] != "submit_query_id":
@@ -52,19 +62,19 @@ class ExecuteSubmit(Graph):
                 f"Expected submit_query_id tool call in AI message, got {last_ai_message.tool_calls[0]['name']}"
             )
         else:
-            sql = state.get("sql")
+            sql = state.get("sql", "")
             df = state.get("df")
             tool_call = last_ai_message.tool_calls[0]
             text = tool_call["args"]["result_description"]
             visualization_prompt = state.get("visualization_prompt", "")
-            result = ExecutionResult(text=text, df=df, sql=sql, visualization_prompt=visualization_prompt,
-                                     messages=state["messages"])
+            result = ExecutionResult(
+                text=text, df=df, sql=sql, visualization_prompt=visualization_prompt, messages=state["messages"]
+            )
         return result
 
     def make_tools(self) -> list[BaseTool]:
-
         @tool(parse_docstring=True)
-        def run_sql_query(sql: str) -> dict:
+        def run_sql_query(sql: str) -> dict[str, Any]:
             """
             Run a SELECT SQL query in the database. Returns the first 12 rows in csv format.
 
@@ -89,30 +99,33 @@ class ExecuteSubmit(Graph):
             visualization_prompt: str,
         ) -> str:
             """
-            Call this tool with the ID of the query you want to submit to the user. This will return control to the user and must always be the last tool call.
+            Call this tool with the ID of the query you want to submit to the user.
+            This will return control to the user and must always be the last tool call.
             The user will see the full query result, not just the first 12 rows. Returns a confirmation message.
 
             Args:
                 query_id: The ID of the query to submit (query_ids are automatically generated when you run queries).
                 result_description: A comment to a final result. This will be included in the final result.
-                visualization_prompt: Optional visualization prompt. If not empty, a Vega-Lite visualization agent will be asked to plot the submitted query data according to instructions in the prompt. The instructions should be short and simple.
+                visualization_prompt: Optional visualization prompt. If not empty, a Vega-Lite visualization agent
+                    will be asked to plot the submitted query data according to instructions in the prompt.
+                    The instructions should be short and simple.
             """
             return f"Query {query_id} submitted successfully. Your response is now visible to the user."
 
         tools = [run_sql_query, submit_query_id]
         return tools
 
-    def compile(self, model_config: LLMConfig) -> CompiledStateGraph:
+    def compile(self, model_config: LLMConfig) -> CompiledStateGraph[Any]:
         tools = self.make_tools()
         llm_model = get_chat_model(model_config)
         model_with_tools = model_bind_tools(llm_model, tools)
 
-        def llm_node(state: AgentState) -> dict:
+        def llm_node(state: AgentState) -> dict[str, Any]:
             messages = state["messages"]
             response = chat(messages, model_config, model_with_tools)
             return {"messages": [response[-1]]}
 
-        def tool_executor_node(state: AgentState) -> dict:
+        def tool_executor_node(state: AgentState) -> dict[str, Any]:
             last_message = state["messages"][-1]
             tool_messages = []
             assert isinstance(last_message, AIMessage)
@@ -200,10 +213,21 @@ class ExecuteSubmit(Graph):
                     df = state["query_ids"][query_id].artifact["df"]
                 tool_messages.append(ToolMessage(content=content, tool_call_id=tool_call_id, artifact=result))
                 if name == "submit_query_id":
-                    return {"messages": tool_messages, "sql": sql, "df": df,
-                            "visualization_prompt": visualization_prompt, "ready_for_user": True}
-            return {"messages": tool_messages, "query_ids": query_ids, "sql": sql, "df": df,
-                    "visualization_prompt": visualization_prompt, "ready_for_user": False}
+                    return {
+                        "messages": tool_messages,
+                        "sql": sql,
+                        "df": df,
+                        "visualization_prompt": visualization_prompt,
+                        "ready_for_user": True,
+                    }
+            return {
+                "messages": tool_messages,
+                "query_ids": query_ids,
+                "sql": sql,
+                "df": df,
+                "visualization_prompt": visualization_prompt,
+                "ready_for_user": False,
+            }
 
         def should_continue(state: AgentState) -> Literal["tool_executor", "end"]:
             # Check if there are tool calls in the last message
@@ -226,4 +250,3 @@ class ExecuteSubmit(Graph):
         graph.add_conditional_edges("llm_node", should_continue, {"tool_executor": "tool_executor", "end": END})
         graph.add_conditional_edges("tool_executor", should_finish, {"llm_node": "llm_node", "end": END})
         return graph.compile()
-

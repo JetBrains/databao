@@ -4,8 +4,8 @@ from typing import Any
 from langchain_core.messages import BaseMessage
 from langgraph.graph.state import CompiledStateGraph
 
-from portus.core.llms import LLMConfig
-from portus.agent import ExecutionResult
+from portus.agent.base_agent import ExecutionResult
+from portus.llms import LLMConfig
 
 
 class Graph(ABC):
@@ -14,7 +14,7 @@ class Graph(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def compile(self, model_config: LLMConfig) -> CompiledStateGraph:
+    def compile(self, model_config: LLMConfig) -> CompiledStateGraph[Any]:
         raise NotImplementedError
 
     @abstractmethod

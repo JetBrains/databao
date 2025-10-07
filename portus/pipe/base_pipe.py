@@ -1,6 +1,6 @@
 import abc
 from abc import ABC
-from typing import Optional, Any
+from typing import Any, Self
 
 from langchain_core.messages import BaseMessage
 from pandas import DataFrame
@@ -10,14 +10,15 @@ class BasePipe(ABC):
     """Pipe contains Agent and history of messages.
     It returns results of the last execution.
     After calling `ask` method, Pipe is changing its state."""
+
     @property
     @abc.abstractmethod
-    def df(self, *, rows_limit: Optional[int] = None) -> DataFrame | None:
+    def df(self, *, rows_limit: int | None = None) -> DataFrame | None:
         pass
 
     @property
     @abc.abstractmethod
-    def plot(self, request: str | None = None, *, rows_limit: Optional[int] = None) -> Any:
+    def plot(self) -> Any:
         pass
 
     @property
@@ -26,7 +27,7 @@ class BasePipe(ABC):
         pass
 
     @abc.abstractmethod
-    def ask(self, query: str) -> "Pipe":
+    def ask(self, query: str) -> Self:
         pass
 
     @property

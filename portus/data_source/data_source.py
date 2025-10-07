@@ -1,10 +1,12 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
+from duckdb import DuckDBPyConnection
+
 
 class DataSource(ABC):
     @abstractmethod
-    def register(self, session) -> None:
+    def register(self, connection: DuckDBPyConnection) -> None:
         raise NotImplementedError
 
     @abstractmethod

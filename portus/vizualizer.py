@@ -1,15 +1,16 @@
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from portus.agent import ExecutionResult
-from abc import abstractmethod, ABC
-from typing import Any, Optional
+from typing import Any
+
+from portus.agent.base_agent import ExecutionResult
 
 
 @dataclass(frozen=True)
 class VisualisationResult:
     text: str
     meta: dict[str, Any]
-    plot: Optional[Any]
-    code: Optional[str]
+    plot: Any | None
+    code: str | None
 
 
 class Visualizer(ABC):
@@ -20,4 +21,5 @@ class Visualizer(ABC):
 
 class DumbVisualizer(Visualizer):
     def visualize(self, request: str, data: ExecutionResult) -> VisualisationResult:
-        return VisualisationResult("", {}, data.df.plot(kind="bar"), "")
+        plot = data.df.plot(kind="bar") if data.df is not None else None
+        return VisualisationResult("", {}, plot, "")

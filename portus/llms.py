@@ -1,16 +1,16 @@
 import dataclasses
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Sequence, Any, Optional
+from typing import Any, overload
 
 from langchain.chat_models import init_chat_model
+from langchain_anthropic import ChatAnthropic
 from langchain_core.language_models import BaseChatModel, LanguageModelInput
-from langchain_core.messages import BaseMessage, AIMessage
+from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.runnables import Runnable
 from langchain_core.tools import BaseTool
-from langchain_anthropic import ChatAnthropic
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
-
 
 OPENAI_INFIXES = ["gpt", "openai", "o1", "o3"]
 ANTHROPIC_INFIXES = ["claude", "anthropic"]
@@ -56,17 +56,19 @@ def is_gemini_model(model_name: str) -> bool:
     return any(prefix in model_name for prefix in GEMINI_INFIXES)
 
 
-def get_chat_model(config: Optional[LLMConfig] = None, name: Optional[str] = None) -> BaseChatModel:
-    name = name or config.name
-    if config is None:
-        config = LLMConfig(name=name)
-    timeout = 240 if is_reasoning_model(name) else 30
-    if is_openai_model(name):
+@overload
+def get_chat_model(config_or_name: str) -> BaseChatModel: ...
+@overload
+def get_chat_model(config_or_name: LLMConfig) -> BaseChatModel: ...
+def get_chat_model(config_or_name: LLMConfig | str) -> BaseChatModel:
+    config = LLMConfig(name=config_or_name) if isinstance(config_or_name, str) else config_or_name
+    timeout = 240 if is_reasoning_model(config.name) else 30
+    if is_openai_model(config.name):
         return ChatOpenAI(
-            model=name,
+            model=config.name,
             timeout=timeout,
             temperature=config.temperature if not is_reasoning_model(config.name) else None,
-            max_tokens=config.max_tokens,
+            max_completion_tokens=config.max_tokens,
             reasoning_effort=config.reasoning_effort if is_reasoning_model(config.name) else None,
             seed=config.seed,
             **config.model_kwargs,
@@ -88,13 +90,14 @@ def get_chat_model(config: Optional[LLMConfig] = None, name: Optional[str] = Non
             **config.model_kwargs,
         )
     else:
-        return init_chat_model(
+        model: BaseChatModel = init_chat_model(
             config.name,
             temperature=config.temperature,
             max_tokens=config.max_tokens,
             timeout=timeout,
             **config.model_kwargs,
         )
+        return model
 
 
 def model_bind_tools(
@@ -106,7 +109,7 @@ def model_bind_tools(
         return model.bind_tools(tools, **kwargs)
 
 
-def set_anthropic_cache_breakpoint(content: str | dict) -> dict:
+def set_anthropic_cache_breakpoint(content: str | dict[str, Any]) -> dict[str, Any]:
     if isinstance(content, str):
         return {"type": "text", "text": content, "cache_control": {"type": "ephemeral"}}
     elif isinstance(content, dict):
@@ -120,14 +123,16 @@ def set_anthropic_cache_breakpoint(content: str | dict) -> dict:
 def set_message_cache_breakpoint(config: LLMConfig, message: BaseMessage) -> BaseMessage:
     """Enable prompt caching for this message (for Anthropic models).
 
-    If you have a list of messages, set a breakpoint only on the last message to automatically cache all previous messages.
+    If you have a list of messages, set a breakpoint only on the last message to automatically
+    cache all previous messages.
 
     See https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching
-    > Prompt caching references the entire prompt - tools, system, and messages (in that order) up to and including the block designated with cache_control.
+    > Prompt caching references the entire prompt - tools, system, and messages (in that order) up to and including
+        the block designated with cache_control.
     """
     if not is_anthropic_model(config.name):
         return message
-    new_content: list[dict | str]
+    new_content: list[dict[str, Any] | str]
     match message.content:
         case str() | dict():
             new_content = [set_anthropic_cache_breakpoint(message.content)]
@@ -149,14 +154,14 @@ def apply_system_prompt_caching(config: LLMConfig, messages: list[BaseMessage]) 
     return messages
 
 
-def _call_model(model: Runnable, messages: list[BaseMessage]) -> Any:
+def _call_model(model: Runnable[list[BaseMessage], Any], messages: list[BaseMessage]) -> Any:
     return model.with_retry(wait_exponential_jitter=True, stop_after_attempt=3).invoke(messages)
 
 
 def chat(
     messages: list[BaseMessage],
     config: LLMConfig,
-    model: Runnable | None = None,
+    model: Runnable[list[BaseMessage], Any] | None = None,
 ) -> list[BaseMessage]:
     if model is None:
         model = get_chat_model(config)
