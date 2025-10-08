@@ -13,7 +13,7 @@ class LighthouseContext:
     It can be easily converted to the system message for LLM.
     """
 
-    template_path: str
+    template_path: Path
     business_desc: str = ""
     """General description of the business processes, which are behind the data.
     For example, in which cases new records are created or what data corresponds to one operation.
@@ -63,8 +63,7 @@ class LighthouseContext:
     """Most important instructions for the agent"""
 
     def render(self) -> str:
-        prompt_template = read_prompt_template(Path(self.template_path))
-
+        prompt_template = read_prompt_template(self.template_path)
         return prompt_template.render(
             date=get_today_date_str(),
             business_desc=self.business_desc,

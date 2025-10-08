@@ -6,6 +6,7 @@ from langchain_core.runnables import RunnableConfig
 
 from portus.agent.base_agent import BaseAgent, ExecutionResult
 from portus.agent.graph import Graph
+from portus.agent.lighthouse.lighthouse_context import LighthouseContext
 from portus.data_source.config_classes.schema_inspection_config import (
     InspectionOptions,
     SchemaInspectionConfig,
@@ -13,7 +14,6 @@ from portus.data_source.config_classes.schema_inspection_config import (
 from portus.data_source.database_schema import summarize_schema
 from portus.data_source.database_schema_types import DatabaseSchema
 from portus.data_source.duckdb.duckdb_collection import DuckDBCollection
-from portus.utils import get_today_date_str, read_prompt_template
 
 
 class LighthouseAgent(BaseAgent):
@@ -26,19 +26,14 @@ class LighthouseAgent(BaseAgent):
     ):
         self._data_collection = data_collection
         self._graph = graph
-        self._prompt_template = read_prompt_template(template_path)
+        self._schema_inspection_config = schema_inspection_config
+        self._template_path = template_path
         self._compiled_graph = graph.compile()
 
-        self._schema_inspection_config = schema_inspection_config
-
     def render_system_prompt(self, db_schema: DatabaseSchema) -> str:
-        # TODO: Add Context support
         schema_summary = summarize_schema(db_schema, self._schema_inspection_config.summary_type)
-        prompt = self._prompt_template.render(
-            date=get_today_date_str(),
-            db_schema=schema_summary,
-        )
-        return prompt
+        lh_context = LighthouseContext(template_path=self._template_path, db_schema=schema_summary)
+        return lh_context.render()
 
     def execute(self, messages: list[BaseMessage]) -> ExecutionResult:
         # TODO cache schema inspection and invalidate when the data collection changes
