@@ -2,11 +2,7 @@ from typing import Any
 
 from pandas import DataFrame
 
-from portus.executor import ExecutionResult
-from portus.opa import Opa
-from portus.pipe import Pipe
-from portus.session import Session
-from portus.vizualizer import VisualisationResult
+from portus.core import ExecutionResult, Opa, Pipe, Session, VisualisationResult
 
 
 class LazyPipe(Pipe):

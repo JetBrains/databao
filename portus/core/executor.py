@@ -1,20 +1,22 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from typing import Any
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from pandas import DataFrame
+from pydantic import BaseModel, ConfigDict
 
-from portus.opa import Opa
-from portus.session import Session
+from .opa import Opa
+from .session import Session
 
 
-@dataclass(frozen=True)
-class ExecutionResult:
+class ExecutionResult(BaseModel):
     text: str
     meta: dict[str, Any]
     code: str | None = None
     df: DataFrame | None = None
+
+    # Pydantic v2 configuration: make the model immutable and allow pandas DataFrame
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
 
 class Executor(ABC):

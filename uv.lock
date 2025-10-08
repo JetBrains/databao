@@ -2018,8 +2018,10 @@ dependencies = [
     { name = "langchain-google-genai" },
     { name = "langchain-openai" },
     { name = "langgraph" },
+    { name = "matplotlib" },
     { name = "pandas" },
     { name = "psycopg2-binary" },
+    { name = "pydantic" },
     { name = "tabulate" },
 ]
 
@@ -2047,10 +2049,12 @@ requires-dist = [
     { name = "langchain-google-genai", specifier = ">=2.1.5" },
     { name = "langchain-openai", specifier = ">=0.3.8,<0.4" },
     { name = "langgraph", specifier = ">=0.6.8" },
+    { name = "matplotlib", specifier = ">=3.10.6" },
     { name = "matplotlib", marker = "extra == 'examples'", specifier = ">=3.10.6" },
     { name = "notebook", marker = "extra == 'examples'", specifier = ">=7.4.7" },
     { name = "pandas", specifier = ">=2.3.0" },
     { name = "psycopg2-binary", specifier = ">=2.9.10" },
+    { name = "pydantic", specifier = ">=2.8.0,<3" },
     { name = "python-dotenv", marker = "extra == 'examples'", specifier = ">=1.1.1" },
     { name = "tabulate", specifier = ">=0.9.0" },
 ]

@@ -5,11 +5,11 @@ from typing import TYPE_CHECKING, Any
 from langchain_core.language_models.chat_models import BaseChatModel
 from pandas import DataFrame
 
-from portus.pipe import Pipe
+from .pipe import Pipe
 
 if TYPE_CHECKING:
-    from portus.executor import Executor
-    from portus.vizualizer import Visualizer
+    from .executor import Executor
+    from .visualizer import Visualizer
 
 
 class Session(ABC):

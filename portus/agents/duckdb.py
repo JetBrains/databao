@@ -11,10 +11,9 @@ from langchain_core.tools import BaseTool, tool
 from langgraph.prebuilt import create_react_agent
 from pydantic import BaseModel
 
-from portus.duckdb.utils import init_duckdb_con, sql_strip
-from portus.executor import ExecutionResult, Executor
-from portus.opa import Opa
-from portus.session import Session
+from portus.core import ExecutionResult, Executor, Opa, Session
+
+from .utils import init_duckdb_con, sql_strip
 
 logger = logging.getLogger(__name__)
 
@@ -135,4 +134,4 @@ class SimpleDuckDBAgenticExecutor(Executor):
         answer: AgentResponse = ask(opas[-1].query)
         logger.info("Generated query: %s", answer.sql)
         df = con.execute(f"SELECT * FROM ({sql_strip(answer.sql)}) t LIMIT {rows_limit}").df()
-        return ExecutionResult(answer.explanation, {}, answer.sql, df)
+        return ExecutionResult(text=answer.explanation, meta={}, code=answer.sql, df=df)
