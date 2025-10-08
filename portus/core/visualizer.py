@@ -1,0 +1,23 @@
+from abc import ABC, abstractmethod
+from typing import Any
+
+from langchain_core.language_models.chat_models import BaseChatModel
+from pydantic import BaseModel, ConfigDict
+
+from .executor import ExecutionResult
+
+
+class VisualisationResult(BaseModel):
+    text: str
+    meta: dict[str, Any]
+    plot: Any | None
+    code: str | None
+
+    # Immutable model; allow arbitrary plot types (e.g., matplotlib objects)
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
+
+
+class Visualizer(ABC):
+    @abstractmethod
+    def visualize(self, request: str, llm: BaseChatModel, data: ExecutionResult) -> VisualisationResult:
+        pass

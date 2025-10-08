@@ -1,17 +1,13 @@
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from pandas import DataFrame
 
-from portus.core.lazy_pipe import LazyPipe
-from portus.duckdb.agent import SimpleDuckDBAgenticExecutor
-from portus.pipe import Pipe
-from portus.session import Session
-from portus.vizualizer import DumbVisualizer
+from portus.core import Executor, Pipe, Session, Visualizer
 
-if TYPE_CHECKING:
-    from portus.executor import Executor
-    from portus.vizualizer import Visualizer
+from ..agents.duckdb import SimpleDuckDBAgenticExecutor
+from ..pipes.lazy import LazyPipe
+from ..visualizers.dumb import DumbVisualizer
 
 
 class InMemSession(Session):
@@ -20,8 +16,8 @@ class InMemSession(Session):
         name: str,
         llm: BaseChatModel,
         *,
-        data_executor: "Executor" | None = None,
-        visualizer: "Visualizer" | None = None,
+        data_executor: Executor | None = None,
+        visualizer: Visualizer | None = None,
         default_rows_limit: int = 1000,
     ):
         self.__name = name
