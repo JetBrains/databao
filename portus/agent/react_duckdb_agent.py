@@ -10,8 +10,8 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import create_react_agent
 
 from portus.agent.base_agent import BaseAgent, ExecutionResult
+from portus.agent.utils import sql_strip
 from portus.data_source.data_collection import DataCollection
-from portus.duckdb.utils import sql_strip
 
 logger = logging.getLogger(__name__)
 

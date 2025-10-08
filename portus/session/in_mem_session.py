@@ -3,7 +3,7 @@ from typing import Any
 
 from pandas import DataFrame
 
-from portus import LighthouseAgent
+from portus.agent.lighthouse_agent import LighthouseAgent
 from portus.data_source.data_collection import DataCollection
 from portus.data_source.data_source import DataSource
 from portus.langchain_graphs.execute_submit import ExecuteSubmit
@@ -11,7 +11,8 @@ from portus.llms import LLMConfig
 from portus.pipe.base_pipe import BasePipe
 from portus.pipe.pipe import Pipe
 from portus.session.base_session import BaseSession
-from portus.vizualizer import DumbVisualizer, Visualizer
+from portus.visualizer.dumb import DumbVisualizer
+from portus.visualizer.visualizer import Visualizer
 
 DEFAULT_TEMPLATE_PATH = Path("agent_system.jinja")
 

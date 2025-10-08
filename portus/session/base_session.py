@@ -1,14 +1,12 @@
 import abc
 from abc import ABC
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from pandas import DataFrame
 
 from portus.data_source.data_source import DataSource
 from portus.pipe.base_pipe import BasePipe
-
-if TYPE_CHECKING:
-    from portus.vizualizer import Visualizer
+from portus.visualizer.visualizer import Visualizer
 
 
 class BaseSession(ABC):
@@ -38,5 +36,5 @@ class BaseSession(ABC):
 
     @property
     @abc.abstractmethod
-    def visualizer(self) -> "Visualizer":
+    def visualizer(self) -> Visualizer:
         pass
