@@ -52,7 +52,7 @@ class LighthouseAgent(BaseAgent):
                 assert isinstance(chunk, dict)
                 last_state = chunk
         except Exception as e:
-            return ExecutionResult(text=str(e), df=None, meta={}, sql="", messages=[])
+            return ExecutionResult(text=str(e), messages=messages)
         assert last_state is not None
 
         return self._graph.get_result(last_state)

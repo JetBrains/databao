@@ -3,8 +3,8 @@ from typing import Any
 from duckdb import DuckDBPyConnection
 from sqlalchemy import Engine
 
+from portus.agent.utils import register_sqlalchemy
 from portus.data_source.data_source import DataSource
-from portus.duckdb.utils import register_sqlalchemy
 
 
 class DatabaseSource(DataSource):

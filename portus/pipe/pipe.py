@@ -5,7 +5,7 @@ from pandas import DataFrame
 
 from portus.agent.base_agent import BaseAgent, ExecutionResult
 from portus.pipe.base_pipe import BasePipe
-from portus.vizualizer import VisualisationResult, Visualizer
+from portus.visualizer.visualizer import VisualisationResult, Visualizer
 
 
 class Pipe(BasePipe):

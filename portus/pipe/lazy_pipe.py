@@ -1,16 +1,18 @@
-from typing import Any
+from typing import TYPE_CHECKING, Any, Self
 
 from pandas import DataFrame
 
 from portus.agent.base_agent import ExecutionResult
 from portus.opa import Opa
 from portus.pipe.base_pipe import BasePipe
-from portus.session.base_session import BaseSession
-from portus.vizualizer import VisualisationResult
+from portus.visualizer.visualizer import VisualisationResult
+
+if TYPE_CHECKING:
+    from portus.session.base_session import BaseSession
 
 
 class LazyPipe(BasePipe):
-    def __init__(self, session: BaseSession, *, default_rows_limit: int = 1000):
+    def __init__(self, session: "BaseSession", *, default_rows_limit: int = 1000):
         self.__session = session
         self.__default_rows_limit = default_rows_limit
 
@@ -64,7 +66,7 @@ class LazyPipe(BasePipe):
     def __str__(self) -> str:
         return self.text
 
-    def ask(self, query: str) -> "LazyPipe":
+    def ask(self, query: str) -> Self:
         self.__opas.append(Opa(query=query))
         return self
 
