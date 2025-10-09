@@ -5,6 +5,7 @@ import pandas as pd
 from duckdb import DuckDBPyConnection
 from sqlalchemy import Engine, create_engine
 
+from portus.caching.schema_inspection_cache import get_inspection_cache_key
 from portus.data_source.config_classes.data_source_config import DataSourceConfig
 from portus.data_source.config_classes.schema_inspection_config import InspectionOptions
 from portus.data_source.config_classes.sql_alchemy_data_source_config import SqlAlchemyDataSourceConfig
@@ -42,6 +43,11 @@ class DuckDBCollection(DataSource[DuckDBCollectionConfig]):
         self._sa_source: _DuckDBSqlAlchemySource
         self._sources: list[DuckDBSource] = []
         self._data_changed = False
+
+        # TODO Better caching that is common to all sources
+        # Cache to avoid inspecting the schema on every agent query
+        self._schema_inspection_cache: dict[str, DatabaseSchema] = {}
+
         self._init_engine()
 
     @property
@@ -73,10 +79,20 @@ class DuckDBCollection(DataSource[DuckDBCollectionConfig]):
         return await self._sa_source.aexecute(query)
 
     def inspect_schema(self, semantic_dict: SemanticDict, options: InspectionOptions) -> DatabaseSchema:
-        return self._sa_source.inspect_schema(semantic_dict, options)
+        cache_key = get_inspection_cache_key(semantic_dict, options)
+        if cache_key in self._schema_inspection_cache:
+            return self._schema_inspection_cache[cache_key]
+        schema = self._sa_source.inspect_schema(semantic_dict, options)
+        self._schema_inspection_cache[cache_key] = schema
+        return schema
 
     async def ainspect_schema(self, semantic_dict: SemanticDict, options: InspectionOptions) -> DatabaseSchema:
-        return await self._sa_source.ainspect_schema(semantic_dict, options)
+        cache_key = get_inspection_cache_key(semantic_dict, options)
+        if cache_key in self._schema_inspection_cache:
+            return self._schema_inspection_cache[cache_key]
+        schema = await self._sa_source.ainspect_schema(semantic_dict, options)
+        self._schema_inspection_cache[cache_key] = schema
+        return schema
 
     def close(self) -> None:
         self._sa_source.close()
@@ -102,6 +118,7 @@ class DuckDBCollection(DataSource[DuckDBCollectionConfig]):
 
         # Reset the engine and re-register all sources, as otherwise we get "Failed to attach database" errors.
         self._init_engine()
+        self._schema_inspection_cache = {}
 
         with self._sa_source.engine.connect() as con:
             for source in self._sources:

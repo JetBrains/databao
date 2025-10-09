@@ -35,7 +35,6 @@ class LighthouseAgent(BaseAgent):
         return lh_context.render()
 
     def execute(self, messages: list[BaseMessage]) -> ExecutionResult:
-        # TODO cache schema inspection and invalidate when the data collection changes
         db_schema = self._data_collection.inspect_schema("full", self._schema_inspection_config.inspection_options)
 
         if messages[0].type != "system":
