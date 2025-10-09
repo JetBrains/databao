@@ -6,12 +6,12 @@ from portus.session import BaseSession
 from portus.visualizer import VisualisationResult, Visualizer
 
 __all__ = [
-    "open_session",
-    "Opa",
+    "BaseAgent",
     "BasePipe",
     "BaseSession",
+    "ExecutionResult",
+    "Opa",
     "VisualisationResult",
     "Visualizer",
-    "BaseAgent",
-    "ExecutionResult",
+    "open_session",
 ]
