@@ -8,7 +8,6 @@ from portus.agent.base_agent import BaseAgent, ExecutionResult
 from portus.agent.graph import Graph
 from portus.agent.lighthouse.lighthouse_context import LighthouseContext
 from portus.data_source.config_classes.schema_inspection_config import (
-    InspectionOptions,
     SchemaInspectionConfig,
 )
 from portus.data_source.database_schema import summarize_schema
@@ -37,7 +36,7 @@ class LighthouseAgent(BaseAgent):
 
     def execute(self, messages: list[BaseMessage]) -> ExecutionResult:
         # TODO cache schema inspection and invalidate when the data collection changes
-        db_schema = self._data_collection.inspect_schema("full", InspectionOptions())
+        db_schema = self._data_collection.inspect_schema("full", self._schema_inspection_config.inspection_options)
 
         if messages[0].type != "system":
             messages = [SystemMessage(self.render_system_prompt(db_schema)), *messages]
