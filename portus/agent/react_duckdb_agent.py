@@ -1,31 +1,39 @@
 import json
 import logging
-from collections.abc import Callable
-from typing import Any
+from typing import Any, TypedDict
 
 from duckdb import DuckDBPyConnection
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import HumanMessage
-from langchain_core.runnables import Runnable
-from langchain_core.tools import BaseTool, tool
+from langchain_core.messages import BaseMessage
+from langchain_core.tools import tool
+from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import create_react_agent
-from pydantic import BaseModel
 
-from portus.core import ExecutionResult, Executor, Opa, Session
-
-from .utils import init_duckdb_con, sql_strip
+from portus.agent.base_agent import BaseAgent, ExecutionResult
+from portus.agent.utils import sql_strip
+from portus.data_source.data_collection import DataCollection
 
 logger = logging.getLogger(__name__)
 
 
-class AgentResponse(BaseModel):
+class AgentResponse(TypedDict):
     sql: str
     explanation: str
 
 
-class SimpleDuckDBAgenticExecutor(Executor):
+class ReactDuckDBAgent(BaseAgent):
+    def __init__(
+        self,
+        data_collection: DataCollection,
+        llm: BaseChatModel,
+    ):
+        self._data_collection = data_collection
+        self._connection = self._data_collection.get_connection()
+        self._compiled_graph = self._make_react_duckdb_agent(self._connection, llm)
+        self._rows_limit = 100
+
     @staticmethod
-    def __describe_duckdb_schema(con: DuckDBPyConnection, max_cols_per_table: int = 40) -> str:
+    def describe_duckdb_schema(con: DuckDBPyConnection, max_cols_per_table: int = 40) -> str:
         rows = con.execute("""
                            SELECT table_catalog, table_schema, table_name
                            FROM information_schema.tables
@@ -56,7 +64,7 @@ class SimpleDuckDBAgenticExecutor(Executor):
         return "\n".join(lines) if lines else "(no base tables found)"
 
     @staticmethod
-    def __make_duckdb_tool(con: DuckDBPyConnection) -> BaseTool:
+    def _make_duckdb_tool(con: DuckDBPyConnection) -> Any:
         @tool("execute_sql")
         def execute_sql(sql: str, limit: int = 10) -> str:
             """
@@ -83,19 +91,20 @@ class SimpleDuckDBAgenticExecutor(Executor):
                 }
                 return json.dumps(payload)
             except Exception as e:
-                payload = {"columns": [], "rows": [], "limit": limit, "note": f"SQL error: {type(e).__name__}: {e}"}
+                payload = {
+                    "columns": [],
+                    "rows": [],
+                    "limit": limit,
+                    "note": f"SQL error: {type(e).__name__}: {e}",
+                }
                 return json.dumps(payload)
 
         return execute_sql
 
     @staticmethod
-    def __make_react_duckdb_agent(
-        con: DuckDBPyConnection, llm: BaseChatModel
-    ) -> tuple[Runnable[dict[str, Any], dict[str, Any]], Callable[[str], AgentResponse]]:
-        execute_sql_tool = SimpleDuckDBAgenticExecutor.__make_duckdb_tool(con)
-        tools = [execute_sql_tool]
-        schema_text = SimpleDuckDBAgenticExecutor.__describe_duckdb_schema(con)
-
+    def _make_react_duckdb_agent(con: DuckDBPyConnection, llm: BaseChatModel) -> CompiledStateGraph[Any]:
+        schema_text = ReactDuckDBAgent.describe_duckdb_schema(con)
+        # TODO move to .jinja (and fix indendation)
         SYSTEM_PROMPT = f"""You are a careful data analyst using the ReAct pattern with tools.
     Use the `execute_sql` tool to run exactly one DuckDB SQL statement when needed.
 
@@ -111,27 +120,20 @@ class SimpleDuckDBAgenticExecutor(Executor):
     Available schema:
     {schema_text}
     """
-
         # LangGraph prebuilt ReAct agent
-        # noinspection PyTypeChecker
-        agent = create_react_agent(llm, tools=tools, prompt=SYSTEM_PROMPT, response_format=AgentResponse)
+        execute_sql_tool = ReactDuckDBAgent._make_duckdb_tool(con)
+        tools = [execute_sql_tool]
+        agent = create_react_agent(
+            llm,
+            tools=tools,
+            prompt=SYSTEM_PROMPT,
+            response_format=AgentResponse,  # type: ignore[arg-type]
+        )
+        return agent
 
-        # Convenience runner that returns explanation + DataFrame
-        def ask(question: str) -> AgentResponse:
-            # noinspection PyTypeChecker
-            state = agent.invoke({"messages": [HumanMessage(content=question)]})
-
-            # Pydantic automatically validates and raises clear errors
-            return AgentResponse.model_validate(state["structured_response"])
-
-        return agent, ask
-
-    def execute(
-        self, session: Session, opas: list[Opa], llm: BaseChatModel, *, rows_limit: int = 100
-    ) -> ExecutionResult:
-        con = init_duckdb_con(session.dbs, session.dfs)
-        agent, ask = self.__make_react_duckdb_agent(con, llm)
-        answer: AgentResponse = ask(opas[-1].query)
-        logger.info("Generated query: %s", answer.sql)
-        df = con.execute(f"SELECT * FROM ({sql_strip(answer.sql)}) t LIMIT {rows_limit}").df()
-        return ExecutionResult(text=answer.explanation, meta={}, code=answer.sql, df=df)
+    def execute(self, messages: list[BaseMessage]) -> ExecutionResult:
+        state = self._compiled_graph.invoke({"messages": messages})
+        answer: AgentResponse = state["structured_response"]
+        logger.info("Generated query: %s", answer["sql"])
+        df = self._connection.execute(f"SELECT * FROM ({sql_strip(answer['sql'])}) t LIMIT {self._rows_limit}").df()
+        return ExecutionResult(text=answer["explanation"], sql=answer["sql"], df=df)
