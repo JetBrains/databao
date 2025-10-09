@@ -4,7 +4,6 @@ from urllib.parse import quote, urlsplit, urlunsplit
 import duckdb
 from duckdb import DuckDBPyConnection
 from pandas import DataFrame
-from sqlalchemy import Engine
 
 
 def is_sqlalchemy_engine(obj: Any) -> bool:
@@ -52,7 +51,7 @@ def sqlalchemy_to_duckdb_mysql(sa_url: str, keep_query: bool = True) -> str:
     return urlunsplit(("mysql", netloc, path, query, ""))
 
 
-def register_sqlalchemy(con: DuckDBPyConnection, sqlalchemy_engine: Engine, name: str) -> None:
+def register_sqlalchemy(con: DuckDBPyConnection, sqlalchemy_engine: Any, name: str) -> None:
     url = sqlalchemy_engine.url.render_as_string(hide_password=False)
     dialect = getattr(getattr(sqlalchemy_engine, "dialect", None), "name", "")
     if dialect.startswith("postgres"):

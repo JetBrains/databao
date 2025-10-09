@@ -29,9 +29,6 @@ df = pd.DataFrame(data)
 session.add_df(df)
 
 ask = session.ask("count cancelled shows by directors")
-df_result = ask.df
-if df_result is not None:
-    print(df_result)
-plot = ask.plot
-if hasattr(ask, "code"):
-    print(ask.code)
+print(ask.df())
+plot = ask.plot()
+print(ask.code)

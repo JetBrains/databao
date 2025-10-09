@@ -59,6 +59,4 @@ select = [
     "SIM",
     # isort
     "I",
-    # unsorted-dunder-all: sorts __all__
-    "RUF022",
 ]
