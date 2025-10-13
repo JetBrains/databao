@@ -6,7 +6,6 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from pandas import DataFrame
 from sqlalchemy import Engine
 
-from portus.agents.lighthouse.agent import LighthouseAgent
 from portus.configs.llm import LLMConfig
 from portus.core import Pipe, Session, Visualizer
 from portus.core.executor import AgentExecutor
@@ -22,7 +21,7 @@ class InMemSession(Session):
         name: str,
         llm_config: LLMConfig,
         *,
-        data_executor: AgentExecutor | type[AgentExecutor] | None = None,
+        data_executor: AgentExecutor | type[AgentExecutor],
         visualizer: Visualizer | None = None,
         default_rows_limit: int = 1000,
     ):
@@ -37,10 +36,8 @@ class InMemSession(Session):
         # Normalize to an executor type; always create per-pipe instance in ask()
         if isinstance(data_executor, type):
             self._executor_type = data_executor
-        elif data_executor is not None:
-            self._executor_type = type(data_executor)
         else:
-            self._executor_type = LighthouseAgent
+            self._executor_type = type(data_executor)
         self._visualizer = visualizer or DumbVisualizer()
         self._default_rows_limit = default_rows_limit
 
