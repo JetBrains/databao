@@ -127,11 +127,15 @@ class SimpleDuckDBAgenticExecutor(Executor):
         return agent, ask
 
     def execute(
-        self, session: Session, opas: list[Opa], llm: BaseChatModel, *, rows_limit: int = 100
+        self, session: Session, opas: list[Opa], *, rows_limit: int = 100, cache_scope: str = "common_cache",
     ) -> ExecutionResult:
         con = init_duckdb_con(session.dbs, session.dfs)
-        agent, ask = self.__make_react_duckdb_agent(con, llm)
+        agent, ask = self.__make_react_duckdb_agent(con, session.llm)
         answer: AgentResponse = ask(opas[-1].query)
         logger.info("Generated query: %s", answer.sql)
         df = con.execute(f"SELECT * FROM ({sql_strip(answer.sql)}) t LIMIT {rows_limit}").df()
+
+        # key = cache_scope + hash(opas)
+        # example of caching: session.get(key), session.put(key, value)
+
         return ExecutionResult(text=answer.explanation, meta={}, code=answer.sql, df=df)
