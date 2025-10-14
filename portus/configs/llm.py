@@ -1,19 +1,9 @@
-from enum import Enum
+from functools import cached_property
 from typing import Any
 
-from langchain_anthropic import ChatAnthropic
+from langchain.chat_models import init_chat_model
 from langchain_core.language_models import BaseChatModel
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_openai import ChatOpenAI
-from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
-
-
-class ModelFamily(str, Enum):
-    """Enum representing different LLM provider families."""
-
-    OPENAI = "openai"
-    ANTHROPIC = "anthropic"
-    GEMINI = "gemini"
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class LLMConfig(BaseModel):
@@ -34,75 +24,40 @@ class LLMConfig(BaseModel):
 
     # Private class constants for model type detection
     _REASONING_MODEL_PREFIXES = ("o1", "o3", "gpt-5")
-    _OPENAI_INFIXES = ("gpt", "o1", "o3")
-    _ANTHROPIC_INFIXES = ("claude",)
-    _GEMINI_INFIXES = ("gemini",)
-
-    @field_validator("name")
-    @classmethod
-    def validate_model_name(cls, v: str) -> str:
-        """Validate that the model name is from a supported provider."""
-        all_infixes = cls._OPENAI_INFIXES + cls._ANTHROPIC_INFIXES + cls._GEMINI_INFIXES
-        if not any(infix in v for infix in all_infixes):
-            raise ValueError(f"Unsupported model name: {v}. Model name must contain one of: {', '.join(all_infixes)}")
-        return v
 
     def to_dict(self) -> dict[str, Any]:
         return self.model_dump()
 
-    @computed_field  # type: ignore[prop-decorator]
-    @property
-    def family(self) -> ModelFamily:
-        """Determine the model family based on the model name."""
-        if any(infix in self.name for infix in self._OPENAI_INFIXES):
-            return ModelFamily.OPENAI
-        elif any(infix in self.name for infix in self._ANTHROPIC_INFIXES):
-            return ModelFamily.ANTHROPIC
-        elif any(infix in self.name for infix in self._GEMINI_INFIXES):
-            return ModelFamily.GEMINI
-        else:
-            # This should never happen due to the validator
-            raise ValueError(f"Unsupported model family for: {self.name}")
-
-    @computed_field  # type: ignore[prop-decorator]
     @property
     def is_reasoning_model(self) -> bool:
         """Check if this is a reasoning model based on the model name."""
         return any(prefix in self.name for prefix in self._REASONING_MODEL_PREFIXES)
 
-    @computed_field  # type: ignore[prop-decorator]
-    @property
+    @cached_property
     def chat_model(self) -> BaseChatModel:
-        """Create a chat model from this config."""
+        """Create a chat model from this config using init_chat_model for provider detection."""
         timeout = 240 if self.is_reasoning_model else 30
 
-        match self.family:
-            case ModelFamily.OPENAI:
-                return ChatOpenAI(
-                    model=self.name,
-                    timeout=timeout,
-                    temperature=self.temperature if not self.is_reasoning_model else None,
-                    max_completion_tokens=self.max_tokens,
-                    reasoning_effort=self.reasoning_effort if self.is_reasoning_model else None,
-                    seed=self.seed,
-                    **self.model_kwargs,
-                )
-            case ModelFamily.ANTHROPIC:
-                return ChatAnthropic(
-                    model_name=self.name,
-                    timeout=timeout,
-                    temperature=self.temperature,
-                    max_tokens_to_sample=self.max_tokens,
-                    **self.model_kwargs,
-                )
-            case ModelFamily.GEMINI:
-                return ChatGoogleGenerativeAI(
-                    model=self.name,
-                    timeout=timeout,
-                    temperature=self.temperature,
-                    max_tokens=self.max_tokens,
-                    **self.model_kwargs,
-                )
+        # Build kwargs dict for the model
+        kwargs: dict[str, Any] = {
+            "temperature": self.temperature if not self.is_reasoning_model else None,
+            "timeout": timeout,
+            "max_tokens": self.max_tokens,
+            "seed": self.seed,
+            **self.model_kwargs,
+        }
+
+        # Add reasoning-specific parameters for OpenAI o1/o3 models
+        if self.is_reasoning_model:
+            kwargs["reasoning_effort"] = self.reasoning_effort
+
+        # Use init_chat_model to automatically detect and instantiate the correct provider
+        # This supports OpenAI, Anthropic, Google, Azure, Cohere, Fireworks, Together, Groq, and more
+        return init_chat_model(
+            model=self.name,
+            configurable_fields=None,  # Ensures we match the BaseChatModel overload
+            **kwargs,
+        )
 
 
 # TODO: add a config folder for LLM configs, make it initializable from hydra configs

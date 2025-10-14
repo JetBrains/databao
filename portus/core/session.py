@@ -3,6 +3,8 @@ from typing import TYPE_CHECKING, Any
 from langchain_core.language_models.chat_models import BaseChatModel
 from pandas import DataFrame
 
+from portus.configs.llm import LLMConfig
+
 from ..pipes.lazy import LazyPipe
 from .pipe import Pipe
 
@@ -16,14 +18,14 @@ class Session:
     def __init__(
         self,
         name: str,
-        llm: BaseChatModel,
+        llm: LLMConfig,
         data_executor: "Executor",
         visualizer: "Visualizer",
         cache: "Cache",
         default_rows_limit: int,
     ):
         self.__name = name
-        self.__llm = llm
+        self.__llm = llm.chat_model
 
         self.__dbs: dict[str, Any] = {}
         self.__dfs: dict[str, DataFrame] = {}
