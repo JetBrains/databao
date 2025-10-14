@@ -5,7 +5,7 @@ from portus.core.cache import Cache
 
 class InMemCache(Cache):
     def __init__(self, prefix: str = ""):
-        self._cache = {}
+        self._cache: dict[str, bytes] = {}
         self._prefix = prefix
 
     def put(self, key: str, source: BytesIO) -> None:

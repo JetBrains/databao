@@ -127,7 +127,12 @@ class SimpleDuckDBAgenticExecutor(Executor):
         return agent, ask
 
     def execute(
-        self, session: Session, opas: list[Opa], *, rows_limit: int = 100, cache_scope: str = "common_cache",
+        self,
+        session: Session,
+        opas: list[Opa],
+        *,
+        rows_limit: int = 100,
+        cache_scope: str = "common_cache",
     ) -> ExecutionResult:
         con = init_duckdb_con(session.dbs, session.dfs)
         agent, ask = self.__make_react_duckdb_agent(con, session.llm)

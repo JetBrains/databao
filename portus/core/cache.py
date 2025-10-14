@@ -1,5 +1,5 @@
-from io import BytesIO
 from abc import ABC, abstractmethod
+from io import BytesIO
 
 
 class Cache(ABC):

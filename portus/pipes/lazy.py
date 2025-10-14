@@ -1,4 +1,4 @@
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from pandas import DataFrame
 
@@ -6,8 +6,8 @@ from portus.core.opa import Opa
 from portus.core.pipe import Pipe
 
 if TYPE_CHECKING:
-    from portus.core.session import Session
     from portus.core.executor import ExecutionResult
+    from portus.core.session import Session
     from portus.core.visualizer import VisualisationResult
 
 
@@ -18,7 +18,7 @@ class LazyPipe(Pipe):
 
         self.__data_materialized = False
         self.__data_materialized_rows: int | None = None
-        self.__data_result: Optional["ExecutionResult"] = None
+        self.__data_result: ExecutionResult | None = None
         self.__visualization_materialized = False
         self.__visualization_result: VisualisationResult | None = None
         self.__opas: list[Opa] = []

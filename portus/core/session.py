@@ -1,27 +1,26 @@
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from pandas import DataFrame
 
-from .pipe import Pipe
 from ..pipes.lazy import LazyPipe
+from .pipe import Pipe
 
 if TYPE_CHECKING:
+    from .cache import Cache
     from .executor import Executor
     from .visualizer import Visualizer
-    from .cache import Cache
 
 
 class Session:
     def __init__(
-            self,
-            name: str,
-            llm: BaseChatModel,
-            *,
-            data_executor: Optional["Executor"] = None,
-            visualizer: Optional["Visualizer"] | None = None,
-            cache: Optional["Cache"] | None = None,
-            default_rows_limit: int = 1000,
+        self,
+        name: str,
+        llm: BaseChatModel,
+        data_executor: "Executor",
+        visualizer: "Visualizer",
+        cache: "Cache",
+        default_rows_limit: int,
     ):
         self.__name = name
         self.__llm = llm
@@ -29,9 +28,9 @@ class Session:
         self.__dbs: dict[str, Any] = {}
         self.__dfs: dict[str, DataFrame] = {}
 
-        self.__executor = data_executor or SimpleDuckDBAgenticExecutor()
-        self.__visualizer = visualizer or DumbVisualizer()
-        self.__cache = cache or InMemCache()
+        self.__executor = data_executor
+        self.__visualizer = visualizer
+        self.__cache = cache
         self.__default_rows_limit = default_rows_limit
 
     def add_db(self, connection: Any, *, name: str | None = None) -> None:

@@ -1,10 +1,10 @@
 from langchain.chat_models import init_chat_model
 from langchain_core.language_models.chat_models import BaseChatModel
 
-from .duckdb.agents import SimpleDuckDBAgenticExecutor
-from .core import Executor, Session, Visualizer, Cache
-from .visualizers.dumb import DumbVisualizer
 from .caches.in_mem_cache import InMemCache
+from .core import Cache, Executor, Session, Visualizer
+from .duckdb.agents import SimpleDuckDBAgenticExecutor
+from .visualizers.dumb import DumbVisualizer
 
 
 def open_session(

@@ -21,6 +21,11 @@ class ExecutionResult(BaseModel):
 class Executor(ABC):
     @abstractmethod
     def execute(
-        self, session: Session, opas: list[Opa], *, rows_limit: int = 100, cache_scope: str = "common_cache",
+        self,
+        session: Session,
+        opas: list[Opa],
+        *,
+        rows_limit: int = 100,
+        cache_scope: str = "common_cache",
     ) -> ExecutionResult:
         pass
