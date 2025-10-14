@@ -1,56 +1,73 @@
-import abc
-from abc import ABC
 from typing import TYPE_CHECKING, Any
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from pandas import DataFrame
 
+from ..pipes.lazy import LazyPipe
 from .pipe import Pipe
 
 if TYPE_CHECKING:
+    from .cache import Cache
     from .executor import Executor
     from .visualizer import Visualizer
 
 
-class Session(ABC):
-    @abc.abstractmethod
+class Session:
+    def __init__(
+        self,
+        name: str,
+        llm: BaseChatModel,
+        data_executor: "Executor",
+        visualizer: "Visualizer",
+        cache: "Cache",
+        default_rows_limit: int,
+    ):
+        self.__name = name
+        self.__llm = llm
+
+        self.__dbs: dict[str, Any] = {}
+        self.__dfs: dict[str, DataFrame] = {}
+
+        self.__executor = data_executor
+        self.__visualizer = visualizer
+        self.__cache = cache
+        self.__default_rows_limit = default_rows_limit
+
     def add_db(self, connection: Any, *, name: str | None = None) -> None:
-        pass
+        conn_name = name or f"db{len(self.__dbs) + 1}"
+        self.__dbs[conn_name] = connection
 
-    @abc.abstractmethod
     def add_df(self, df: DataFrame, *, name: str | None = None) -> None:
-        pass
+        df_name = name or f"df{len(self.__dfs) + 1}"
+        self.__dfs[df_name] = df
 
-    @abc.abstractmethod
     def ask(self, query: str) -> Pipe:
-        pass
+        return LazyPipe(self, default_rows_limit=self.__default_rows_limit).ask(query)
 
     @property
-    @abc.abstractmethod
     def dbs(self) -> dict[str, Any]:
-        pass
+        return dict(self.__dbs)
 
     @property
-    @abc.abstractmethod
     def dfs(self) -> dict[str, DataFrame]:
-        pass
+        return dict(self.__dfs)
 
     @property
-    @abc.abstractmethod
     def name(self) -> str:
-        pass
+        return self.__name
 
     @property
-    @abc.abstractmethod
     def llm(self) -> BaseChatModel:
-        pass
+        return self.__llm
 
     @property
-    @abc.abstractmethod
     def executor(self) -> "Executor":
-        pass
+        return self.__executor
 
     @property
-    @abc.abstractmethod
     def visualizer(self) -> "Visualizer":
-        pass
+        return self.__visualizer
+
+    @property
+    def cache(self) -> "Cache":
+        return self.__cache
