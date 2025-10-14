@@ -1,12 +1,18 @@
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pandas import DataFrame
 
-from portus.core import ExecutionResult, Opa, Pipe, Session, VisualisationResult
+from portus.core.opa import Opa
+from portus.core.pipe import Pipe
+
+if TYPE_CHECKING:
+    from portus.core.executor import ExecutionResult
+    from portus.core.session import Session
+    from portus.core.visualizer import VisualisationResult
 
 
 class LazyPipe(Pipe):
-    def __init__(self, session: Session, *, default_rows_limit: int = 1000):
+    def __init__(self, session: "Session", *, default_rows_limit: int = 1000):
         self.__session = session
         self.__default_rows_limit = default_rows_limit
 
@@ -18,11 +24,11 @@ class LazyPipe(Pipe):
         self.__opas: list[Opa] = []
         self.__meta: dict[str, Any] = {}
 
-    def __materialize_data(self, rows_limit: int | None) -> ExecutionResult:
+    def __materialize_data(self, rows_limit: int | None) -> "ExecutionResult":
         rows_limit = rows_limit if rows_limit else self.__default_rows_limit
         if not self.__data_materialized or rows_limit != self.__data_materialized_rows:
             self.__data_result = self.__session.executor.execute(
-                self.__session, self.__opas, self.__session.llm, rows_limit=rows_limit
+                self.__session, self.__opas, rows_limit=rows_limit, cache_scope=str(id(self))
             )
             self.__data_materialized = True
             self.__data_materialized_rows = rows_limit
@@ -31,7 +37,7 @@ class LazyPipe(Pipe):
             raise RuntimeError("__data_result is None after materialization")
         return self.__data_result
 
-    def __materialize_visualization(self, request: str, rows_limit: int | None) -> VisualisationResult:
+    def __materialize_visualization(self, request: str, rows_limit: int | None) -> "VisualisationResult":
         self.__materialize_data(rows_limit)
         if self.__data_result is None:
             raise RuntimeError("__data_result is None after materialization")
