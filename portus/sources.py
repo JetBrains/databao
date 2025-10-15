@@ -1,34 +1,7 @@
-from abc import ABC, abstractmethod
 from typing import Any
 from urllib.parse import quote, urlsplit, urlunsplit
 
-import pandas as pd
 from duckdb import DuckDBPyConnection
-from sqlalchemy import Engine
-
-
-class DataSource(ABC):
-    @abstractmethod
-    def register(self, connection: DuckDBPyConnection) -> None:
-        raise NotImplementedError
-
-
-class DatabaseSource(DataSource):
-    def __init__(self, sqlalchemy_engine: Engine, name: str):
-        self.engine = sqlalchemy_engine
-        self.name = name
-
-    def register(self, connection: DuckDBPyConnection) -> None:
-        register_sqlalchemy(connection, self.engine, self.name)
-
-
-class DataFrameSource(DataSource):
-    def __init__(self, df: pd.DataFrame, name: str):
-        self.df = df
-        self.name = name
-
-    def register(self, connection: DuckDBPyConnection) -> None:
-        connection.register(self.name, self.df)
 
 
 def register_sqlalchemy(con: DuckDBPyConnection, sqlalchemy_engine: Any, name: str) -> None:
