@@ -29,6 +29,6 @@ repos:
         name: mypy
         types: [python]
         description: Verify types statically
-        entry: uv run mypy .
+        entry: uv run mypy
         language: system
         pass_filenames: false

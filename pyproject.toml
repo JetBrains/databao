@@ -42,6 +42,8 @@ dev = [
 [tool.mypy]
 strict = true
 show_error_codes = true
+files = ["portus", "tests", "examples"]
+plugins = ["pydantic.mypy", "sqlalchemy.ext.mypy.plugin"]
 
 [tool.ruff]
 line-length = 120
