@@ -15,13 +15,13 @@ class ReactDuckDBAgent(AgentExecutor):
         return make_react_duckdb_agent(data_connection, llm_config.chat_model)
 
     def execute(
-        self, session: Session, opas: list[Opa], *, rows_limit: int = 100, cache_scope: str = "common_cache"
+        self, session: Session, opa: Opa, *, rows_limit: int = 100, cache_scope: str = "common_cache"
     ) -> ExecutionResult:
         # Get or create graph (cached after first use)
         data_connection, compiled_graph = self._get_or_create_cached_graph(session)
 
-        # Process new opas and get messages
-        messages, _ = self._process_new_opas(session, opas, cache_scope)
+        # Process the opa and get messages
+        messages = self._process_opa(session, opa, cache_scope)
 
         # Execute the graph
         state = compiled_graph.invoke({"messages": messages})

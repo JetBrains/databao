@@ -46,12 +46,12 @@ class LighthouseAgent(AgentExecutor):
         return data_connection, self._cached_graph, compiled_graph
 
     def execute(
-        self, session: Session, opas: list[Opa], *, rows_limit: int = 100, cache_scope: str = "common_cache"
+        self, session: Session, opa: Opa, *, rows_limit: int = 100, cache_scope: str = "common_cache"
     ) -> ExecutionResult:
         # Get or create graph (cached after first use)
         data_connection, graph, compiled_graph = self._get_graph_and_compiled(session)
 
-        messages, _ = self._process_new_opas(session, opas, cache_scope)
+        messages = self._process_opa(session, opa, cache_scope)
 
         # Prepend system message if not present
         messages_with_system = messages

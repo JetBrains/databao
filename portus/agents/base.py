@@ -68,24 +68,6 @@ class AgentExecutor(Executor):
         buffer.seek(0)
         session.cache.scoped(cache_scope).put("messages", buffer)
 
-    def _get_processed_opa_count(self, session: Session, cache_scope: str) -> int:
-        """Retrieve processed OPA count from the session cache."""
-        try:
-            buffer = BytesIO()
-            session.cache.scoped(cache_scope).get("processed_opa_count", buffer)
-            buffer.seek(0)
-            result: int = pickle.load(buffer)
-            return result
-        except (KeyError, EOFError):
-            return 0
-
-    def _set_processed_opa_count(self, session: Session, cache_scope: str, count: int) -> None:
-        """Store processed OPA count in the session cache."""
-        buffer = BytesIO()
-        pickle.dump(count, buffer)
-        buffer.seek(0)
-        session.cache.scoped(cache_scope).put("processed_opa_count", buffer)
-
     @abstractmethod
     def _create_graph(self, data_connection: Any, llm_config: LLMConfig) -> Any:
         """
@@ -135,26 +117,16 @@ class AgentExecutor(Executor):
 
         return data_connection, self._cached_compiled_graph
 
-    def _process_new_opas(self, session: Session, opas: list[Opa], cache_scope: str) -> tuple[list[Any], int]:
+    def _process_opa(self, session: Session, opa: Opa, cache_scope: str) -> list[Any]:
         """
-        Process new opas and convert them to messages, updating the cache.
+        Process a single opa and convert it to a message, appending to message history.
 
         Returns:
-            Tuple of (all_messages, processed_count)
+            All messages including the new one
         """
         messages = self._get_messages(session, cache_scope)
-        processed_opa_count = self._get_processed_opa_count(session, cache_scope)
-
-        # Only convert NEW opas to messages and append them (preserving history)
-        new_opas = opas[processed_opa_count:]
-        if new_opas:
-            new_messages = [HumanMessage(content=opa.query) for opa in new_opas]
-            messages.extend(new_messages)
-            processed_opa_count = len(opas)
-            # Update cache with new processed count
-            self._set_processed_opa_count(session, cache_scope, processed_opa_count)
-
-        return messages, processed_opa_count
+        messages.append(HumanMessage(content=opa.query))
+        return messages
 
     def _update_message_history(self, session: Session, cache_scope: str, final_messages: list[Any]) -> None:
         """Update message history in cache with final messages from graph execution."""

@@ -27,12 +27,14 @@ class LazyPipe(Pipe):
     def __materialize_data(self, rows_limit: int | None) -> "ExecutionResult":
         rows_limit = rows_limit if rows_limit else self.__default_rows_limit
         if not self._data_materialized or rows_limit != self._data_materialized_rows:
-            self._data_result = self.__session.executor.execute(
-                self.__session, self._opas, rows_limit=rows_limit, cache_scope=str(id(self))
-            )
+            # Execute each opa individually, keeping the last result
+            for opa in self._opas:
+                self._data_result = self.__session.executor.execute(
+                    self.__session, opa, rows_limit=rows_limit, cache_scope=str(id(self))
+                )
+                self._meta.update(self._data_result.meta)
             self._data_materialized = True
             self._data_materialized_rows = rows_limit
-            self._meta.update(self._data_result.meta)
         if self._data_result is None:
             raise RuntimeError("__data_result is None after materialization")
         return self._data_result
