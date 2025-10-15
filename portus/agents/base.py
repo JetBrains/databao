@@ -40,7 +40,7 @@ class AgentExecutor(Executor):
         if not duckdb_connections:
             raise RuntimeError(
                 "No DuckDB connection found. LighthouseAgent requires a DuckDB connection. "
-                "Use portus.sources.attach_postgres() or similar to attach external databases to DuckDB."
+                "Use portus.duckdb.register_sqlalchemy() or similar to attach external databases to DuckDB."
             )
 
         # Use the first DuckDB connection
