@@ -23,7 +23,7 @@ class Executor(ABC):
     def execute(
         self,
         session: Session,
-        opas: list[Opa],
+        opa: Opa,
         *,
         rows_limit: int = 100,
         cache_scope: str = "common_cache",

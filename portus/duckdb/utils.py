@@ -1,15 +1,54 @@
 from typing import Any
 from urllib.parse import quote, urlsplit, urlunsplit
 
-import duckdb
 from duckdb import DuckDBPyConnection
-from pandas import DataFrame
 
 
-def is_sqlalchemy_engine(obj: Any) -> bool:
-    return obj.__class__.__name__ == "Engine" and getattr(obj.__class__, "__module__", "").startswith(
-        "sqlalchemy.engine"
-    )
+def describe_duckdb_schema(con: DuckDBPyConnection, max_cols_per_table: int = 40) -> str:
+    rows = con.execute("""
+                        SELECT table_catalog, table_schema, table_name
+                        FROM information_schema.tables
+                        WHERE table_type IN ('BASE TABLE', 'VIEW')
+                            AND table_schema NOT IN ('pg_catalog', 'pg_toast', 'information_schema')
+                        ORDER BY table_schema, table_name
+                        """).fetchall()
+
+    lines: list[str] = []
+    for db, schema, table in rows:
+        cols = con.execute(
+            """
+                            SELECT column_name, data_type
+                            FROM information_schema.columns
+                            WHERE table_schema = ?
+                                AND table_name = ?
+                            ORDER BY ordinal_position
+                            """,
+            [schema, table],
+        ).fetchall()
+        if len(cols) > max_cols_per_table:
+            cols = cols[:max_cols_per_table]
+            suffix = " ... (truncated)"
+        else:
+            suffix = ""
+        col_desc = ", ".join(f"{c} {t}" for c, t in cols)
+        lines.append(f"{db}.{schema}.{table}({col_desc}){suffix}")
+    return "\n".join(lines) if lines else "(no base tables found)"
+
+
+def register_sqlalchemy(con: DuckDBPyConnection, sqlalchemy_engine: Any, name: str) -> None:
+    url = sqlalchemy_engine.url.render_as_string(hide_password=False)
+    dialect = getattr(getattr(sqlalchemy_engine, "dialect", None), "name", "")
+    if dialect.startswith("postgres"):
+        con.execute("INSTALL postgres_scanner;")
+        con.execute("LOAD postgres_scanner;")
+        con.execute(f"ATTACH '{url}' AS {name} (TYPE POSTGRES);")
+    elif dialect.startswith(("mysql", "mariadb")):
+        con.execute("INSTALL mysql;")
+        con.execute("LOAD mysql;")
+        mysql_url = sqlalchemy_to_duckdb_mysql(str(url))
+        con.execute(f"ATTACH '{mysql_url}' AS {name} (TYPE MYSQL);")
+    else:
+        raise ValueError(f"Database engine '{sqlalchemy_engine.dialect.name}' is not supported yet")
 
 
 def sqlalchemy_to_duckdb_mysql(sa_url: str, keep_query: bool = True) -> str:
@@ -49,37 +88,3 @@ def sqlalchemy_to_duckdb_mysql(sa_url: str, keep_query: bool = True) -> str:
         netloc += f":{port}"
 
     return urlunsplit(("mysql", netloc, path, query, ""))
-
-
-def register_sqlalchemy(con: DuckDBPyConnection, sqlalchemy_engine: Any, name: str) -> None:
-    url = sqlalchemy_engine.url.render_as_string(hide_password=False)
-    dialect = getattr(getattr(sqlalchemy_engine, "dialect", None), "name", "")
-    if dialect.startswith("postgres"):
-        con.execute("INSTALL postgres_scanner;")
-        con.execute("LOAD postgres_scanner;")
-        con.execute(f"ATTACH '{url}' AS {name} (TYPE POSTGRES);")
-    elif dialect.startswith(("mysql", "mariadb")):
-        con.execute("INSTALL mysql;")
-        con.execute("LOAD mysql;")
-        mysql_url = sqlalchemy_to_duckdb_mysql(str(url))
-        con.execute(f"ATTACH '{mysql_url}' AS {name} (TYPE MYSQL);")
-    else:
-        raise ValueError(f"Database engine '{sqlalchemy_engine.dialect.name}' is not supported yet")
-
-
-def init_duckdb_con(dbs: dict[str, Any], dfs: dict[str, DataFrame]) -> DuckDBPyConnection:
-    con = duckdb.connect(database=":memory:", read_only=False)
-    for name, db in dbs.items():
-        if is_sqlalchemy_engine(db):
-            register_sqlalchemy(con, db, name)
-        else:
-            raise ValueError(f"Connection type '{type(db)}' is not supported yet")
-
-    for name, df in dfs.items():
-        con.register(name, df)
-
-    return con
-
-
-def sql_strip(query: str) -> str:
-    return query.strip().rstrip(";")

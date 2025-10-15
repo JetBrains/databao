@@ -1,12 +1,12 @@
 from typing import TYPE_CHECKING, Any
 
+import duckdb
 from langchain_core.language_models.chat_models import BaseChatModel
 from pandas import DataFrame
+from sqlalchemy import Engine
 
 from portus.configs.llm import LLMConfig
-
-from ..pipes.lazy import LazyPipe
-from .pipe import Pipe
+from portus.core.pipe import Pipe
 
 if TYPE_CHECKING:
     from .cache import Cache
@@ -26,9 +26,13 @@ class Session:
     ):
         self.__name = name
         self.__llm = llm.chat_model
+        self.__llm_config = llm
 
         self.__dbs: dict[str, Any] = {}
         self.__dfs: dict[str, DataFrame] = {}
+
+        # Create a DuckDB connection for the session
+        self.__duckdb_connection = duckdb.connect(":memory:")
 
         self.__executor = data_executor
         self.__visualizer = visualizer
@@ -36,15 +40,33 @@ class Session:
         self.__default_rows_limit = default_rows_limit
 
     def add_db(self, connection: Any, *, name: str | None = None) -> None:
+        from portus.duckdb import register_sqlalchemy
+
         conn_name = name or f"db{len(self.__dbs) + 1}"
-        self.__dbs[conn_name] = connection
+
+        # If it's a SQLAlchemy engine, register it with our DuckDB connection
+        if isinstance(connection, Engine):
+            register_sqlalchemy(self.__duckdb_connection, connection, conn_name)
+            # Store the DuckDB connection in dbs if not already there
+            if "duckdb" not in self.__dbs:
+                self.__dbs["duckdb"] = self.__duckdb_connection
+        else:
+            # For other connection types (like native DuckDB), store directly
+            self.__dbs[conn_name] = connection
 
     def add_df(self, df: DataFrame, *, name: str | None = None) -> None:
         df_name = name or f"df{len(self.__dfs) + 1}"
         self.__dfs[df_name] = df
 
+        # Register the DataFrame with DuckDB
+        self.__duckdb_connection.register(df_name, df)
+
+        # Store the DuckDB connection in dbs if not already there
+        if "duckdb" not in self.__dbs:
+            self.__dbs["duckdb"] = self.__duckdb_connection
+
     def ask(self, query: str) -> Pipe:
-        return LazyPipe(self, default_rows_limit=self.__default_rows_limit).ask(query)
+        return Pipe(self, default_rows_limit=self.__default_rows_limit).ask(query)
 
     @property
     def dbs(self) -> dict[str, Any]:
@@ -61,6 +83,10 @@ class Session:
     @property
     def llm(self) -> BaseChatModel:
         return self.__llm
+
+    @property
+    def llm_config(self) -> LLMConfig:
+        return self.__llm_config
 
     @property
     def executor(self) -> "Executor":

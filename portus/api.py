@@ -1,8 +1,8 @@
+from portus.agents.lighthouse.agent import LighthouseAgent
 from portus.configs.llm import DefaultLLMConfig, LLMConfig
 
 from .caches.in_mem_cache import InMemCache
 from .core import Cache, Executor, Session, Visualizer
-from .duckdb.agents import SimpleDuckDBAgenticExecutor
 from .visualizers.dumb import DumbVisualizer
 
 
@@ -18,7 +18,7 @@ def open_session(
     return Session(
         name,
         llm_config if llm_config else DefaultLLMConfig(),
-        data_executor=data_executor or SimpleDuckDBAgenticExecutor(),
+        data_executor=data_executor or LighthouseAgent(),
         visualizer=visualizer or DumbVisualizer(),
         cache=cache or InMemCache(),
         default_rows_limit=default_rows_limit,
