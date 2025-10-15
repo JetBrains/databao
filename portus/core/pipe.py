@@ -1,11 +1,8 @@
 import abc
 from abc import ABC
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from pandas import DataFrame
-
-if TYPE_CHECKING:
-    pass
 
 
 class Pipe(ABC):
