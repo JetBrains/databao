@@ -64,4 +64,10 @@ select = [
     "I",
     # ruff-specific
     "RUF",
+    # Prefer absolute imports over relative ones
+    "TID252",
 ]
+
+[tool.ruff.lint.flake8-tidy-imports]
+# Disallow all relative imports.
+ban-relative-imports = "all"

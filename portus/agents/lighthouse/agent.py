@@ -5,12 +5,11 @@ from langchain_core.messages import SystemMessage
 from langchain_core.runnables import RunnableConfig
 
 from portus.agents.base import AgentExecutor
+from portus.agents.lighthouse.graph import ExecuteSubmit
+from portus.agents.lighthouse.utils import get_today_date_str, read_prompt_template
 from portus.configs.llm import LLMConfig
 from portus.core import ExecutionResult, Opa, Session
 from portus.duckdb.utils import describe_duckdb_schema
-
-from .graph import ExecuteSubmit
-from .utils import get_today_date_str, read_prompt_template
 
 
 class LighthouseAgent(AgentExecutor):

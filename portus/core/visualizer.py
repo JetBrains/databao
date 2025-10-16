@@ -4,7 +4,7 @@ from typing import Any
 from langchain_core.language_models.chat_models import BaseChatModel
 from pydantic import BaseModel, ConfigDict
 
-from .executor import ExecutionResult
+from portus.core.executor import ExecutionResult
 
 
 class VisualisationResult(BaseModel):

@@ -4,8 +4,8 @@ from typing import Any
 from pandas import DataFrame
 from pydantic import BaseModel, ConfigDict
 
-from .opa import Opa
-from .session import Session
+from portus.core.opa import Opa
+from portus.core.session import Session
 
 
 class ExecutionResult(BaseModel):

@@ -8,7 +8,7 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import create_react_agent
 from pydantic import BaseModel
 
-from .utils import describe_duckdb_schema
+from portus.duckdb.utils import describe_duckdb_schema
 
 
 class AgentResponse(BaseModel):

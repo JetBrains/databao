@@ -9,9 +9,9 @@ from portus.configs.llm import LLMConfig
 from portus.core.pipe import Pipe
 
 if TYPE_CHECKING:
-    from .cache import Cache
-    from .executor import Executor
-    from .visualizer import Visualizer
+    from portus.core.cache import Cache
+    from portus.core.executor import Executor
+    from portus.core.visualizer import Visualizer
 
 
 class Session:
