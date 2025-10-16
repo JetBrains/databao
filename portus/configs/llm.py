@@ -152,3 +152,38 @@ def _parse_model_provider(model: str) -> tuple[str, str]:
         else:
             return "", model
     return provider, name
+
+
+class LLMConfigDirectory:
+    """Namespace for preconfigured LLM configurations."""
+
+    @classmethod
+    def list_all(cls) -> list[LLMConfig]:
+        return [config for name, config in vars(cls).items() if name.isupper()]
+
+    DEFAULT = LLMConfig(name="gpt-4o-mini")
+
+    # https://huggingface.co/Qwen/Qwen3-8B-GGUF#best-practices
+    QWEN3_8B_OAI = LLMConfig(
+        name="qwen/qwen3-8b",
+        api_base_url="http://localhost:8080/v1",
+        max_tokens=32768,
+        temperature=0.6,
+        use_responses_api=False,
+        timeout=600,
+    )
+
+    # https://huggingface.co/Qwen/Qwen3-8B-GGUF#best-practices
+    QWEN3_8B_OLLAMA = LLMConfig(
+        name="ollama:qwen3:8b",
+        max_tokens=32768,
+        temperature=0.6,
+        timeout=600,
+        # Refer to https://python.langchain.com/api_reference/ollama/chat_models/langchain_ollama.chat_models.ChatOllama.html
+        model_kwargs={
+            "reasoning": True,
+            "num_ctx": 40960,  # Override the global context size: https://docs.ollama.com/context-length
+            "num_predict": 32768,
+            "validate_model_on_init": True,
+        },
+    )

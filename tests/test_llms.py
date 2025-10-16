@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 from langchain_core.language_models import BaseChatModel
 
+from portus.configs import LLMConfigDirectory
 from portus.configs.llm import LLMConfig, _parse_model_provider
 
 example_llm_config_paths = [
@@ -11,10 +12,7 @@ example_llm_config_paths = [
 ]
 
 
-@pytest.mark.parametrize("path", example_llm_config_paths, ids=[path.name for path in example_llm_config_paths])
-def test_example_llm_configs(path: Path) -> None:
-    config = LLMConfig.from_yaml(path)
-
+def _validate_llm_config(config: LLMConfig) -> None:
     if _parse_model_provider(config.name)[0] == "ollama":
         # Avoid downloading models during tests
         config = config.model_copy(update={"ollama_pull_model": False})
@@ -28,6 +26,21 @@ def test_example_llm_configs(path: Path) -> None:
             warnings.warn("Skipping ollama test due to connection error", stacklevel=2)
         else:
             raise e
+
+
+@pytest.mark.parametrize("path", example_llm_config_paths, ids=[path.name for path in example_llm_config_paths])
+def test_example_llm_configs(path: Path) -> None:
+    config = LLMConfig.from_yaml(path)
+    _validate_llm_config(config)
+
+
+@pytest.mark.parametrize(
+    "config",
+    LLMConfigDirectory.list_all(),
+    ids=[c.name for c in LLMConfigDirectory.list_all()],
+)
+def test_llm_config_directory(config: LLMConfig) -> None:
+    _validate_llm_config(config)
 
 
 @pytest.mark.parametrize(
