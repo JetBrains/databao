@@ -54,10 +54,8 @@ class Pipe:
     def df(self, *, rows_limit: int | None = None) -> DataFrame | None:
         return self.__materialize_data(rows_limit if rows_limit else self._data_materialized_rows).df
 
-    def plot(self, request: str = "visualize data", *, rows_limit: int | None = None) -> Any | None:
-        return self.__materialize_visualization(
-            request, rows_limit if rows_limit else self._data_materialized_rows
-        ).plot
+    def plot(self, request: str = "visualize data", *, rows_limit: int | None = None) -> "VisualisationResult":
+        return self.__materialize_visualization(request, rows_limit if rows_limit else self._data_materialized_rows)
 
     def text(self) -> str:
         return self.__materialize_data(self._data_materialized_rows).text
