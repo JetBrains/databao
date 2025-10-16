@@ -590,12 +590,13 @@ wheels = [
 [[package]]
 name = "edaplot"
 version = "0.1.0"
-source = { git = "ssh://git@github.com/JetBrains/edaplot.git#0555cdd921367bb12645f79761bdf2cb7236fb07" }
+source = { git = "ssh://git@github.com/JetBrains/edaplot.git?rev=46ddfd691ea809f9875ef1bda06b2d04c4c2c12e#46ddfd691ea809f9875ef1bda06b2d04c4c2c12e" }
 dependencies = [
     { name = "altair", extra = ["all"] },
     { name = "commentjson" },
     { name = "langchain" },
     { name = "langchain-anthropic" },
+    { name = "langchain-ollama" },
     { name = "langchain-openai" },
     { name = "pandas" },
     { name = "pillow" },
@@ -2117,7 +2118,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "duckdb", specifier = ">=1.3.0" },
-    { name = "edaplot", git = "ssh://git@github.com/JetBrains/edaplot.git" },
+    { name = "edaplot", git = "ssh://git@github.com/JetBrains/edaplot.git?rev=46ddfd691ea809f9875ef1bda06b2d04c4c2c12e" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "langchain", specifier = ">=0.3.20,<0.4" },
     { name = "langchain-anthropic", specifier = ">=0.3.10,<0.4" },
