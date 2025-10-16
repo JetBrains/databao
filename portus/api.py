@@ -1,9 +1,11 @@
 from portus.agents.lighthouse.agent import LighthouseAgent
-from portus.configs.llm import DefaultLLMConfig, LLMConfig
+from portus.configs.llm import LLMConfig
 
 from .caches.in_mem_cache import InMemCache
 from .core import Cache, Executor, Session, Visualizer
 from .visualizers.dumb import DumbVisualizer
+
+_DEFAULT_LLM_CONFIG = LLMConfig(name="gpt-4o-mini")
 
 
 def open_session(
@@ -17,7 +19,7 @@ def open_session(
 ) -> Session:
     return Session(
         name,
-        llm_config if llm_config else DefaultLLMConfig(),
+        llm_config if llm_config else _DEFAULT_LLM_CONFIG,
         data_executor=data_executor or LighthouseAgent(),
         visualizer=visualizer or DumbVisualizer(),
         cache=cache or InMemCache(),
