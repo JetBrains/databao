@@ -1,7 +1,11 @@
 # https://huggingface.co/Qwen/Qwen3-8B-GGUF#best-practices
 # Greedy decoding should not be used. Set sampling parameters in your local server configuration.
-name: qwen/qwen3-8b  # For LM Studio
-#name: qwen3:8b  # For ollama
+
+# Match the name used by the OAI server. This example is for LM Studio (when running with `lms server start`):
+name: qwen/qwen3-8b
+# For ollama when running with `ollama serve` use: `name: qwen3:8b`
+# N.B. If using ollama, we recommend using ollama directly as in qwen3-8b-ollama.yaml.
+
 api_base_url: http://localhost:8080/v1
 max_tokens: 32768
 temperature: 0.6

@@ -41,7 +41,9 @@ Alternatively, `ollama pull model_name` to download the model manually.
 
 You can use any OAI compatible server by setting `api_base_url` in the LLMConfig. For an example, see [qwen3-8b.yaml](examples/configs/qwen3-8b-oai.yaml).
 
-- LM Studio - recommended for macOS (LMX engine for M-based chips, supports the [OpenAI Responses API](https://platform.openai.com/docs/api-reference/responses)).
-- llama.cpp using `llama-server`
-- vllm
+Examples of OAI compatible servers:
+- [LM Studio](https://lmstudio.ai/) - Recommended for macOS (LMX engine for M-based chips, supports the [OpenAI Responses API](https://platform.openai.com/docs/api-reference/responses)).
+- [ollama](https://ollama.com/) - Run with `OLLAMA_HOST=127.0.0.1:8080 ollama serve`. We recommend using ollama directly, as described [above](#ollama).
+- [llama.cpp](https://github.com/ggml-org/llama.cpp/tree/master/tools/server) using `llama-server`
+- [vLLM](https://github.com/vllm-project/vllm)
 - etc.
