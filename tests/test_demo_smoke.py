@@ -56,7 +56,7 @@ def test_demo_smoke(db_engine: Engine) -> None:
 
     # Step 7: Generate plot
     plot = ask.plot()
-    assert plot is not None
+    assert plot.plot is not None
 
     # Step 8: Verify code is generated
     assert ask.code is not None
