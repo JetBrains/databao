@@ -34,8 +34,8 @@ build-backend = "hatchling.build"
 
 [tool.uv.sources]
 # TODO This is a temporary solution until edaplot is published to PyPI
-edaplot = { git = "ssh://git@github.com/JetBrains/edaplot.git", rev = "46ddfd691ea809f9875ef1bda06b2d04c4c2c12e" }
-#edaplot = { path = "../edaplot-github", editable = true }
+# edaplot = { git = "ssh://git@github.com/JetBrains/edaplot.git", rev = "46ddfd691ea809f9875ef1bda06b2d04c4c2c12e" }
+edaplot = { path = "../edaplot-github", editable = true }
 
 [dependency-groups]
 dev = [

@@ -1,10 +1,9 @@
-import asyncio
+import dataclasses
 import json
 
-from edaplot.api import generate_query_chart
 from edaplot.llms import LLMConfig as VegaLLMConfig
 from edaplot.vega import to_altair_chart
-from edaplot.vega_chat.vega_chat import VegaChatConfig
+from edaplot.vega_chat.vega_chat import VegaChat, VegaChatConfig
 
 from portus.configs.llm import LLMConfig
 from portus.core import ExecutionResult, VisualisationResult, Visualizer
@@ -38,11 +37,18 @@ class VegaChatVisualizer(Visualizer):
         if data.df is None:
             return VisualisationResult(text="Nothing to visualize", meta={}, plot=None, code=None)
 
-        coro = generate_query_chart(request, data.df, self._vega_config, make_interactive=False)
-        chart_result = asyncio.run(coro)
-        if chart_result is None:
-            return VisualisationResult(text=f"Failed to visualize request {request}", meta={}, plot=None, code=None)
+        model = VegaChat.from_config(config=self._vega_config, df=data.df)
+        model_out = model.query_sync(request)
 
-        spec_json = json.dumps(chart_result.spec, indent=2)
-        altair_chart = to_altair_chart(chart_result.spec, chart_result.dataframe)
-        return VisualisationResult(text="", meta=dict(chart_result=chart_result), plot=altair_chart, code=spec_json)
+        spec = model_out.spec
+        if spec is None or not model_out.is_drawable or model_out.is_empty_chart:
+            return VisualisationResult(
+                text=f"Failed to visualize request {request}", meta=dataclasses.asdict(model_out), plot=None, code=None
+            )
+
+        text = model_out.message.text()
+        spec_json = json.dumps(spec, indent=2)
+        # Use the possibly transformed dataframe tied to the generated spec
+        altair_chart = to_altair_chart(spec, model.dataframe)
+
+        return VisualisationResult(text=text, meta=dataclasses.asdict(model_out), plot=altair_chart, code=spec_json)
