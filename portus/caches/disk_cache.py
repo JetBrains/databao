@@ -1,10 +1,13 @@
 import json
 from dataclasses import dataclass
+from io import BytesIO
 from pathlib import Path
 from typing import Any
 
 import diskcache  # type: ignore[import-untyped]
 import pandas as pd
+
+from portus.core import Cache
 
 DEFAULT_CACHE_DIR = Path("cache/diskcache/")
 
@@ -14,7 +17,7 @@ class DiskCacheConfig:
     db_dir: str | Path = DEFAULT_CACHE_DIR
 
 
-class DiskCache:
+class _DiskCache:
     """A simple SQLite-backed cache."""
 
     def __init__(self, config: DiskCacheConfig):
@@ -79,8 +82,8 @@ class DiskCache:
         # to force having string/int keys.
         self._cache.set(key, value, expire=ttl_seconds, tag=tag)
 
-    def get(self, key: str) -> Any:
-        return self._cache.get(key, default=None)
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._cache.get(key, default=default)
 
     def close(self) -> None:
         self._cache.close()
@@ -88,3 +91,21 @@ class DiskCache:
     def invalidate_tag(self, tag: str) -> int:
         n_evicted: int = self._cache.evict(tag=tag)
         return n_evicted
+
+
+class DiskCache(Cache):
+    def __init__(self, cache: _DiskCache, prefix: str = ""):
+        self._cache = cache
+        self._prefix = prefix
+
+    def put(self, key: str, source: BytesIO) -> None:
+        self._cache.set(key, value=source.getvalue(), tag=self._prefix)
+
+    def get(self, key: str, dest: BytesIO) -> None:
+        val = self._cache.get(key, default=None)
+        if val is None:
+            raise KeyError(f"Key {key} not found in cache.")
+        dest.write(val)
+
+    def scoped(self, scope: str) -> "DiskCache":
+        return DiskCache(self._cache, prefix=self._prefix + scope + ":")
