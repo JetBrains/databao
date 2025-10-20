@@ -26,68 +26,11 @@ Today's date is: {{ date }} (YYYY-MM-DD).
 - The user will see only the submitted result of submit_query_id. The user will not see intermediate results
 
 
-{% if business_desc -%}
-# General description
-
-{{ business_desc }}
-
-{% endif %}
-{% if enum_desc -%}
-# Enums
-
-{{ enum_desc }}
-
-
-{% endif %}
 # Database schema
 {{ db_schema }}
 
 
-{% if sql_metrics|length > 0 -%}
-# Metrics
-Below is a list of commonly used business metrics along with example SQL queries.
-
-{% for metric in sql_metrics %}
-## {{ metric.name }}
-ID: {{ metric.id }}
-
-{{ metric.agent_hint }}
-```sql
-{{ metric.sql }}
-```
-
-{% endfor %}
-
-{% endif %}
-{% if blacklist|length > 0 -%}
-# Blacklist
-You can't answer questions about:
-{% for element in blacklist %}
-{{ element }}
-{% endfor %}
-
-
-{% endif %}
-{% if vocabulary|length > 0 -%}
-# Vocabulary
-VERY IMPORTANT.
-Terms, which can be used in the user question, are mapped to their definitions.
-Includes implicit user assumptions.
-Warn a user in case of any inconsistency or contradiction.
-{% for element in vocabulary %}
-
-{{ element }}
-{% endfor %}
-
-{% endif %}
-{% if personal_info|length > 0 -%}
-# Information about the user
-{{ personal_info }}
-
-
-{% endif %}
-{% if final_instructions -%}
-Above all else, you must follow these special instructions!
-# Final instructions
-{{ final_instructions }}
+{% if context -%}
+# Context
+{{ context }}
 {% endif %}

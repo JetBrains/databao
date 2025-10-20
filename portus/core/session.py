@@ -1,3 +1,4 @@
+import pathlib
 from typing import TYPE_CHECKING, Any
 
 import duckdb
@@ -31,6 +32,9 @@ class Session:
         self.__dbs: dict[str, Any] = {}
         self.__dfs: dict[str, DataFrame] = {}
 
+        self.__db_contexts: dict[str, str] = {}
+        self.__df_contexts: dict[str, str] = {}
+
         # Create a DuckDB connection for the session
         self.__duckdb_connection = duckdb.connect(":memory:")
 
@@ -39,7 +43,7 @@ class Session:
         self.__cache = cache
         self.__default_rows_limit = default_rows_limit
 
-    def add_db(self, connection: Any, *, name: str | None = None) -> None:
+    def add_db(self, connection: Any, *, name: str | None = None, context: str | None = None) -> None:
         from portus.duckdb import register_sqlalchemy
 
         conn_name = name or f"db{len(self.__dbs) + 1}"
@@ -54,7 +58,12 @@ class Session:
             # For other connection types (like native DuckDB), store directly
             self.__dbs[conn_name] = connection
 
-    def add_df(self, df: DataFrame, *, name: str | None = None) -> None:
+        if context:
+            if pathlib.Path(context).is_file():
+                context = pathlib.Path(context).read_text()
+            self.__db_contexts[conn_name] = context
+
+    def add_df(self, df: DataFrame, *, name: str | None = None, context: str | None = None) -> None:
         df_name = name or f"df{len(self.__dfs) + 1}"
         self.__dfs[df_name] = df
 
@@ -64,6 +73,11 @@ class Session:
         # Store the DuckDB connection in dbs if not already there
         if "duckdb" not in self.__dbs:
             self.__dbs["duckdb"] = self.__duckdb_connection
+
+        if context:
+            if pathlib.Path(context).is_file():
+                context = pathlib.Path(context).read_text()
+            self.__df_contexts[df_name] = context
 
     def ask(self, query: str) -> Pipe:
         return Pipe(self, default_rows_limit=self.__default_rows_limit).ask(query)
@@ -99,3 +113,7 @@ class Session:
     @property
     def cache(self) -> "Cache":
         return self.__cache
+
+    @property
+    def context(self) -> tuple[dict[str, str], dict[str, str]]:
+        return self.__db_contexts, self.__df_contexts

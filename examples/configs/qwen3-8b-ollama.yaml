@@ -1,0 +1,14 @@
+# https://huggingface.co/Qwen/Qwen3-8B-GGUF#best-practices
+# The sampling params are already set correctly in the Modelfile.
+
+name: ollama:qwen3:8b
+max_tokens: 32768
+temperature: 0.6
+timeout: 600
+
+# Refer to https://python.langchain.com/api_reference/ollama/chat_models/langchain_ollama.chat_models.ChatOllama.html
+model_kwargs:
+  reasoning: true
+  num_ctx: 40960  # Override the global context size: https://docs.ollama.com/context-length
+  num_predict: 32768
+  validate_model_on_init: true
