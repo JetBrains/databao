@@ -1,10 +1,9 @@
 version = 1
-revision = 2
-requires-python = ">=3.12.9"
+revision = 3
+requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.14'",
-    "python_full_version == '3.13.*'",
-    "python_full_version < '3.13'",
+    "python_full_version < '3.14'",
 ]
 
 [[package]]
@@ -589,8 +588,8 @@ wheels = [
 
 [[package]]
 name = "edaplot"
-version = "0.2.0"
-source = { git = "ssh://git@github.com/JetBrains/edaplot.git?rev=76a485e3792006265c5f021fd8add75952600f88#76a485e3792006265c5f021fd8add75952600f88" }
+version = "0.0.1.dev4"
+source = { registry = "https://test.pypi.org/simple/" }
 dependencies = [
     { name = "altair", extra = ["all"] },
     { name = "commentjson" },
@@ -602,6 +601,9 @@ dependencies = [
     { name = "pillow" },
     { name = "tqdm" },
     { name = "vl-convert-python" },
+]
+wheels = [
+    { url = "https://test-files.pythonhosted.org/packages/ca/d4/49007a93825062b4a628972d8a720ec1d3cfa308935c026d2f05aa0aecb5/edaplot-0.0.1.dev4-py3-none-any.whl", hash = "sha256:901e22311f4fad8df3cbba5d712d704169a90d666ed46071db50023e0dcccfd9", size = 52378, upload-time = "2025-10-20T20:25:09.74Z" },
 ]
 
 [[package]]
@@ -2118,7 +2120,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "duckdb", specifier = ">=1.3.0" },
-    { name = "edaplot", git = "ssh://git@github.com/JetBrains/edaplot.git?rev=76a485e3792006265c5f021fd8add75952600f88" },
+    { name = "edaplot", specifier = "==0.0.1.dev4", index = "https://test.pypi.org/simple/" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "langchain", specifier = ">=0.3.20,<0.4" },
     { name = "langchain-anthropic", specifier = ">=0.3.10,<0.4" },
