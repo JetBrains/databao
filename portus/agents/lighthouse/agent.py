@@ -23,7 +23,12 @@ class LighthouseAgent(AgentExecutor):
         """Render system prompt with database schema."""
         prompt_template = read_prompt_template(Path("system_prompt.jinja"))
         db_schema = describe_duckdb_schema(data_connection)
-        context = session.context
+        db_contexts, df_contexts = session.context
+        context = ""
+        for db_name, db_context in db_contexts.items():
+            context += f"## Context for DB {db_name} (fully qualified name 'temp.main.{db_name}')\n\n{db_context}\n\n"
+        for df_name, df_context in df_contexts.items():
+            context += f"## Context for DF {df_name}\n\n{df_context}\n\n"
 
         prompt = prompt_template.render(
             date=get_today_date_str(),

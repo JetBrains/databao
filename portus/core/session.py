@@ -115,10 +115,5 @@ class Session:
         return self.__cache
 
     @property
-    def context(self) -> str:
-        result = ""
-        for db_name, db_context in self.__db_contexts.items():
-            result += f"## Context for DB {db_name}\n\n{db_context}\n\n"
-        for df_name, df_context in self.__df_contexts.items():
-            result += f"## Context for DF {df_name}\n\n{df_context}\n\n"
-        return result.strip()
+    def context(self) -> tuple[dict[str, str], dict[str, str]]:
+        return self.__db_contexts, self.__df_contexts
