@@ -2,7 +2,7 @@ import json
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
-from typing import Any
+from typing import Any, Self
 
 import diskcache  # type: ignore[import-untyped]
 import pandas as pd
@@ -17,7 +17,7 @@ class DiskCacheConfig:
     db_dir: str | Path = DEFAULT_CACHE_DIR
 
 
-class _DiskCache:
+class SqliteDiskCache:
     """A simple SQLite-backed cache."""
 
     def __init__(self, config: DiskCacheConfig):
@@ -94,18 +94,25 @@ class _DiskCache:
 
 
 class DiskCache(Cache):
-    def __init__(self, cache: _DiskCache, prefix: str = ""):
+    def __init__(self, cache: SqliteDiskCache, prefix: str = ""):
         self._cache = cache
         self._prefix = prefix
 
     def put(self, key: str, source: BytesIO) -> None:
-        self._cache.set(key, value=source.getvalue(), tag=self._prefix)
+        k = f"{self._prefix}/{key}"
+        self._cache.set(k, value=source.getvalue(), tag=self._prefix)
 
     def get(self, key: str, dest: BytesIO) -> None:
-        val = self._cache.get(key, default=None)
+        k = f"{self._prefix}/{key}"
+        val = self._cache.get(k, default=None)
         if val is None:
             raise KeyError(f"Key {key} not found in cache.")
         dest.write(val)
 
     def scoped(self, scope: str) -> "DiskCache":
         return DiskCache(self._cache, prefix=self._prefix + scope + ":")
+
+    @classmethod
+    def from_config(cls, config: DiskCacheConfig) -> Self:
+        cache = SqliteDiskCache(config)
+        return cls(cache)

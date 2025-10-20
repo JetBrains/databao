@@ -30,6 +30,7 @@ class Pipe:
         if not self._data_materialized or rows_limit != self._data_materialized_rows:
             # Execute each opa individually, keeping the last result
             for opa in self._opas:
+                # TODO Caching with cache_scope is broken if we want to actually reuse cached results across sessions.
                 self._data_result = self.__session.executor.execute(
                     self.__session, opa, rows_limit=rows_limit, cache_scope=str(id(self))
                 )
@@ -59,6 +60,7 @@ class Pipe:
     def plot(self, request: str | None = None, *, rows_limit: int | None = None) -> "VisualisationResult":
         # TODO Currently, we can't chain calls or maintain a "plot history": pipe.plot("red").plot("blue").
         #  We have to do pipe.plot("red"), but then pipe.plot("blue") is independent of the first call.
+        # TODO treat `.plot` as a new Opa?
         return self.__materialize_visualization(request, rows_limit if rows_limit else self._data_materialized_rows)
 
     def text(self) -> str:
