@@ -77,12 +77,32 @@ def summarize_list_all_tables(
     return s
 
 
+def summarize_compact_schema(schema: DatabaseSchema, *, max_cols_per_table: int | None = None) -> str:
+    lines = []
+    for table_schema in schema.tables.values():
+        cols = []
+        for col_schema in table_schema.columns.values():
+            cols.append((col_schema.name, col_schema.dtype))
+        if max_cols_per_table is not None and len(cols) > max_cols_per_table:
+            cols = cols[:max_cols_per_table]
+            suffix = " ... (truncated)"
+        else:
+            suffix = ""
+        col_desc = ", ".join(f"{c} {t}" for c, t in cols)
+        lines.append(f"{table_schema.qualified_name}({col_desc}){suffix}")
+    s = summarize_database_metadata(schema)
+    s += "\n".join(lines)
+    return s
+
+
 def summarize_schema(schema: DatabaseSchema, summary_type: SchemaSummaryType) -> str:
     match summary_type:
         case SchemaSummaryType.FULL:
             return summarize_full_schema(schema)
         case SchemaSummaryType.LIST_ALL_TABLES:
             return summarize_list_all_tables(schema)
+        case SchemaSummaryType.COMPACT:
+            return summarize_compact_schema(schema)
 
 
 def summarize_schemas(schemas: dict[str, DatabaseSchema], summary_type: SchemaSummaryType) -> str:

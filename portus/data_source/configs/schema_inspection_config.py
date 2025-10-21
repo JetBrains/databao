@@ -61,6 +61,8 @@ class SchemaSummaryType(StrEnum):
     Only provide a list of the table names and (optionally (default)) short table descriptions 
     available in the database. No column summaries are included.
     """
+    COMPACT = "compact"
+    """List all tables where each table is summarized in a single line with column names and types."""
     # TODO hybrid - include top k tables (ranked by an LLM during preprocessing), list the rest
     # TODO table linking for each question
 
