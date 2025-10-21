@@ -1,12 +1,7 @@
 from typing import Any
 
-from portus.data_source.configs.schema_inspection_config import (
-    SchemaSummaryType,
-)
-from portus.data_source.database_schema_types import (
-    DatabaseSchema,
-    TableSchema,
-)
+from portus.data_source.configs.schema_inspection_config import SchemaSummaryType
+from portus.data_source.database_schema_types import DatabaseSchema, TableSchema
 
 
 def summarize_database_metadata(schema: DatabaseSchema, *, include_name: bool = False) -> str:
@@ -22,7 +17,8 @@ def summarize_database_metadata(schema: DatabaseSchema, *, include_name: bool = 
 
 
 def summarize_table_schema(table_schema: TableSchema) -> str:
-    s = f"\n## Table `{table_schema.name}`\n"
+    # TODO make it configurable whether to use fully qualified names or not
+    s = f"\n## Table `{table_schema.qualified_name}`\n"
     if table_schema.description:
         s += f"{table_schema.description}\n"
     for column_name, column_schema in table_schema.columns.items():
@@ -57,7 +53,7 @@ def summarize_full_schema(schema: DatabaseSchema) -> str:
     contain the summaries of all columns within a table.
     """
     s = summarize_database_metadata(schema)
-    for _table_name, table_schema in schema.tables.items():
+    for table_schema in schema.tables.values():
         s += summarize_table_schema(table_schema)
     return s
 
@@ -73,15 +69,15 @@ def summarize_list_all_tables(
     # TODO Per-schema list. Currently we assume a single schema.
     s = summarize_database_metadata(schema)
     s += "Table names:\n"
-    for table_name, table_schema in schema.tables.items():
-        s += f"- `{table_name}`"
+    for table_schema in schema.tables.values():
+        s += f"- `{table_schema.qualified_name}`"
         if include_descriptions and table_schema.description:
             s += f": {trim_string(table_schema.description, max_description_length)}"
         s += "\n"
     return s
 
 
-def _summarize_schema(schema: DatabaseSchema, summary_type: SchemaSummaryType) -> str:
+def summarize_schema(schema: DatabaseSchema, summary_type: SchemaSummaryType) -> str:
     match summary_type:
         case SchemaSummaryType.FULL:
             return summarize_full_schema(schema)
@@ -90,7 +86,7 @@ def _summarize_schema(schema: DatabaseSchema, summary_type: SchemaSummaryType) -
 
 
 def summarize_schemas(schemas: dict[str, DatabaseSchema], summary_type: SchemaSummaryType) -> str:
-    return "\n\n".join(_summarize_schema(schema, summary_type) for schema in schemas.values() if schema.tables)
+    return "\n\n".join(summarize_schema(schema, summary_type) for schema in schemas.values() if schema.tables)
 
 
 def normalize_dtype(dtype: str) -> str:
