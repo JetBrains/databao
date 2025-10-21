@@ -2,27 +2,40 @@ import json
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Self
+from typing import Any
 
 import diskcache  # type: ignore[import-untyped]
 import pandas as pd
 
 from portus.core import Cache
 
-DEFAULT_CACHE_DIR = Path("cache/diskcache/")
-
 
 @dataclass(kw_only=True)
 class DiskCacheConfig:
-    db_dir: str | Path = DEFAULT_CACHE_DIR
+    db_dir: str | Path = Path("cache/diskcache/")
 
 
-class SqliteDiskCache:
+class DiskCache(Cache):
     """A simple SQLite-backed cache."""
 
-    def __init__(self, config: DiskCacheConfig):
+    def __init__(self, config: DiskCacheConfig, cache: diskcache.Cache | None = None, prefix: str = ""):
         self.config = config
-        self._cache = diskcache.Cache(str(self.config.db_dir))
+        self._cache = cache or diskcache.Cache(str(self.config.db_dir))
+        self._prefix = prefix
+
+    def put(self, key: str, source: BytesIO) -> None:
+        k = f"{self._prefix}{key}"
+        self._cache.set_object(k, value=source.getvalue(), tag=self._prefix)
+
+    def get(self, key: str, dest: BytesIO) -> None:
+        k = f"{self._prefix}{key}"
+        val = self._cache.get_object(k, default=None)
+        if val is None:
+            raise KeyError(f"Key {key} not found in cache.")
+        dest.write(val)
+
+    def scoped(self, scope: str) -> "DiskCache":
+        return DiskCache(self.config, self._cache, prefix=f"{self._prefix}/{scope}/")
 
     def __contains__(self, key: str) -> bool:
         return key in self._cache
@@ -49,11 +62,11 @@ class SqliteDiskCache:
         # We are using pickle for now because serializing DataFrames is tricky. We can have:
         #  - duplicate column names, empty string column names, various data types, etc.
         key = self._make_sql_key(sql, source_name)
-        self.set(key, value, tag=self._get_sql_tag(source_name))
+        self.set_object(key, value, tag=self._get_sql_tag(source_name))
 
     def get_sql(self, sql: str, *, source_name: str) -> pd.DataFrame | None:
         key = self._make_sql_key(sql, source_name)
-        val: pd.DataFrame | None = self.get(key)
+        val: pd.DataFrame | None = self.get_object(key)
         return val
 
     def invalidate_source_if_stale_query(
@@ -72,7 +85,7 @@ class SqliteDiskCache:
             )  # Invalidate in case the is_stale_query has changed since last time
             self.set_sql(is_stale_query, is_stale_query_df, source_name=source_name)
 
-    def set(self, key: str, value: Any, ttl_seconds: float | None = None, tag: str | None = None) -> None:
+    def set_object(self, key: str, value: Any, ttl_seconds: float | None = None, tag: str | None = None) -> None:
         """Store a value of any type in the cache.
 
         Simple types for value will be stored as-is, while complex types will be pickled.
@@ -82,7 +95,7 @@ class SqliteDiskCache:
         # to force having string/int keys.
         self._cache.set(key, value, expire=ttl_seconds, tag=tag)
 
-    def get(self, key: str, default: Any = None) -> Any:
+    def get_object(self, key: str, default: Any = None) -> Any:
         return self._cache.get(key, default=default)
 
     def close(self) -> None:
@@ -91,28 +104,3 @@ class SqliteDiskCache:
     def invalidate_tag(self, tag: str) -> int:
         n_evicted: int = self._cache.evict(tag=tag)
         return n_evicted
-
-
-class DiskCache(Cache):
-    def __init__(self, cache: SqliteDiskCache, prefix: str = ""):
-        self._cache = cache
-        self._prefix = prefix
-
-    def put(self, key: str, source: BytesIO) -> None:
-        k = f"{self._prefix}{key}"
-        self._cache.set(k, value=source.getvalue(), tag=self._prefix)
-
-    def get(self, key: str, dest: BytesIO) -> None:
-        k = f"{self._prefix}{key}"
-        val = self._cache.get(k, default=None)
-        if val is None:
-            raise KeyError(f"Key {key} not found in cache.")
-        dest.write(val)
-
-    def scoped(self, scope: str) -> "DiskCache":
-        return DiskCache(self._cache, prefix=f"{self._prefix}/{scope}/")
-
-    @classmethod
-    def from_config(cls, config: DiskCacheConfig) -> Self:
-        cache = SqliteDiskCache(config)
-        return cls(cache)
