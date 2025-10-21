@@ -1,3 +1,5 @@
+import pytest
+
 from portus.core.visualizer import VisualisationResult
 
 
@@ -34,4 +36,18 @@ def test_visualisation_result_altair() -> None:
     )
 
     result = VisualisationResult(text="Test representation", meta={}, plot=chart, code=None)
+    assert result._repr_html_() is not None
+
+
+@pytest.mark.xfail(reason="matplotlib does not support _repr_*_ methods")
+def test_visualisation_result_matplotlib() -> None:
+    # Discussion in https://github.com/matplotlib/matplotlib/issues/16782
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots()
+    ax.plot([1, 2, 3, 4], [1, 4, 9, 16])
+    ax.set_title("Simple plot")
+    ax.set_ylabel("Y axis")
+    ax.set_xlabel("X axis")
+    result = VisualisationResult(text="Test representation", meta={}, plot=fig, code=None)
     assert result._repr_html_() is not None

@@ -39,10 +39,14 @@ class VisualisationResult(BaseModel):
                 format_dict = bundle
             if format_dict is not None and "text/html" in format_dict:
                 html_text = format_dict["text/html"]
+
         if html_text is None and hasattr(self.plot, "_repr_html_"):
             html_text = self.plot._repr_html_()
-        if html_text is None:
+
+        if html_text is None and "matplotlib" not in str(type(self.plot)):
+            # Don't warn for matplotlib as matplotlib has some magic that automatically displays plots in notebooks
             logging.warning(f"Failed to get a HTML representation for: {type(self.plot)}")
+
         return html_text
 
 
