@@ -44,7 +44,7 @@ class Session:
         self.__default_rows_limit = default_rows_limit
 
     def add_db(self, connection: Any, *, name: str | None = None, context: str | None = None) -> None:
-        from portus.duckdb import register_sqlalchemy
+        from portus.data_source.duckdb.utils import register_sqlalchemy
 
         conn_name = name or f"db{len(self.__dbs) + 1}"
 

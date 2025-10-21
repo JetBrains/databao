@@ -9,7 +9,9 @@ from portus.agents.lighthouse.graph import ExecuteSubmit
 from portus.agents.lighthouse.utils import get_today_date_str, read_prompt_template
 from portus.configs.llm import LLMConfig
 from portus.core import ExecutionResult, Opa, Session
-from portus.duckdb.utils import describe_duckdb_schema
+from portus.data_source.configs.schema_inspection_config import SchemaSummaryType
+from portus.data_source.database_schema import summarize_schema
+from portus.data_source.duckdb.utils import inspect_duckdb_schema
 
 
 class LighthouseAgent(AgentExecutor):
@@ -21,7 +23,8 @@ class LighthouseAgent(AgentExecutor):
     def render_system_prompt(self, data_connection: Any, session: Session) -> str:
         """Render system prompt with database schema."""
         prompt_template = read_prompt_template(Path("system_prompt.jinja"))
-        db_schema = describe_duckdb_schema(data_connection)
+        db_schema = inspect_duckdb_schema(data_connection)
+        db_schema_str = summarize_schema(db_schema, summary_type=SchemaSummaryType.FULL)
         db_contexts, df_contexts = session.context
         context = ""
         for db_name, db_context in db_contexts.items():
@@ -31,7 +34,7 @@ class LighthouseAgent(AgentExecutor):
 
         prompt = prompt_template.render(
             date=get_today_date_str(),
-            db_schema=db_schema,
+            db_schema=db_schema_str,
             context=context,
         )
         return prompt

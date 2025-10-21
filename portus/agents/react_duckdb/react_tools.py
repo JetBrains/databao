@@ -8,7 +8,9 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import create_react_agent
 from pydantic import BaseModel
 
-from portus.duckdb.utils import describe_duckdb_schema
+from portus.data_source.configs.schema_inspection_config import SchemaSummaryType
+from portus.data_source.database_schema import summarize_schema
+from portus.data_source.duckdb.utils import inspect_duckdb_schema
 
 
 class AgentResponse(BaseModel):
@@ -82,7 +84,8 @@ def make_react_duckdb_agent(con: DuckDBPyConnection, llm: BaseChatModel) -> Comp
     Returns:
         A compiled LangGraph ReAct agent.
     """
-    schema_text = describe_duckdb_schema(con)
+    db_schema = inspect_duckdb_schema(con)
+    schema_text = summarize_schema(db_schema, SchemaSummaryType.COMPACT)
     # TODO move to .jinja (and fix indendation)
     SYSTEM_PROMPT = f"""You are a careful data analyst using the ReAct pattern with tools.
     Use the `execute_sql` tool to run exactly one DuckDB SQL statement when needed.

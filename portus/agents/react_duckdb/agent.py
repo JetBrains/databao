@@ -2,9 +2,9 @@ import logging
 from typing import Any
 
 from portus.agents.base import AgentExecutor
+from portus.agents.react_duckdb.react_tools import AgentResponse, make_react_duckdb_agent, sql_strip
 from portus.configs.llm import LLMConfig
 from portus.core import ExecutionResult, Opa, Session
-from portus.duckdb.react_tools import AgentResponse, make_react_duckdb_agent, sql_strip
 
 logger = logging.getLogger(__name__)
 
