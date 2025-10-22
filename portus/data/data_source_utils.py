@@ -4,17 +4,17 @@ from typing import TYPE_CHECKING, Any, overload
 
 from portus._config_utils import import_plugin, read_config_file
 from portus.core.data_source import DataSource
-from portus.data_source.configs.data_source_config import DataSourceConfig
+from portus.data.configs.data_source_config import DataSourceConfig
 
 if TYPE_CHECKING:
-    from portus.data_source.configs.sqlalchemy_data_source_config import SqlAlchemyDataSourceConfig
-    from portus.data_source.sqlalchemy_source import SqlAlchemyDataSource
+    from portus.data.configs.sqlalchemy_data_source_config import SqlAlchemyDataSourceConfig
+    from portus.data.sqlalchemy_source import SqlAlchemyDataSource
 
 
 def read_data_source_config(path: Path) -> DataSourceConfig:
     d = read_config_file(path, parse_env_vars=True)
     if d.get("source_type") == "sqlalchemy":
-        from portus.data_source.configs.sqlalchemy_data_source_config import SqlAlchemyDataSourceConfig
+        from portus.data.configs.sqlalchemy_data_source_config import SqlAlchemyDataSourceConfig
 
         return SqlAlchemyDataSourceConfig.model_validate(d)
     elif (source_class_config_import_path := d.get("source_class_config_import_path")) is not None:
@@ -48,8 +48,8 @@ async def get_data_source(
         return class_(config)
     match config.source_type:
         case "sqlalchemy":
-            from portus.data_source.configs.sqlalchemy_data_source_config import SqlAlchemyDataSourceConfig
-            from portus.data_source.sqlalchemy_source import SqlAlchemyDataSource
+            from portus.data.configs.sqlalchemy_data_source_config import SqlAlchemyDataSourceConfig
+            from portus.data.sqlalchemy_source import SqlAlchemyDataSource
 
             assert isinstance(config, SqlAlchemyDataSourceConfig)
             return SqlAlchemyDataSource(config)

@@ -3,9 +3,9 @@ from hashlib import sha256
 from pathlib import Path
 
 from portus.core.data_source import DataSource, SemanticDict
-from portus.data_source.configs.data_source_config import DataSourceConfig
-from portus.data_source.configs.schema_inspection_config import InspectionOptions, SchemaInspectionConfig
-from portus.data_source.database_schema_types import DatabaseSchema
+from portus.data.configs.data_source_config import DataSourceConfig
+from portus.data.configs.schema_inspection_config import InspectionOptions, SchemaInspectionConfig
+from portus.data.database_schema_types import DatabaseSchema
 
 
 def get_semantic_hash(

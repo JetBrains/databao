@@ -6,12 +6,12 @@ from typing import Self
 import pandas as pd
 
 from portus.core.data_source import DataSource
-from portus.data_source.configs.data_source_config import DataSourceConfig
-from portus.data_source.configs.schema_inspection_config import SchemaInspectionConfig
-from portus.data_source.data_source_utils import get_data_source
-from portus.data_source.database_schema_types import DatabaseSchema
-from portus.data_source.schema_inspection import get_db_schema
-from portus.data_source.schema_summary import summarize_schemas
+from portus.data.configs.data_source_config import DataSourceConfig
+from portus.data.configs.schema_inspection_config import SchemaInspectionConfig
+from portus.data.data_source_utils import get_data_source
+from portus.data.database_schema_types import DatabaseSchema
+from portus.data.schema_inspection import get_db_schema
+from portus.data.schema_summary import summarize_schemas
 
 
 class DataEngine:

@@ -7,7 +7,7 @@ import requests
 import sqlalchemy as sa
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_random_exponential
 
-from portus.data_source.database_schema_types import ColumnSchema, DatabaseSchema, TableSchema, TopKValuesElement
+from portus.data.database_schema_types import ColumnSchema, DatabaseSchema, TableSchema, TopKValuesElement
 
 _LOGGER = logging.getLogger(__name__)
 

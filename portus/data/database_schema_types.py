@@ -8,7 +8,7 @@ from portus._template_utils import read_package_template
 
 _LOGGER = logging.getLogger(__name__)
 
-_VALUE_STATS_SUMMARY_TEMPLATE = read_package_template("portus.data_source", "column_value_stats_summary.jinja")
+_VALUE_STATS_SUMMARY_TEMPLATE = read_package_template("portus.data", "column_value_stats_summary.jinja")
 
 T = TypeVar("T")
 R = TypeVar("R")

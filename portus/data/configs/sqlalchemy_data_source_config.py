@@ -3,7 +3,7 @@ from typing import Literal
 from pydantic import Field, SecretStr
 from sqlalchemy import URL, make_url
 
-from portus.data_source.configs.data_source_config import DataSourceConfig
+from portus.data.configs.data_source_config import DataSourceConfig
 
 
 class SqlAlchemyDataSourceConfig(DataSourceConfig):

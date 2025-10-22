@@ -4,7 +4,7 @@ import pandas as pd
 from _duckdb import DuckDBPyConnection
 from sqlalchemy import Connection, Engine
 
-from portus.data_source.duckdb.utils import register_sqlalchemy
+from portus.data.duckdb.utils import register_sqlalchemy
 
 
 class DuckDBSource(ABC):

@@ -6,7 +6,7 @@ from pandas import DataFrame
 
 from portus.configs.llm import LLMConfig
 from portus.core.pipe import Pipe
-from portus.data_source.duckdb.duckdb_collection import DuckDBCollection
+from portus.data.duckdb.duckdb_collection import DuckDBCollection
 
 if TYPE_CHECKING:
     from portus.core.cache import Cache

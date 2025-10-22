@@ -1,7 +1,7 @@
 from typing import Any
 
-from portus.data_source.configs.schema_inspection_config import SchemaSummaryType
-from portus.data_source.database_schema_types import DatabaseSchema, TableSchema
+from portus.data.configs.schema_inspection_config import SchemaSummaryType
+from portus.data.database_schema_types import DatabaseSchema, TableSchema
 
 
 def summarize_database_metadata(schema: DatabaseSchema, *, include_name: bool = False) -> str:

@@ -14,16 +14,16 @@ from tqdm.asyncio import tqdm
 
 from portus.caches.disk_cache import DiskCache, DiskCacheConfig
 from portus.core.data_source import DataSource, SemanticDict
-from portus.data_source.configs.schema_inspection_config import InspectionOptions, ValueSamplingStrategy
-from portus.data_source.configs.sqlalchemy_data_source_config import SqlAlchemyDataSourceConfig
-from portus.data_source.database_schema_types import (
+from portus.data.configs.schema_inspection_config import InspectionOptions, ValueSamplingStrategy
+from portus.data.configs.sqlalchemy_data_source_config import SqlAlchemyDataSourceConfig
+from portus.data.database_schema_types import (
     ColumnSchema,
     ColumnValuesStats,
     DatabaseSchema,
     TableSchema,
     TopKValuesElement,
 )
-from portus.data_source.database_type_utils import (
+from portus.data.database_type_utils import (
     is_aggregate_function,
     is_array_dtype,
     is_datetime_dtype,
@@ -32,8 +32,8 @@ from portus.data_source.database_type_utils import (
     is_numeric_dtype,
     is_string_dtype,
 )
-from portus.data_source.schema_summary import format_values_list
-from portus.data_source.sqlalchemy_utils import (
+from portus.data.schema_summary import format_values_list
+from portus.data.sqlalchemy_utils import (
     GeneralSchemaValueStats,
     execute_sql_query,
     fetch_distinct_values,

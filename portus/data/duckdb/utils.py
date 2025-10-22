@@ -6,7 +6,7 @@ import sqlalchemy as sa
 from duckdb import DuckDBPyConnection
 from pandas import DataFrame
 
-from portus.data_source.database_schema_types import ColumnSchema, DatabaseSchema, TableSchema
+from portus.data.database_schema_types import ColumnSchema, DatabaseSchema, TableSchema
 
 
 def execute(

@@ -3,9 +3,9 @@ from typing import Any, Literal
 
 import pandas as pd
 
-from portus.data_source.configs.data_source_config import DataSourceConfig
-from portus.data_source.configs.schema_inspection_config import InspectionOptions
-from portus.data_source.database_schema_types import DatabaseSchema
+from portus.data.configs.data_source_config import DataSourceConfig
+from portus.data.configs.schema_inspection_config import InspectionOptions
+from portus.data.database_schema_types import DatabaseSchema
 
 type SemanticDict = dict[str, Any] | Literal["full"]  # TODO rename and make a pydantic model
 
