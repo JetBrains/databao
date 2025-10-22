@@ -59,7 +59,10 @@ class LLMConfig(BaseModel):
         if provider == "openai" or self.api_base_url is not None:
             from langchain_openai import ChatOpenAI
 
-            is_reasoning = _is_reasoning_model(name)
+            # Use the verbatim name if using an OAI server
+            model_name = self.name if self.api_base_url is not None else name
+
+            is_reasoning = _is_reasoning_model(model_name)
             extra_kwargs: dict[str, Any] = {}
             if self.use_responses_api:
                 extra_kwargs.update(
@@ -76,7 +79,7 @@ class LLMConfig(BaseModel):
                 )
 
             return ChatOpenAI(
-                model=name,
+                model=model_name,
                 timeout=self._resolve_timeout(),
                 max_tokens=self.max_tokens,
                 base_url=self.api_base_url,
