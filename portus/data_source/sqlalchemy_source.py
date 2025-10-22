@@ -13,9 +13,9 @@ from sqlalchemy.pool import ConnectionPoolEntry
 from tqdm.asyncio import tqdm
 
 from portus.caches.disk_cache import DiskCache, DiskCacheConfig
+from portus.core.data_source import DataSource, SemanticDict
 from portus.data_source.configs.schema_inspection_config import InspectionOptions, ValueSamplingStrategy
 from portus.data_source.configs.sqlalchemy_data_source_config import SqlAlchemyDataSourceConfig
-from portus.data_source.data_source import DataSource, SemanticDict
 from portus.data_source.database_schema_types import (
     ColumnSchema,
     ColumnValuesStats,

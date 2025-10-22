@@ -6,10 +6,10 @@ import pandas as pd
 from duckdb import DuckDBPyConnection
 from sqlalchemy import Engine, create_engine
 
+from portus.core.data_source import DataSource, SemanticDict
 from portus.data_source.configs.data_source_config import DataSourceConfig
 from portus.data_source.configs.schema_inspection_config import InspectionOptions
 from portus.data_source.configs.sqlalchemy_data_source_config import SqlAlchemyDataSourceConfig
-from portus.data_source.data_source import DataSource, SemanticDict
 from portus.data_source.database_schema_types import DatabaseSchema
 from portus.data_source.duckdb.duckdb_source import DatabaseSource, DataFrameSource
 from portus.data_source.duckdb.utils import inspect_duckdb_schema, list_inspectable_duckdb_tables
