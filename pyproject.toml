@@ -22,7 +22,7 @@ dependencies = [
     "tabulate>=0.9.0",
     "psycopg2-binary>=2.9.10",
     "matplotlib>=3.10.6",
-    "edaplot>=0.0.1,<0.1",
+    "edaplot-vl~=0.0.1",
 ]
 
 [project.optional-dependencies]
@@ -40,16 +40,6 @@ include = ["/portus"]
 
 [tool.hatch.build.targets.wheel]
 include = ["/portus"]
-
-[tool.uv.sources]
-# TODO This is a temporary solution until edaplot is published to PyPI
-edaplot = { index = "testpypi" }
-
-[[tool.uv.index]]
-name = "testpypi"
-url = "https://test.pypi.org/simple/"
-publish-url = "https://test.pypi.org/legacy/"
-explicit = true
 
 [dependency-groups]
 dev = [

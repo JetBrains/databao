@@ -587,9 +587,9 @@ wheels = [
 ]
 
 [[package]]
-name = "edaplot"
+name = "edaplot-vl"
 version = "0.0.1"
-source = { registry = "https://test.pypi.org/simple/" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "altair", extra = ["all"] },
     { name = "commentjson" },
@@ -602,8 +602,9 @@ dependencies = [
     { name = "tqdm" },
     { name = "vl-convert-python" },
 ]
+sdist = { url = "https://files.pythonhosted.org/packages/f8/e6/ce8d3fb055b2085703c5b029cbfb907006f47361bf690cd606611739a6c0/edaplot_vl-0.0.1.tar.gz", hash = "sha256:c2bb95a51432a604384f8b85f4a7e6e37aab593a84756ec47c9556222cbc1048", size = 44625, upload-time = "2025-10-22T10:21:04.561Z" }
 wheels = [
-    { url = "https://test-files.pythonhosted.org/packages/6f/0b/c51c5b69cb1283a8298ecd25df187f05f7bf4483352e200b6a5a1fc53c56/edaplot-0.0.1-py3-none-any.whl", hash = "sha256:020f59e2accba9328247437cd4b7c36fc8e2537d5f6a9c372a5450a078d5079a", size = 52362, upload-time = "2025-10-21T15:35:19.826Z" },
+    { url = "https://files.pythonhosted.org/packages/80/11/6d151a289acc4c11cad7fe4604db084abee48e872042d4eb58e0cac88872/edaplot_vl-0.0.1-py3-none-any.whl", hash = "sha256:96697ed282529b1271dd6bb5d645d83f9fa67769e3ecefbd2c32315a3e5ba5c7", size = 52384, upload-time = "2025-10-22T10:21:03.166Z" },
 ]
 
 [[package]]
@@ -2087,7 +2088,7 @@ version = "0.0.1"
 source = { editable = "." }
 dependencies = [
     { name = "duckdb" },
-    { name = "edaplot" },
+    { name = "edaplot-vl" },
     { name = "jinja2" },
     { name = "langchain" },
     { name = "langchain-anthropic" },
@@ -2120,7 +2121,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "duckdb", specifier = ">=1.3.0" },
-    { name = "edaplot", specifier = ">=0.0.1,<0.1", index = "https://test.pypi.org/simple/" },
+    { name = "edaplot-vl", specifier = "~=0.0.1" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "langchain", specifier = ">=0.3.20,<0.4" },
     { name = "langchain-anthropic", specifier = ">=0.3.10,<0.4" },
