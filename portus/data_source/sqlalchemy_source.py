@@ -46,9 +46,9 @@ from portus.data_source.sqlalchemy_utils import (
 
 
 class SqlAlchemyDataSource(DataSource[SqlAlchemyDataSourceConfig]):
-    def __init__(self, config: SqlAlchemyDataSourceConfig):
+    def __init__(self, config: SqlAlchemyDataSourceConfig, engine: sa.Engine | None = None) -> None:
         super().__init__(config)
-        self.engine = self._create_db_engine()
+        self.engine = engine or self._create_db_engine()
         # TODO: a datasource should be able to have multiple databases and just loop thought them at inspection time
         #  / theoreticaly to something with them at query time
         #  - e.g. have a hook to check if exactly they are called from a larger set of databases within a project
@@ -96,7 +96,7 @@ class SqlAlchemyDataSource(DataSource[SqlAlchemyDataSourceConfig]):
     def _merge_database_schemas(self, database_schemas: list[DatabaseSchema]) -> DatabaseSchema:
         """
         In case the data source has a group of schemas, we must merge the results of the schema inspection into a
-        single DataseSchema object. The plugin classes will need to adjust this to their concrete usecases.
+        single DatabaseSchema object. The plugin classes will need to adjust this to their concrete use cases.
         """
         tables = list(itertools.chain(*[schema.tables.values() for schema in database_schemas]))
         return DatabaseSchema(db_type=self.config.db_type, tables={table.qualified_name: table for table in tables})

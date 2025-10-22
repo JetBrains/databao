@@ -1,13 +1,12 @@
-import pathlib
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import duckdb
 from langchain_core.language_models.chat_models import BaseChatModel
 from pandas import DataFrame
-from sqlalchemy import Engine
 
 from portus.configs.llm import LLMConfig
 from portus.core.pipe import Pipe
+from portus.data_source.duckdb.duckdb_collection import DuckDBCollection
 
 if TYPE_CHECKING:
     from portus.core.cache import Cache
@@ -29,66 +28,37 @@ class Session:
         self.__llm = llm.chat_model
         self.__llm_config = llm
 
-        self.__dbs: dict[str, Any] = {}
-        self.__dfs: dict[str, DataFrame] = {}
-
-        self.__db_contexts: dict[str, str] = {}
-        self.__df_contexts: dict[str, str] = {}
-
-        # Create a DuckDB connection for the session
-        self.__duckdb_connection = duckdb.connect(":memory:")
+        self.__duckdb_collection = DuckDBCollection()
 
         self.__executor = data_executor
         self.__visualizer = visualizer
         self.__cache = cache
         self.__default_rows_limit = default_rows_limit
 
-    def add_db(self, connection: Any, *, name: str | None = None, context: str | None = None) -> None:
-        from portus.data_source.duckdb.utils import register_sqlalchemy
+    def add_db(self, connection: Any, *, name: str | None = None, additional_context: str | None = None) -> None:
+        if additional_context is not None and Path(additional_context).is_file():
+            additional_context = Path(additional_context).read_text()
+        self.__duckdb_collection.add_db(connection, name=name, additional_context=additional_context)
 
-        conn_name = name or f"db{len(self.__dbs) + 1}"
-
-        # If it's a SQLAlchemy engine, register it with our DuckDB connection
-        if isinstance(connection, Engine):
-            register_sqlalchemy(self.__duckdb_connection, connection, conn_name)
-            # Store the DuckDB connection in dbs if not already there
-            if "duckdb" not in self.__dbs:
-                self.__dbs["duckdb"] = self.__duckdb_connection
-        else:
-            # For other connection types (like native DuckDB), store directly
-            self.__dbs[conn_name] = connection
-
-        if context:
-            if pathlib.Path(context).is_file():
-                context = pathlib.Path(context).read_text()
-            self.__db_contexts[conn_name] = context
-
-    def add_df(self, df: DataFrame, *, name: str | None = None, context: str | None = None) -> None:
-        df_name = name or f"df{len(self.__dfs) + 1}"
-        self.__dfs[df_name] = df
-
-        # Register the DataFrame with DuckDB
-        self.__duckdb_connection.register(df_name, df)
-
-        # Store the DuckDB connection in dbs if not already there
-        if "duckdb" not in self.__dbs:
-            self.__dbs["duckdb"] = self.__duckdb_connection
-
-        if context:
-            if pathlib.Path(context).is_file():
-                context = pathlib.Path(context).read_text()
-            self.__df_contexts[df_name] = context
+    def add_df(self, df: DataFrame, *, name: str | None = None, additional_context: str | None = None) -> None:
+        if additional_context is not None and Path(additional_context).is_file():
+            additional_context = Path(additional_context).read_text()
+        self.__duckdb_collection.add_df(df, name=name, additional_context=additional_context)
 
     def ask(self, query: str) -> Pipe:
+        self.__duckdb_collection.register_data_sources()
         return Pipe(self, default_rows_limit=self.__default_rows_limit).ask(query)
 
     @property
     def dbs(self) -> dict[str, Any]:
-        return dict(self.__dbs)
+        dbs_: dict[str, Any] = {s.name: s.engine for s in self.__duckdb_collection.db_sources}
+        # Temporary workaround for AgentExecutor
+        dbs_["native_duckdb"] = self.__duckdb_collection.make_duckdb_connection()
+        return dbs_
 
     @property
     def dfs(self) -> dict[str, DataFrame]:
-        return dict(self.__dfs)
+        return {s.name: s.df for s in self.__duckdb_collection.df_sources}
 
     @property
     def name(self) -> str:
@@ -116,4 +86,14 @@ class Session:
 
     @property
     def context(self) -> tuple[dict[str, str], dict[str, str]]:
-        return self.__db_contexts, self.__df_contexts
+        db_contexts = {
+            s.name: s.additional_context
+            for s in self.__duckdb_collection.db_sources
+            if s.additional_context is not None
+        }
+        df_contexts = {
+            s.name: s.additional_context
+            for s in self.__duckdb_collection.df_sources
+            if s.additional_context is not None
+        }
+        return db_contexts, df_contexts
