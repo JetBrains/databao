@@ -1,8 +1,8 @@
+import asyncio
 from collections.abc import Sequence
 from typing import Annotated, Any, Literal, TypedDict
 
 import pandas as pd
-from duckdb import DuckDBPyConnection
 from langchain_core.language_models import BaseChatModel, LanguageModelInput
 from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
 from langchain_core.runnables import Runnable
@@ -14,7 +14,7 @@ from langgraph.graph.state import CompiledStateGraph, StateGraph
 
 from portus.agents.lighthouse.utils import exception_to_string
 from portus.configs.llm import LLMConfig
-from portus.core import ExecutionResult
+from portus.core import DataEngine, ExecutionResult
 
 
 class AgentState(TypedDict):
@@ -26,14 +26,15 @@ class AgentState(TypedDict):
     ready_for_user: bool
 
 
+# TODO rename and/or combine with LighthouseAgent
 class ExecuteSubmit:
     """Simple graph with two tools: run_sql_query and submit_query_id.
     All context must be in the SystemMessage."""
 
     MAX_ROWS = 12
 
-    def __init__(self, connection: DuckDBPyConnection):
-        self._connection = connection
+    def __init__(self, data_engine: DataEngine):
+        self._data_engine = data_engine
 
     def init_state(self, messages: list[BaseMessage]) -> dict[str, Any]:
         state: dict[str, Any] = {
@@ -87,7 +88,8 @@ class ExecuteSubmit:
             Args:
                 sql: SQL query
             """
-            df_or_error = self._connection.execute(sql).df()
+            # TODO remove asyncio.run
+            df_or_error = asyncio.run(self._data_engine.execute(sql))
             if isinstance(df_or_error, pd.DataFrame):
                 df_csv = df_or_error.head(self.MAX_ROWS).to_csv(index=False)
                 df_markdown = df_or_error.head(self.MAX_ROWS).to_markdown(index=False)

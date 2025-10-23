@@ -5,6 +5,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from pandas import DataFrame
 
 from portus.configs.llm import LLMConfig
+from portus.core import DataEngine
 from portus.core.pipe import Pipe
 from portus.data.duckdb.duckdb_collection import DuckDBCollection
 
@@ -29,6 +30,7 @@ class Session:
         self.__llm_config = llm
 
         self.__duckdb_collection = DuckDBCollection()
+        self.__data_engine = DataEngine([self.__duckdb_collection])
 
         self.__executor = data_executor
         self.__visualizer = visualizer
@@ -59,6 +61,10 @@ class Session:
     @property
     def dfs(self) -> dict[str, DataFrame]:
         return {s.name: s.df for s in self.__duckdb_collection.df_sources}
+
+    @property
+    def data_engine(self) -> DataEngine:
+        return self.__data_engine
 
     @property
     def name(self) -> str:

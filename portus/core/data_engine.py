@@ -17,20 +17,34 @@ from portus.data.schema_summary import summarize_schemas
 class DataEngine:
     """Main data access point that coordinates between all provided data sources."""
 
-    def __init__(self, sources: list[DataSource[DataSourceConfig]]):
-        assert len(sources) > 0, "No data sources provided."
+    def __init__(self, sources: Sequence[DataSource[DataSourceConfig]] | None = None):
+        sources = sources or []
         sources_dict = {s.name: s for s in sources}
         assert len(sources_dict) == len(sources), "Duplicate data source names are not allowed."
 
-        self.sources = sources_dict
-        self.default_source_name = sources[0].name
+        self._sources = sources_dict
+        self._default_source_name = sources[0].name if len(sources) > 0 else None
 
         self._source_schemas: dict[str, DatabaseSchema] = {}
 
+    @property
+    def sources(self) -> dict[str, DataSource[DataSourceConfig]]:
+        return self._sources
+
+    def add_source(self, source: DataSource[DataSourceConfig]) -> None:
+        if source.name in self._sources:
+            raise KeyError(f"Data source with name {source.name} already exists.")
+        self._sources[source.name] = source
+        if self._default_source_name is None:
+            self._default_source_name = source.name
+
     async def execute(self, query: str, *, source: str | None = None) -> pd.DataFrame | Exception:
         # For now, we use a single source only, so make selecting the source optional.
-        name = source if source is not None else self.default_source_name
-        src = self.sources[name]
+        if source is None and self._default_source_name is None:
+            raise ValueError("No data sources have been added yet!")
+        name = source if source is not None else self._default_source_name
+        assert name is not None
+        src = self._sources[name]
         result = await src.execute(query)
         return result
 
@@ -39,7 +53,7 @@ class DataEngine:
         source: str,
         inspection_config: SchemaInspectionConfig,
     ) -> DatabaseSchema:
-        ds = self.sources[source]
+        ds = self._sources[source]
         if source in self._source_schemas:
             return self._source_schemas[source]
         schema = await get_db_schema(ds, inspection_config)
@@ -51,7 +65,7 @@ class DataEngine:
         inspection_config: SchemaInspectionConfig,
     ) -> dict[str, DatabaseSchema]:
         schemas = {}
-        for source_name in self.sources:
+        for source_name in self._sources:
             schemas[source_name] = await self.get_source_schema(source=source_name, inspection_config=inspection_config)
         return schemas
 
@@ -63,7 +77,7 @@ class DataEngine:
         return summarize_schemas(db_schemas, inspection_config.summary_type)
 
     async def close(self) -> None:
-        await asyncio.gather(*(source.close() for source in self.sources.values()))
+        await asyncio.gather(*(source.close() for source in self._sources.values()))
 
     @classmethod
     async def from_configs(cls, source_configs: Sequence[DataSourceConfig | Path]) -> Self:

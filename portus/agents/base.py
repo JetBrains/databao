@@ -3,15 +3,11 @@ from abc import abstractmethod
 from io import BytesIO
 from typing import Any
 
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import BaseMessage, HumanMessage
+from langgraph.graph.state import CompiledStateGraph
 
 from portus.configs.llm import LLMConfig
 from portus.core import Executor, Opa, Session
-
-try:
-    from duckdb import DuckDBPyConnection
-except ImportError:
-    DuckDBPyConnection = Any  # type: ignore
 
 
 class AgentExecutor(Executor):
@@ -22,35 +18,12 @@ class AgentExecutor(Executor):
 
     def __init__(self) -> None:
         """Initialize agent with graph caching infrastructure."""
-        self._cached_compiled_graph: Any | None = None
-        self._cached_connection_id: int | None = None
-        self._cached_llm_config_id: int | None = None
+        # TODO Caching should be scoped to the Session/Pipe/Thread, not the Executor instance
+        self._cached_compiled_graph: CompiledStateGraph[Any] | None = None
+        self._cached_llm_config: LLMConfig | None = None
+        self._cached_data_source_names: list[str] | None = None
 
-    def _get_data_connection(self, session: Session) -> Any:
-        """Get DuckDB connection from session."""
-        from duckdb import DuckDBPyConnection
-
-        dbs = session.dbs
-        if not dbs:
-            raise RuntimeError("No database connection available. Add a database to the session using session.add_db()")
-
-        # Filter for DuckDB connections only
-        duckdb_connections = [conn for conn in dbs.values() if isinstance(conn, DuckDBPyConnection)]
-
-        if not duckdb_connections:
-            raise RuntimeError(
-                "No DuckDB connection found. LighthouseAgent requires a DuckDB connection. "
-                "Use portus.duckdb.register_sqlalchemy() or similar to attach external databases to DuckDB."
-            )
-
-        # Use the first DuckDB connection
-        return duckdb_connections[0]
-
-    def _get_llm_config(self, session: Session) -> LLMConfig:
-        """Get LLM config from session."""
-        return session.llm_config
-
-    def _get_messages(self, session: Session, cache_scope: str) -> list[Any]:
+    def _get_messages(self, session: Session, cache_scope: str) -> list[BaseMessage]:
         """Retrieve messages from the session cache."""
         try:
             buffer = BytesIO()
@@ -69,55 +42,45 @@ class AgentExecutor(Executor):
         session.cache.scoped(cache_scope).put("messages", buffer)
 
     @abstractmethod
-    def _create_graph(self, data_connection: Any, llm_config: LLMConfig) -> Any:
+    def _create_graph(self, session: Session) -> CompiledStateGraph[Any]:
         """
         Create and compile the agent graph.
 
         Subclasses must implement this method to return their specific graph implementation.
-
-        Args:
-            data_connection: DuckDB connection
-            llm_config: LLM configuration
 
         Returns:
             Compiled graph ready for execution
         """
         pass
 
-    def _should_recompile_graph(self, connection_id: int, llm_config_id: int) -> bool:
-        """Check if graph needs recompilation due to connection or config changes."""
+    def _should_recompile_graph(self, session: Session) -> bool:
+        """Check if the graph needs recompilation (e.g., due to connection or config changes)."""
+        data_engine = session.data_engine
+        data_source_names = sorted(s.name for s in data_engine.sources.values())
         return (
             self._cached_compiled_graph is None
-            or self._cached_connection_id != connection_id
-            or self._cached_llm_config_id != llm_config_id
+            or self._cached_data_source_names != data_source_names
+            or self._cached_llm_config != session.llm_config
         )
 
-    def _cache_graph(self, compiled_graph: Any, connection_id: int, llm_config_id: int) -> None:
+    def _cache_graph(self, session: Session, compiled_graph: CompiledStateGraph[Any]) -> None:
         """Cache the compiled graph and associated IDs."""
+        data_engine = session.data_engine
+        data_source_names = sorted(s.name for s in data_engine.sources.values())
         self._cached_compiled_graph = compiled_graph
-        self._cached_connection_id = connection_id
-        self._cached_llm_config_id = llm_config_id
+        self._cached_llm_config = session.llm_config
+        self._cached_data_source_names = data_source_names
 
-    def _get_or_create_cached_graph(self, session: Session) -> tuple[Any, Any]:
-        """
-        Get cached graph or create new one if connection/config changed.
+    def _get_or_create_cached_graph(self, session: Session) -> CompiledStateGraph[Any]:
+        """Get cached graph or create new one if connection/config changed."""
+        if self._cached_compiled_graph is not None and not self._should_recompile_graph(session):
+            return self._cached_compiled_graph
 
-        Returns:
-            Tuple of (data_connection, compiled_graph)
-        """
-        data_connection = self._get_data_connection(session)
-        llm_config = self._get_llm_config(session)
+        compiled_graph = self._create_graph(session)
+        self._cache_graph(session, compiled_graph)
+        return compiled_graph
 
-        connection_id = id(data_connection)
-        llm_config_id = id(llm_config)
-
-        if self._should_recompile_graph(connection_id, llm_config_id):
-            compiled_graph = self._create_graph(data_connection, llm_config)
-            self._cache_graph(compiled_graph, connection_id, llm_config_id)
-
-        return data_connection, self._cached_compiled_graph
-
-    def _process_opa(self, session: Session, opa: Opa, cache_scope: str) -> list[Any]:
+    def _process_opa(self, session: Session, opa: Opa, cache_scope: str) -> list[BaseMessage]:
         """
         Process a single opa and convert it to a message, appending to message history.
 
@@ -128,7 +91,7 @@ class AgentExecutor(Executor):
         messages.append(HumanMessage(content=opa.query))
         return messages
 
-    def _update_message_history(self, session: Session, cache_scope: str, final_messages: list[Any]) -> None:
+    def _update_message_history(self, session: Session, cache_scope: str, final_messages: list[BaseMessage]) -> None:
         """Update message history in cache with final messages from graph execution."""
         if final_messages:
             self._set_messages(session, cache_scope, final_messages)
