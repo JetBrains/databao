@@ -3,15 +3,17 @@ import itertools
 import logging
 import re
 import warnings
-from collections.abc import Collection
+from collections.abc import Generator
+from dataclasses import dataclass
 from typing import Any
 
 import pandas as pd
 import sqlalchemy as sa
+import tqdm
 from sqlalchemy.engine.interfaces import DBAPIConnection
 from sqlalchemy.event import listen
 from sqlalchemy.pool import ConnectionPoolEntry
-from tqdm.asyncio import tqdm
+from tqdm.asyncio import tqdm_asyncio
 
 from portus.caches.disk_cache import DiskCache, DiskCacheConfig
 from portus.core.data_source import DataSource, SemanticDict
@@ -47,6 +49,32 @@ from portus.data.sqlalchemy_utils import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+
+@dataclass(kw_only=True)
+class ColumnInspectionTask:
+    task_id: int
+    table_name: str
+    col_name: str
+    col_desc: str
+    col_dtype: str
+    database_or_schema: str | None
+    options: InspectionOptions
+    cache_key: str | None = None
+
+
+@dataclass(kw_only=True, frozen=True)
+class ColumnInspectionResult:
+    task_id: int
+    column_schema: ColumnSchema
+
+
+@dataclass(kw_only=True, frozen=True)
+class TableInspectionTask:
+    table_name: str
+    schema_name: str | None
+    table_desc: str | None
+    column_tasks: list[ColumnInspectionTask]
 
 
 class SqlAlchemyDataSource(DataSource[SqlAlchemyDataSourceConfig]):
@@ -90,16 +118,49 @@ class SqlAlchemyDataSource(DataSource[SqlAlchemyDataSourceConfig]):
         semantic_dict: SemanticDict,
         options: InspectionOptions,
     ) -> DatabaseSchema:
+        async def _inspect(database_or_schema: str | None) -> DatabaseSchema:
+            generator = self._inspect_schema_helper(semantic_dict, options, database_or_schema)
+            column_inspection_tasks = generator.send(None)
+            tasks = [self._run_column_inspection_task(task) for task in column_inspection_tasks]
+            column_inspection_results = await tqdm_asyncio.gather(*tasks, desc="Inspecting columns")
+            try:
+                generator.send(column_inspection_results)
+            except StopIteration as e:
+                assert isinstance(e.value, DatabaseSchema)
+                return e.value
+            raise RuntimeError("inspect_schema didn't return")  # for mypy
+
         if self.config.database_or_schema is None or isinstance(self.config.database_or_schema, str):
-            return await self._inspect_schema(semantic_dict, options, self.config.database_or_schema)
+            return await _inspect(self.config.database_or_schema)
 
         database_schemas: list[DatabaseSchema] = await asyncio.gather(
-            *[
-                self._inspect_schema(semantic_dict, options, database_or_schema)
-                for database_or_schema in self.config.database_or_schema
-            ]
+            *[_inspect(database_or_schema) for database_or_schema in self.config.database_or_schema]
         )
 
+        return self._merge_database_schemas(database_schemas)
+
+    def inspect_schema_sync(
+        self,
+        semantic_dict: SemanticDict,
+        options: InspectionOptions,
+    ) -> DatabaseSchema:
+        def _inspect(database_or_schema: str | None) -> DatabaseSchema:
+            generator = self._inspect_schema_helper(semantic_dict, options, database_or_schema)
+            column_inspection_tasks = generator.send(None)
+            column_inspection_results = [
+                self._run_column_inspection_task_sync(task)
+                for task in tqdm.tqdm(column_inspection_tasks, desc=f"Inspecting '{database_or_schema or 'full'}'")
+            ]
+            try:
+                generator.send(column_inspection_results)
+            except StopIteration as e:
+                assert isinstance(e.value, DatabaseSchema)
+                return e.value
+            raise RuntimeError("inspect_schema didn't return")  # for mypy
+
+        if self.config.database_or_schema is None or isinstance(self.config.database_or_schema, str):
+            return _inspect(self.config.database_or_schema)
+        database_schemas = [_inspect(database_or_schema) for database_or_schema in self.config.database_or_schema]
         return self._merge_database_schemas(database_schemas)
 
     def _merge_database_schemas(self, database_schemas: list[DatabaseSchema]) -> DatabaseSchema:
@@ -119,15 +180,54 @@ class SqlAlchemyDataSource(DataSource[SqlAlchemyDataSourceConfig]):
     def _create_db_engine(self) -> sa.Engine:
         return create_db_engine(self.config)
 
-    async def _inspect_schema(
+    async def _run_column_inspection_task(self, task: ColumnInspectionTask) -> ColumnInspectionResult:
+        async with self._semaphore:
+            # Run the synchronous column inspection in a thread pool
+            # (using the default max_workers of the thread pool)
+            column_values, column_value_stats = await asyncio.to_thread(
+                self._inspect_column_values_helper,
+                database_or_schema=task.database_or_schema,
+                table_name=task.table_name,
+                col_name=task.col_name,
+                dtype=task.col_dtype,
+                options=task.options,
+            )
+            return ColumnInspectionResult(
+                task_id=task.task_id,
+                column_schema=ColumnSchema(
+                    name=task.col_name,
+                    dtype=task.col_dtype,
+                    description=task.col_desc,
+                    values=column_values,
+                    value_stats=column_value_stats,
+                ),
+            )
+
+    def _run_column_inspection_task_sync(self, task: ColumnInspectionTask) -> ColumnInspectionResult:
+        column_values, column_value_stats = self._inspect_column_values_helper(
+            database_or_schema=task.database_or_schema,
+            table_name=task.table_name,
+            col_name=task.col_name,
+            dtype=task.col_dtype,
+            options=task.options,
+        )
+        return ColumnInspectionResult(
+            task_id=task.task_id,
+            column_schema=ColumnSchema(
+                name=task.col_name,
+                dtype=task.col_dtype,
+                description=task.col_desc,
+                values=column_values,
+                value_stats=column_value_stats,
+            ),
+        )
+
+    def _inspect_schema_helper(
         self,
         semantic_dict: SemanticDict,
         options: InspectionOptions,
         database_or_schema: str | None,
-    ) -> DatabaseSchema:
-        """
-        Inspect a single database or schema.
-        """
+    ) -> Generator[list[ColumnInspectionTask], list[ColumnInspectionResult] | None, DatabaseSchema]:
         # TODO move common logic to DataSource?
         if options.cache_intermediate_results:
             # TODO how/when to invalidate the cache?
@@ -141,10 +241,75 @@ class SqlAlchemyDataSource(DataSource[SqlAlchemyDataSourceConfig]):
                 "database_or_schema": database_or_schema,
                 "options": options.model_dump_for_cache(),
             }
+            cache_tag = f"{self.name}/inspect_schema"
         else:
             cache = None
 
-        out_schema = DatabaseSchema(db_type=self.config.db_type, name=self.name, description=None)
+        table_inspection_tasks = self._get_table_inspection_tasks(semantic_dict, options, database_or_schema)
+        all_column_tasks = []
+        for table_task in table_inspection_tasks:
+            all_column_tasks.extend(table_task.column_tasks)
+
+        # Handle cached column tasks here to avoid duplicating the code in the coroutine caller.
+        todo_column_tasks = []
+        column_inspection_results = []
+        for column_task in all_column_tasks:
+            if cache is not None:
+                cache_key = cache.make_json_key(
+                    cache_dict
+                    | {"path": f"{cache_tag}/{database_or_schema}/{column_task.table_name}/{column_task.col_name}"}
+                )
+                column_task.cache_key = cache_key
+                if cache_key in cache:
+                    column_schema = ColumnSchema.model_validate_json(cache.get_object(cache_key))
+                    column_inspection_results.append(
+                        ColumnInspectionResult(task_id=column_task.task_id, column_schema=column_schema)
+                    )
+                    continue
+            todo_column_tasks.append(column_task)
+
+        # Yield tasks to be processed and receive the results.
+        # The coroutine caller can decide to process the tasks in parallel or sequentially.
+        todo_column_inspection_results = yield todo_column_tasks
+        assert todo_column_inspection_results is not None  # None is just to start a generator
+        column_inspection_results.extend(todo_column_inspection_results)
+
+        # Cache new column inspection results if needed
+        if cache is not None:
+            task_id_to_task = {t.task_id: t for t in todo_column_tasks}
+            for column_inspection_result in todo_column_inspection_results:
+                column_task = task_id_to_task[column_inspection_result.task_id]
+                assert column_task.cache_key is not None
+                cache.set_object(
+                    column_task.cache_key, column_inspection_result.column_schema.model_dump_json(), tag=cache_tag
+                )
+            cache.close()
+
+        table_schemas = {}
+        task_id_to_result = {result.task_id: result for result in column_inspection_results}
+        for table_task in table_inspection_tasks:
+            table_columns = {}
+            for column_task in table_task.column_tasks:
+                column_schema = task_id_to_result[column_task.task_id].column_schema
+                table_columns[column_schema.name] = column_schema
+            table_schema = TableSchema(
+                name=table_task.table_name,
+                schema_name=table_task.schema_name,
+                description=table_task.table_desc,
+                columns=table_columns,
+            )
+            table_schemas[table_schema.qualified_name] = table_schema
+
+        db_schema = DatabaseSchema(db_type=self.config.db_type, name=self.name, description=None, tables=table_schemas)
+        return db_schema
+
+    def _get_table_inspection_tasks(
+        self,
+        semantic_dict: SemanticDict,
+        options: InspectionOptions,
+        database_or_schema: str | None,
+    ) -> list[TableInspectionTask]:
+        # Getting tasks is a _fast_ method.
 
         raw_schema = self._inspect_database_schema(database_or_schema)
         raw_table_names = {t.name: t for t in raw_schema.tables.values()}
@@ -163,42 +328,10 @@ class SqlAlchemyDataSource(DataSource[SqlAlchemyDataSourceConfig]):
                     semantic_dict["tables"][table.name] = "__all__"  # to distinguish from a user provided "all"
 
         semantic_tables = semantic_dict["tables"]
+        task_id = 0
 
-        async def process_column(*, table_name: str, col_name: str, col_desc: str, col_dtype: str) -> ColumnSchema:
-            async def _process() -> ColumnSchema:
-                async with self._semaphore:
-                    # Run the synchronous column inspection in a thread pool
-                    # (using the default max_workers of the thread pool)
-                    column_values, column_value_stats = await asyncio.to_thread(
-                        self._inspect_column_values_helper,
-                        database_or_schema=database_or_schema,
-                        table_name=table_name,
-                        col_name=col_name,
-                        dtype=col_dtype,
-                        options=options,
-                    )
-
-                return ColumnSchema(
-                    name=col_name,
-                    dtype=col_dtype,
-                    description=col_desc,
-                    values=column_values,
-                    value_stats=column_value_stats,
-                )
-
-            if cache is not None:
-                cache_tag = f"{self.name}/inspect_schema"
-                cache_key = cache.make_json_key(
-                    cache_dict | {"path": f"{cache_tag}/{database_or_schema}/{table_name}/{col_name}"}
-                )
-                if cache_key in cache:
-                    return ColumnSchema.model_validate_json(cache.get_object(cache_key))
-            column = await _process()
-            if cache is not None:
-                cache.set_object(cache_key, column.model_dump_json(), tag=cache_tag)
-            return column
-
-        async def process_table(table_name: str) -> TableSchema:
+        def get_tasks_for_table(table_name: str) -> TableInspectionTask:
+            nonlocal task_id
             if table_name not in raw_table_names:
                 raise ValueError(f"Table {table_name} doesn't exist.")
 
@@ -219,11 +352,7 @@ class SqlAlchemyDataSource(DataSource[SqlAlchemyDataSourceConfig]):
                         semantic_table["columns"][col_name] = ""
 
             table_desc = semantic_table.get("description", "")
-            table_schema = TableSchema(
-                name=table_name, schema_name=raw_table.schema_name, description=table_desc, columns={}
-            )
 
-            # Process columns concurrently
             column_tasks = []
             for col_name, col_desc in semantic_table["columns"].items():
                 if col_name not in raw_table.columns:
@@ -232,23 +361,29 @@ class SqlAlchemyDataSource(DataSource[SqlAlchemyDataSourceConfig]):
                         f"Available columns: {list(raw_table.columns.keys())}"
                     )
                 col_dtype = raw_table.columns[col_name].dtype
-                column_tasks.append(
-                    process_column(table_name=table_name, col_name=col_name, col_desc=col_desc, col_dtype=col_dtype)
+                column_task = ColumnInspectionTask(
+                    task_id=task_id,
+                    table_name=table_name,
+                    col_name=col_name,
+                    col_desc=col_desc,
+                    col_dtype=col_dtype,
+                    database_or_schema=database_or_schema,
+                    options=options,
                 )
-            columns: Collection[ColumnSchema] = await asyncio.gather(*column_tasks)
-            for col_schema in columns:
-                table_schema.columns[col_schema.name] = col_schema
-            return table_schema
+                task_id += 1
+                column_tasks.append(column_task)
 
-        # Process all tables concurrently
-        table_tasks = [process_table(table_name) for table_name in semantic_tables]
-        tables: Collection[TableSchema] = await tqdm.gather(*table_tasks, desc="Inspecting schema")
-        for table_schema in tables:
-            out_schema.tables[table_schema.name] = table_schema
+            return TableInspectionTask(
+                table_name=table_name,
+                schema_name=raw_table.schema_name,
+                table_desc=table_desc,
+                column_tasks=column_tasks,
+            )
 
-        if cache is not None:
-            cache.close()
-        return out_schema
+        table_tasks = []
+        for table_name in semantic_tables:
+            table_tasks.append(get_tasks_for_table(table_name))
+        return table_tasks
 
     def _inspect_column_values_helper(
         self, *, database_or_schema: str | None, table_name: str, col_name: str, dtype: str, options: InspectionOptions
@@ -383,6 +518,9 @@ class SqlAlchemyDataSource(DataSource[SqlAlchemyDataSourceConfig]):
         )
 
     async def close(self) -> None:
+        self.close_sync()
+
+    def close_sync(self) -> None:
         self.engine.dispose()
 
 
