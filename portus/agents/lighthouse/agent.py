@@ -13,10 +13,10 @@ from portus.data.configs.schema_inspection_config import SchemaInspectionConfig,
 
 
 class LighthouseAgent(AgentExecutor):
-    def __init__(self) -> None:
+    def __init__(self, inspection_config: SchemaInspectionConfig | None = None) -> None:
         """Initialize agent with lazy graph compilation."""
         super().__init__()
-        self._inspection_config = SchemaInspectionConfig(summary_type=SchemaSummaryType.FULL)
+        self._inspection_config = inspection_config or SchemaInspectionConfig()
 
     def _get_agent_graph(self, session: Session) -> LighthouseAgentGraph:
         return LighthouseAgentGraph(
