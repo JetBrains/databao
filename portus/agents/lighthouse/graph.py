@@ -25,8 +25,8 @@ class AgentState(TypedDict):
     ready_for_user: bool
 
 
-# TODO rename and/or combine with LighthouseAgent
-class ExecuteSubmit:
+# TODO combine with LighthouseAgent
+class LighthouseAgentGraph:
     """Simple graph with two tools: run_sql_query and submit_query_id.
     All context must be in the SystemMessage."""
 
@@ -275,8 +275,8 @@ class ExecuteSubmit:
     ) -> list[BaseMessage]:
         if model is None:
             model = config.chat_model
-        messages = ExecuteSubmit._apply_system_prompt_caching(config, messages)
-        response: AIMessage = ExecuteSubmit._call_model(model, messages)
+        messages = LighthouseAgentGraph._apply_system_prompt_caching(config, messages)
+        response: AIMessage = LighthouseAgentGraph._call_model(model, messages)
         return [*messages, response]
 
     @staticmethod
@@ -287,12 +287,12 @@ class ExecuteSubmit:
     @staticmethod
     def _apply_system_prompt_caching(config: LLMConfig, messages: list[BaseMessage]) -> list[BaseMessage]:
         """Apply system prompt caching for Anthropic models."""
-        if not (config.cache_system_prompt and ExecuteSubmit._is_anthropic_model(config)):
+        if not (config.cache_system_prompt and LighthouseAgentGraph._is_anthropic_model(config)):
             return messages
         # Assume only the first message can be a system prompt.
         assert all(m.type != "system" for m in messages[1:])
         if messages[0].type == "system":
-            messages = [ExecuteSubmit._set_message_cache_breakpoint(config, messages[0]), *messages[1:]]
+            messages = [LighthouseAgentGraph._set_message_cache_breakpoint(config, messages[0]), *messages[1:]]
         return messages
 
     @staticmethod
@@ -306,16 +306,16 @@ class ExecuteSubmit:
         > Prompt caching references the entire prompt - tools, system, and messages (in that order) up to and including
             the block designated with cache_control.
         """
-        if not ExecuteSubmit._is_anthropic_model(config):
+        if not LighthouseAgentGraph._is_anthropic_model(config):
             return message
         new_content: list[dict[str, Any] | str]
         match message.content:
             case str() | dict():
-                new_content = [ExecuteSubmit._set_anthropic_cache_breakpoint(message.content)]
+                new_content = [LighthouseAgentGraph._set_anthropic_cache_breakpoint(message.content)]
             case list():
                 # Set checkpoint only for the last message
                 new_content = message.content.copy()
-                new_content[-1] = ExecuteSubmit._set_anthropic_cache_breakpoint(new_content[-1])
+                new_content[-1] = LighthouseAgentGraph._set_anthropic_cache_breakpoint(new_content[-1])
         return message.model_copy(update={"content": new_content})
 
     @staticmethod

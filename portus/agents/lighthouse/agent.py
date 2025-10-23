@@ -6,7 +6,7 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
 
 from portus.agents.base import AgentExecutor
-from portus.agents.lighthouse.graph import ExecuteSubmit
+from portus.agents.lighthouse.graph import LighthouseAgentGraph
 from portus.agents.lighthouse.utils import get_today_date_str, read_prompt_template
 from portus.core import ExecutionResult, Opa, Session
 from portus.data.configs.schema_inspection_config import SchemaInspectionConfig, SchemaSummaryType
@@ -40,14 +40,14 @@ class LighthouseAgent(AgentExecutor):
 
     def _create_graph(self, session: Session) -> CompiledStateGraph[Any]:
         """Create and compile the Lighthouse agent graph."""
-        agent_graph = ExecuteSubmit(session.data_engine)
+        agent_graph = LighthouseAgentGraph(session.data_engine)
         return agent_graph.compile(session.llm_config)
 
     def execute(
         self, session: Session, opa: Opa, *, rows_limit: int = 100, cache_scope: str = "common_cache"
     ) -> ExecutionResult:
         # Get or create graph (cached after first use)
-        agent_graph = ExecuteSubmit(session.data_engine)
+        agent_graph = LighthouseAgentGraph(session.data_engine)
         compiled_graph = self._get_or_create_cached_graph(session)
 
         messages = self._process_opa(session, opa, cache_scope)
