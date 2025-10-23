@@ -71,8 +71,14 @@ class DuckDBCollection(DataSource[DuckDBCollectionConfig]):
     async def inspect_schema(self, semantic_dict: SemanticDict, options: InspectionOptions) -> DatabaseSchema:
         return await self._sa_source.inspect_schema(semantic_dict, options)
 
+    def inspect_schema_sync(self, semantic_dict: SemanticDict, options: InspectionOptions) -> DatabaseSchema:
+        return self._sa_source.inspect_schema_sync(semantic_dict, options)
+
     async def close(self) -> None:
         await self._sa_source.close()
+
+    def close_sync(self) -> None:
+        self._sa_source.close_sync()
 
     def add_df(self, df: pd.DataFrame, *, name: str | None = None, additional_context: str | None = None) -> None:
         df_name = name or f"df{len(self._df_sources) + 1}"

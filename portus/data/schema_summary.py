@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from typing import Any
 
 from portus.data.configs.schema_inspection_config import SchemaSummaryType
@@ -100,8 +101,8 @@ def summarize_schema(schema: DatabaseSchema, summary_type: SchemaSummaryType) ->
             return summarize_compact_schema(schema)
 
 
-def summarize_schemas(schemas: dict[str, DatabaseSchema], summary_type: SchemaSummaryType) -> str:
-    return "\n\n".join(summarize_schema(schema, summary_type) for schema in schemas.values() if schema.tables)
+def summarize_schemas(schemas: Iterable[DatabaseSchema], summary_type: SchemaSummaryType) -> str:
+    return "\n\n".join(summarize_schema(schema, summary_type) for schema in schemas if schema.tables)
 
 
 def normalize_dtype(dtype: str) -> str:

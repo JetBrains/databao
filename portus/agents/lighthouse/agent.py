@@ -1,4 +1,3 @@
-import asyncio
 from pathlib import Path
 from typing import Any
 
@@ -22,7 +21,8 @@ class LighthouseAgent(AgentExecutor):
     def render_system_prompt(self, session: Session) -> str:
         """Render system prompt with database schema."""
         data_engine = session.data_engine
-        db_schema_str = asyncio.run(data_engine.get_source_schemas_summarization(self._inspection_config))
+        db_schema_str = data_engine.get_source_schemas_summarization_sync(self._inspection_config)
+        # db_schema_str = asyncio.run(data_engine.get_source_schemas_summarization(self._inspection_config))  # Faster
         db_contexts, df_contexts = session.context
         context = ""
         for db_name, db_context in db_contexts.items():

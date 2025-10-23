@@ -64,24 +64,46 @@ class DataEngine:
         self._source_schemas[source] = schema
         return schema
 
-    async def get_source_schemas(
+    def get_source_schema_sync(
         self,
+        source: str,
         inspection_config: SchemaInspectionConfig,
-    ) -> dict[str, DatabaseSchema]:
-        schemas = {}
-        for source_name in self._sources:
-            schemas[source_name] = await self.get_source_schema(source=source_name, inspection_config=inspection_config)
-        return schemas
+    ) -> DatabaseSchema:
+        ds = self._get_source(source)
+        if source in self._source_schemas:
+            return self._source_schemas[source]
+        schema = ds.inspect_schema_sync("full", inspection_config.inspection_options)
+        self._source_schemas[source] = schema
+        return schema
 
     async def get_source_schemas_summarization(
         self,
         inspection_config: SchemaInspectionConfig,
     ) -> str:
-        db_schemas = await self.get_source_schemas(inspection_config)
-        return summarize_schemas(db_schemas, inspection_config.summary_type)
+        schemas = await asyncio.gather(
+            *(
+                self.get_source_schema(source=source_name, inspection_config=inspection_config)
+                for source_name in self._sources
+            )
+        )
+        return summarize_schemas(schemas, inspection_config.summary_type)
+
+    def get_source_schemas_summarization_sync(
+        self,
+        inspection_config: SchemaInspectionConfig,
+    ) -> str:
+        schemas = [
+            self.get_source_schema_sync(source=source_name, inspection_config=inspection_config)
+            for source_name in self._sources
+        ]
+        return summarize_schemas(schemas, inspection_config.summary_type)
 
     async def close(self) -> None:
         await asyncio.gather(*(source.close() for source in self._sources.values()))
+
+    def close_sync(self) -> None:
+        for source in self._sources.values():
+            source.close_sync()
 
     @classmethod
     async def from_configs(cls, source_configs: Sequence[DataSourceConfig | Path]) -> Self:

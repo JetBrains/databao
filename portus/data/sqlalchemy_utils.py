@@ -264,7 +264,7 @@ def retrieve_first_order_numeric_stats(
         )
         dialect_specific_mapping = dict(conn.execute(query).mappings().one())
     else:
-        _LOGGER.warning(f"Only clickhouse is supported for token counts, current dialect is: {conn.dialect.name}.")
+        _LOGGER.debug(f"Only clickhouse is supported for token counts, current dialect is: {conn.dialect.name}.")
 
     return FirstOrderNumericStats(
         min=mapping["min"], max=mapping["max"], mean=mapping["mean"], std=dialect_specific_mapping.get("std")
@@ -342,7 +342,7 @@ def retrieve_formal_string_stats(
         )
         dialect_specific_mapping = dict(conn.execute(query).mappings().one())
     else:
-        _LOGGER.warning(f"Only clickhouse is supported for token counts, current dialect is: {conn.dialect.name}.")
+        _LOGGER.debug(f"Only clickhouse is supported for token counts, current dialect is: {conn.dialect.name}.")
 
     n_total = mapping["n_total"]
     return FormalStringStats(
