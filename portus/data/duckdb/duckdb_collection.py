@@ -53,7 +53,7 @@ class DuckDBCollection(DataSource[DuckDBCollectionConfig]):
         # sa_engine = create_engine("duckdb:///:memory:", connect_args={"read_only": False})
         # Therefore, we are falling back to a file-backed database, where only added dataframes will get materialized.
         # TODO Figure out a better solution.
-        db_name = "_duckdb_collection.db"
+        db_name = "duck.db"  # This name is used in the schema inspection, so it must be simple
         db_path = Path(db_name)
         if db_path.exists():
             db_path.unlink()
@@ -100,7 +100,6 @@ class DuckDBCollection(DataSource[DuckDBCollectionConfig]):
         self._init_engine()
 
         with self._sa_source.engine.connect() as con:
-            # TODO register in add_* methods
             for source in chain(self._df_sources.values(), self._db_sources.values()):
                 source.register(con)
             con.commit()
