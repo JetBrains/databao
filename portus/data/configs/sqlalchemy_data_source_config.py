@@ -33,7 +33,7 @@ class SqlAlchemyDataSourceConfig(DataSourceConfig):
     """
 
     max_concurrent_requests: int = 8
-    """Maximum number of concurrent requests to the database."""
+    """Maximum number of concurrent requests to the database. Only applicable to async based execution."""
 
     # TODO: separate from here into a child class DataloreDataSourceConfig as then,
     #  we could easily subclass the SfBqDataSourceConfig then,

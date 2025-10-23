@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 
 import pandas as pd
+import sqlalchemy as sa
 from _duckdb import DuckDBPyConnection
 from sqlalchemy import Connection, Engine
 
@@ -41,18 +42,20 @@ class DatabaseSource(DuckDBSource):
 
 
 class DataFrameSource(DuckDBSource):
-    def __init__(self, name: str, df: pd.DataFrame, additional_context: str | None = None):
+    def __init__(
+        self, name: str, df: pd.DataFrame, additional_context: str | None = None, materialize_df: bool = False
+    ):
         super().__init__(name, additional_context=additional_context)
         self._df = df
+        self._materialize_df = materialize_df
 
     def register(self, connection: DuckDBPyConnection | Connection) -> None:
         if isinstance(connection, DuckDBPyConnection):
             connection.register(self._name, self._df)
-        else:
-            # TODO avoid materializing df
-            # sqlalchemy inspection doesn't work for registered data frames, so we have to materialize them
-            # connection.execute(sa.text("register(:name, :df)"), {"name": self.name, "df": self.df})
+        elif self._materialize_df:
             self._df.to_sql(self._name, connection, index=False, if_exists="replace")
+        else:
+            connection.execute(sa.text("register(:name, :df)"), {"name": self.name, "df": self.df})
 
     @property
     def df(self) -> pd.DataFrame:

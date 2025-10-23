@@ -25,7 +25,8 @@ class _DuckDBSqlAlchemySource(SqlAlchemyDataSource):
 
 
 class DuckDBCollectionConfig(DataSourceConfig):
-    pass
+    use_in_memory_database: bool = True
+    # Set to False when using asyncio with multiple threads!
 
 
 class DuckDBCollection(DataSource[DuckDBCollectionConfig]):
@@ -48,17 +49,20 @@ class DuckDBCollection(DataSource[DuckDBCollectionConfig]):
         return self._config
 
     def _init_engine(self) -> None:
-        # Inspecting in-memory databases with multiple threads is broken:
+        # TODO Support multiple threads with in-memory databases.
+        # When using multiple threads, we need to materialize added dfs into a file-backed duckdb database.
+        # Inspecting in-memory databases with multiple threads is broken in sqlalchemy:
         # https://github.com/Mause/duckdb_engine/issues/1110
-        # sa_engine = create_engine("duckdb:///:memory:", connect_args={"read_only": False})
-        # Therefore, we are falling back to a file-backed database, where only added dataframes will get materialized.
-        # TODO Figure out a better solution.
-        db_name = "duck.db"  # This name is used in the schema inspection, so it must be simple
-        db_path = Path(db_name)
-        if db_path.exists():
-            db_path.unlink()
-
-        sa_engine = create_engine(f"duckdb:///{db_name}", connect_args={"read_only": False})
+        # In native duckdb, it should work fine if done correctly: https://duckdb.org/docs/stable/guides/python/multiple_threads
+        if self._config.use_in_memory_database:
+            sa_engine = create_engine("duckdb:///:memory:", connect_args={"read_only": False})
+        else:
+            # We fallback to a file-backed database, where only added dataframes will get materialized.
+            db_name = "duck.db"  # This name is used in the schema inspection, so it must be simple
+            db_path = Path(db_name)
+            if db_path.exists():
+                db_path.unlink()
+            sa_engine = create_engine(f"duckdb:///{db_name}", connect_args={"read_only": False})
         sa_config = SqlAlchemyDataSourceConfig(source_type="sqlalchemy", name="duckdb_collection", db_type="duckdb")
         self._sa_source = _DuckDBSqlAlchemySource(sa_config, sa_engine)
 
@@ -82,7 +86,12 @@ class DuckDBCollection(DataSource[DuckDBCollectionConfig]):
 
     def add_df(self, df: pd.DataFrame, *, name: str | None = None, additional_context: str | None = None) -> None:
         df_name = name or f"df{len(self._df_sources) + 1}"
-        source = DataFrameSource(df_name, df, additional_context=additional_context)
+        source = DataFrameSource(
+            df_name,
+            df,
+            additional_context=additional_context,
+            materialize_df=not self._config.use_in_memory_database,
+        )
         self._df_sources[df_name] = source
         self._data_changed = True
 
