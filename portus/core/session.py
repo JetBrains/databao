@@ -53,10 +53,7 @@ class Session:
 
     @property
     def dbs(self) -> dict[str, Any]:
-        dbs_: dict[str, Any] = {s.name: s.engine for s in self.__duckdb_collection.db_sources}
-        # Temporary workaround for AgentExecutor
-        dbs_["native_duckdb"] = self.__duckdb_collection.make_duckdb_connection()
-        return dbs_
+        return {s.name: s.engine for s in self.__duckdb_collection.db_sources}
 
     @property
     def dfs(self) -> dict[str, DataFrame]:
@@ -91,15 +88,9 @@ class Session:
         return self.__cache
 
     @property
-    def context(self) -> tuple[dict[str, str], dict[str, str]]:
-        db_contexts = {
-            s.name: s.additional_context
-            for s in self.__duckdb_collection.db_sources
-            if s.additional_context is not None
-        }
-        df_contexts = {
-            s.name: s.additional_context
-            for s in self.__duckdb_collection.df_sources
-            if s.additional_context is not None
-        }
-        return db_contexts, df_contexts
+    def db_contexts(self) -> dict[str, str | None]:
+        return {s.name: s.additional_context for s in self.__duckdb_collection.db_sources}
+
+    @property
+    def df_contexts(self) -> dict[str, str | None]:
+        return {s.name: s.additional_context for s in self.__duckdb_collection.df_sources}
