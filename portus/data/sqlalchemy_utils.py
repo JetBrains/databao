@@ -5,6 +5,8 @@ from typing import Any, TypedDict
 import pandas as pd
 import requests
 import sqlalchemy as sa
+from sqlalchemy.exc import ProgrammingError
+from sqlalchemy.sql.elements import KeyedColumnElement
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_random_exponential
 
 from portus.data.database_schema_types import ColumnSchema, DatabaseSchema, TableSchema, TopKValuesElement
@@ -13,28 +15,28 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class GeneralSchemaValueStats(TypedDict):
-    n_total: int
+    n_total: int | None
     n_unique: int | None
-    unique_rate: float
-    null_rate: float
+    unique_rate: float | None
+    null_rate: float | None
 
 
 class FirstOrderNumericStats(TypedDict):
-    min: float
-    max: float
-    mean: float
+    min: float | None
+    max: float | None
+    mean: float | None
     std: float | None
 
 
 class FormalStringStats(TypedDict):
-    min_str_len: int
-    max_str_len: int
-    mean_str_len: float
-    contains_punctuation: bool
-    contains_whitespace: bool
-    contains_numbers: bool
-    all_lowercase_rate: float
-    all_uppercase_rate: float
+    min_str_len: int | None
+    max_str_len: int | None
+    mean_str_len: float | None
+    contains_punctuation: bool | None
+    contains_whitespace: bool | None
+    contains_numbers: bool | None
+    all_lowercase_rate: float | None
+    all_uppercase_rate: float | None
     min_token_count: int | None
     max_token_count: int | None
     mean_token_count: float | None
@@ -103,6 +105,43 @@ def execute_sql_query_sync(engine: sa.Engine, query: str) -> pd.DataFrame | Exce
         return e
 
 
+def build_sa_column(
+    database_or_schema: str | None,
+    table_name: str,
+    col_name: str,
+    *,
+    retrieval_set_limit: int | None = None,
+    dialect_name: str,
+) -> KeyedColumnElement[Any]:
+    if "snowflake" in dialect_name:
+        col_name = col_name.replace('"', "")
+    if retrieval_set_limit:
+        # sqlalchemy for snowflake is quite unpredictable when working with
+        # aliases - whenever one expects to have a quoted alias it suddenly is not
+        # setting quote=True forces it to always be quoted
+        tbl = sa.Table(
+            table_name,
+            sa.MetaData(),
+            sa.Column(col_name, quote=True),
+            quote=False,
+            quote_schema=False,
+            schema=database_or_schema,  # <-- schema goes here
+        )
+        tbl = sa.select(tbl).limit(retrieval_set_limit).subquery()
+
+    else:
+        tbl = sa.Table(
+            table_name,
+            sa.MetaData(),
+            sa.Column(col_name, quote=False),
+            quote=False,
+            quote_schema=False,
+            schema=database_or_schema,  # <-- schema goes here
+        )
+
+    return tbl.c[col_name]
+
+
 def inspect_database_schema(engine: sa.Engine, database_or_schema: str | None) -> DatabaseSchema:
     inspector = sa.inspect(engine)
     schema = DatabaseSchema(db_type=inspector.dialect.name)
@@ -114,46 +153,56 @@ def inspect_database_schema(engine: sa.Engine, database_or_schema: str | None) -
         columns = {}
         for column in inspector.get_columns(table_name=table_name, schema=database_or_schema):
             columns[column["name"]] = ColumnSchema(name=column["name"], dtype=str(column["type"]))
-        table = TableSchema(name=table_name, schema_name=database_or_schema, columns=columns)
-        schema.tables[table.qualified_name] = table
+        schema.tables[table_name] = TableSchema(name=table_name, schema_name=database_or_schema, columns=columns)
     return schema
 
 
 def fetch_distinct_values(
-    conn: sa.Connection, database_or_schema: str | None, table_name: str, col_name: str, limit: int | None = None
+    conn: sa.Connection,
+    database_or_schema: str | None,
+    table_name: str,
+    col_name: str,
+    limit: int | None = None,
+    *,
+    retrieval_set_limit: int | None = None,
 ) -> list[Any]:
     """Fetch distinct values for a column in a dialect-agnostic way. Quoting schema/table/column names as
     required by some dialects (e.g., snowflake where the qualification must be
     database_name.schema_name.table_name."column_name") is left to the schema inspection.
     """
+    column = build_sa_column(
+        database_or_schema,
+        table_name,
+        col_name,
+        retrieval_set_limit=retrieval_set_limit,
+        dialect_name=conn.dialect.name,
+    )
     try:
-        tbl = sa.Table(
-            table_name,
-            sa.MetaData(),
-            sa.Column(col_name, quote=False),
-            quote_schema=False,
-            schema=database_or_schema,  # <-- schema goes here
-        )
-        query = sa.select(tbl.c[col_name]).distinct().order_by(tbl.c[col_name]).limit(limit)
+        query = sa.select(column).distinct().order_by(column).limit(limit)
         return list(conn.execute(query).scalars().all())
     except Exception as e:
         raise ValueError(f"Error fetching values for {table_name}.{col_name}: {e}") from e
 
 
 def retrieve_general_stats(
-    conn: sa.Connection, database_or_schema: str | None, table_name: str, col_name: str
+    conn: sa.Connection,
+    database_or_schema: str | None,
+    table_name: str,
+    col_name: str,
+    *,
+    retrieval_set_limit: int | None = None,
 ) -> GeneralSchemaValueStats:
     """Counts the number of distinct values, rate of unique values, rate of null values in a dialect-agnostic way.
     Quoting schema/table/column names as required by some dialects (e.g., snowflake where the qualification must be
     database_name.schema_name.table_name."column_name") is left to the schema inspection."""
-    tbl = sa.Table(
+    column = build_sa_column(
+        database_or_schema,
         table_name,
-        sa.MetaData(),
-        sa.Column(col_name, quote=False),
-        quote_schema=False,
-        schema=database_or_schema,  # <-- schema goes here
+        col_name,
+        retrieval_set_limit=retrieval_set_limit,
+        dialect_name=conn.dialect.name,
     )
-    column = tbl.c[col_name]
+
     query = sa.select(
         sa.func.count(sa.distinct(column)).label("n_unique"),
         sa.func.count("*").label("n_total"),  # include null values in the count
@@ -171,39 +220,47 @@ def retrieve_general_stats(
 
 
 def retrieve_first_order_numeric_stats(
-    conn: sa.Connection, database_or_schema: str | None, table_name: str, col_name: str
+    conn: sa.Connection,
+    database_or_schema: str | None,
+    table_name: str,
+    col_name: str,
+    *,
+    retrieval_set_limit: int | None = None,
 ) -> FirstOrderNumericStats:
     """Return the min, max, mean and std. Quoting schema/table/column names as required by some dialects
     (e.g., snowflake where the qualification must be database_name.schema_name.table_name."column_name") is left to the
     schema inspection."""
-    tbl = sa.Table(
+    column = build_sa_column(
+        database_or_schema,
         table_name,
-        sa.MetaData(),
-        sa.Column(col_name, quote=False),
-        quote_schema=False,
-        schema=database_or_schema,  # <-- schema goes here
+        col_name,
+        retrieval_set_limit=retrieval_set_limit,
+        dialect_name=conn.dialect.name,
     )
 
     # SQLServer throws a "Arithmetic overflow error converting expression to data type int"
     # when calculating averages so cast to a bigger type
     mean_query = (
-        sa.func.avg(sa.cast(tbl.c[col_name], sa.DECIMAL)).label("mean")
+        sa.func.avg(sa.cast(column, sa.DECIMAL)).label("mean")
         if conn.dialect.name == "mssql"
-        else sa.func.avg(tbl.c[col_name]).label("mean")
+        else sa.func.avg(column).label("mean")
     )
 
     query = sa.select(
-        sa.func.min(tbl.c[col_name]).label("min"),
-        sa.func.max(tbl.c[col_name]).label("max"),
+        sa.func.min(column).label("min"),
+        sa.func.max(column).label("max"),
         mean_query,
     )
-
-    mapping = conn.execute(query).mappings().one()
+    try:
+        mapping = conn.execute(query).mappings().one()
+    except ProgrammingError as e:
+        _LOGGER.warning(f"ERROR HERE: database: {database_or_schema}, table: {table_name}, col: {col_name}, ERROR: {e}")
+        return FirstOrderNumericStats(min=None, max=None, mean=None, std=None)
 
     dialect_specific_mapping: dict[str, Any] = {}
     if conn.dialect.name == "clickhouse":
         query = sa.select(
-            sa.func.stddevPop(tbl.c[col_name]).label("std"),
+            sa.func.stddevPop(column).label("std"),
         )
         dialect_specific_mapping = dict(conn.execute(query).mappings().one())
     else:
@@ -215,20 +272,25 @@ def retrieve_first_order_numeric_stats(
 
 
 def retrieve_formal_string_stats(
-    conn: sa.Connection, database_or_schema: str | None, table_name: str, col_name: str
+    conn: sa.Connection,
+    database_or_schema: str | None,
+    table_name: str,
+    col_name: str,
+    *,
+    retrieval_set_limit: int | None = None,
 ) -> FormalStringStats:
     """
     Get the first order string stats like min/max character length / min/max token length.
     Quoting schema/table/column names as required by some dialects (e.g., snowflake where the qualification must be
     database_name.schema_name.table_name."column_name") is left to the schema inspection."""
-    tbl = sa.Table(
+    column = build_sa_column(
+        database_or_schema,
         table_name,
-        sa.MetaData(),
-        sa.Column(col_name, quote=False),
-        quote_schema=False,
-        schema=database_or_schema,  # <-- schema goes here
+        col_name,
+        retrieval_set_limit=retrieval_set_limit,
+        dialect_name=conn.dialect.name,
     )
-    column = tbl.c[col_name]
+
     char_length_subquery = sa.func.length(column)
 
     # N.B. Use MAX(CASE WHEN ... THEN 1 ELSE 0 END) instead of EXISTS for SQL Server compatibility
@@ -247,8 +309,23 @@ def retrieve_formal_string_stats(
         sa.func.sum(sa.case((column == sa.func.lower(column), 1), else_=0)).label("all_lowercase_count"),
         sa.func.sum(sa.case((column == sa.func.upper(column), 1), else_=0)).label("all_uppercase_count"),
     )
-
-    mapping = conn.execute(query).mappings().one()
+    try:
+        mapping = conn.execute(query).mappings().one()
+    except ProgrammingError as e:
+        _LOGGER.warning(f"ERROR HERE: database: {database_or_schema}, table: {table_name}, col: {col_name}, ERROR: {e}")
+        return FormalStringStats(
+            min_str_len=None,
+            max_str_len=None,
+            mean_str_len=None,
+            contains_punctuation=None,
+            contains_whitespace=None,
+            contains_numbers=None,
+            all_lowercase_rate=None,
+            all_uppercase_rate=None,
+            min_token_count=None,
+            max_token_count=None,
+            mean_token_count=None,
+        )
 
     dialect_specific_mapping: dict[str, Any] = {}
     if conn.dialect.name == "clickhouse":
@@ -284,19 +361,25 @@ def retrieve_formal_string_stats(
 
 
 def retrieve_top_k_values(
-    conn: sa.Connection, database_or_schema: str | None, table_name: str, col_name: str, *, top_k: int = 50
+    conn: sa.Connection,
+    database_or_schema: str | None,
+    table_name: str,
+    col_name: str,
+    *,
+    top_k: int = 50,
+    retrieval_set_limit: int | None = None,
 ) -> list[TopKValuesElement]:
     """Return a mapping of the top k values to their frequencies.
     Quoting schema/table/column names as required by some dialects (e.g., snowflake where the qualification must be
     database_name.schema_name.table_name."column_name") is left to the schema inspection."""
-    tbl = sa.Table(
+    column = build_sa_column(
+        database_or_schema,
         table_name,
-        sa.MetaData(),
-        sa.Column(col_name, quote=False),
-        quote_schema=False,
-        schema=database_or_schema,  # <-- schema goes here
+        col_name,
+        retrieval_set_limit=retrieval_set_limit,
+        dialect_name=conn.dialect.name,
     )
-    column = tbl.c[col_name]
+
     query = (
         sa.select(
             column.label("value"),
@@ -307,13 +390,15 @@ def retrieve_top_k_values(
         .limit(top_k)
     )
 
-    total_count = conn.execute(sa.select(sa.func.count(column))).mappings().one()["count"]
+    try:
+        total_count = conn.execute(sa.select(sa.func.count(column))).mappings().one()["count"]
 
-    result = conn.execute(query).mappings().all()
+        result = conn.execute(query).mappings().all()
+    except ProgrammingError as e:
+        _LOGGER.warning(f"ERROR HERE: database: {database_or_schema}, table: {table_name}, col: {col_name}, ERROR: {e}")
+        return []
 
-    result = [
+    return [
         TopKValuesElement(**(dict(i) | {"frequency": i["count"] / total_count if total_count > 0 else 0}))
         for i in result
     ]
-
-    return result

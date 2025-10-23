@@ -23,13 +23,13 @@ class DataSourceConfig(BaseModel, ABC):
         description="""
     Human-readable name of the data source, which bears some meaning about that datasource.
     Should be consistent with the naming used within the datasource configs as it is used as
-    a key (in conjunction with the per-example list of database names, if provided) to retrieve 
-    the correct DataEngine, which can connect to that database as credential information is 
-    provided during experiment setup.
+    a key (in conjunction with the per-example list of database names, if provided) to retrieve the 
+    correct DataSourceConfig, via which DataSource objects are build within
+    the for a DataEngine.
     Must be unique within the experiment.
     NB. here the assumption is that one account can access all databases referenced in the example.
     """,
-        examples=["jetstat", "jetstat_metabase", "bigquery-spider", "ga4"],
+        examples=["jetstat", "jetstat_metabase", "bigquery"],
     )
 
     source_type: str | None = Field(

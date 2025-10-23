@@ -1,4 +1,5 @@
 import abc
+from hashlib import sha256
 from typing import Any, Literal
 
 import pandas as pd
@@ -22,6 +23,10 @@ class DataSource[T: DataSourceConfig](abc.ABC):
     @property
     def name(self) -> str:
         return self.config.name
+
+    @property
+    def hash(self) -> str:
+        return sha256(self.name.encode()).hexdigest()[:16]
 
     @abc.abstractmethod
     async def close(self) -> None:

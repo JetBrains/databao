@@ -3,12 +3,18 @@ import re
 _ID_PREFIXES_AND_SUFFIXES = [
     # suffixes
     r"_id\b",
+    r"_uuid\b",
+    r"_hash\b",
+    r"_doi\b",
     r"_key\b",
     r"_pk\b",
     r"_fk\b",
     r"_code\b",
     # prefixes
     r"\bid_",
+    r"\buuid_",
+    r"\bhash_",
+    r"\bdoi_",
     r"\bkey_",
     r"\bpk_",
     r"\bfk_",
@@ -23,14 +29,13 @@ def is_id_column(col_name: str) -> bool:
     Based on the column name determine if the column holds IDs. (in such case,
     it makes no sense to report certain numerical statistics such as min/max)
     """
-    if col_name.lower() in ["id", "key", "pk", "fk", "code"]:
+    if col_name.lower() in ["id", "key", "pk", "fk", "code", "uuid", "hash", "doi"]:
         return True
     return _ID_COL_REGEX.search(col_name) is not None
 
 
 def is_array_dtype(dtype: str) -> bool:
     """Determine if a data type is an array type in a dialect-agnostic way."""
-    dtype.lower()
     return any(
         t.lower() in dtype.lower()
         for t in [

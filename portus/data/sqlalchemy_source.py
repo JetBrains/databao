@@ -1,5 +1,6 @@
 import asyncio
 import itertools
+import logging
 import re
 import warnings
 from collections.abc import Collection
@@ -43,6 +44,8 @@ from portus.data.sqlalchemy_utils import (
     retrieve_general_stats,
     retrieve_top_k_values,
 )
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class SqlAlchemyDataSource(DataSource[SqlAlchemyDataSourceConfig]):
@@ -265,9 +268,18 @@ class SqlAlchemyDataSource(DataSource[SqlAlchemyDataSourceConfig]):
             )
 
     def _retrieve_general_stats(
-        self, conn: sa.Connection, database_or_schema: str | None, table_name: str, col_name: str, *, dtype: str
+        self,
+        conn: sa.Connection,
+        database_or_schema: str | None,
+        table_name: str,
+        col_name: str,
+        *,
+        dtype: str,
+        retrieval_set_limit: int | None = None,
     ) -> GeneralSchemaValueStats:
-        return retrieve_general_stats(conn, database_or_schema, table_name, col_name)
+        return retrieve_general_stats(
+            conn, database_or_schema, table_name, col_name, retrieval_set_limit=retrieval_set_limit
+        )
 
     def _inspect_column_values(
         self,
@@ -282,24 +294,28 @@ class SqlAlchemyDataSource(DataSource[SqlAlchemyDataSourceConfig]):
         if options.value_sampling_strategy == ValueSamplingStrategy.NONE and not options.inspect_column_stats:
             return [], ColumnValuesStats()
 
-        general_stats = self._retrieve_general_stats(conn, database_or_schema, table_name, col_name, dtype=dtype)
+        general_stats = self._retrieve_general_stats(
+            conn, database_or_schema, table_name, col_name, dtype=dtype, retrieval_set_limit=options.retrieval_set_limit
+        )
 
         low_cardinality_values: list[str] = []
         top_k_values: list[TopKValuesElement] | None = None
 
-        if (
-            options.value_sampling_strategy == ValueSamplingStrategy.CATEGORICAL_ONLY
-            and (
+        if options.value_sampling_strategy == ValueSamplingStrategy.CATEGORICAL_ONLY:  # noqa: SIM102
+            if (
                 is_low_cardinality_dtype(dtype)
                 or (general_stats["n_unique"] is not None and general_stats["n_unique"] < options.max_enum_values)
-            )
-            and is_string_dtype(dtype)
-        ):
-            # N.B. There is duplication due to identical columns being in different tables.
-            values = fetch_distinct_values(
-                conn, database_or_schema, table_name, col_name, limit=options.max_enum_values + 1
-            )
-            low_cardinality_values = format_values_list(values, max_values=options.max_enum_values)
+            ) and is_string_dtype(dtype):
+                # N.B. There is duplication due to identical columns being in different tables.
+                values = fetch_distinct_values(
+                    conn,
+                    database_or_schema,
+                    table_name,
+                    col_name,
+                    limit=options.max_enum_values + 1,
+                    retrieval_set_limit=options.retrieval_set_limit,
+                )
+                low_cardinality_values = format_values_list(values, max_values=options.max_enum_values)
 
         if options.value_sampling_strategy == ValueSamplingStrategy.TOP_P:  # noqa: SIM102
             # We don't need to sample id columns, as they are in most of the cases just long strings / sequences
@@ -312,22 +328,43 @@ class SqlAlchemyDataSource(DataSource[SqlAlchemyDataSourceConfig]):
                     and not is_datetime_dtype(dtype)
                     and not is_array_dtype(dtype)
                     and not is_aggregate_function(dtype)
-                    and not general_stats["unique_rate"] > options.max_unique_rate
+                    and not (
+                        general_stats["unique_rate"] is not None
+                        and general_stats["unique_rate"] > options.max_unique_rate
+                    )
                 )
                 # safety net for the cases where we have small tables and the uniqueness rate is high
                 # - in an industrial setting it would probably be important to provide these values
                 or (general_stats["n_unique"] is not None and general_stats["n_unique"] < options.max_enum_values)
             ):
-                top_k_values = retrieve_top_k_values(conn, database_or_schema, table_name, col_name)
+                top_k_values = retrieve_top_k_values(
+                    conn,
+                    database_or_schema,
+                    table_name,
+                    col_name,
+                    retrieval_set_limit=options.retrieval_set_limit,
+                )
 
         numeric_stats = (
-            retrieve_first_order_numeric_stats(conn, database_or_schema, table_name, col_name)
+            retrieve_first_order_numeric_stats(
+                conn,
+                database_or_schema,
+                table_name,
+                col_name,
+                retrieval_set_limit=options.retrieval_set_limit,
+            )
             if (is_numeric_dtype(dtype) and not is_id_column(col_name)) and options.inspect_column_stats
             else None
         )
 
         string_stats = (
-            retrieve_formal_string_stats(conn, database_or_schema, table_name, col_name)
+            retrieve_formal_string_stats(
+                conn,
+                database_or_schema,
+                table_name,
+                col_name,
+                retrieval_set_limit=options.retrieval_set_limit,
+            )
             if is_string_dtype(dtype) and options.inspect_column_stats
             else None
         )
