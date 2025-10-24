@@ -1,6 +1,7 @@
 import dataclasses
 import json
 
+from edaplot.api import make_interactive_spec
 from edaplot.llms import LLMConfig as VegaLLMConfig
 from edaplot.vega import to_altair_chart
 from edaplot.vega_chat.vega_chat import VegaChat, VegaChatConfig
@@ -26,12 +27,15 @@ def _convert_llm_config(llm_config: LLMConfig) -> VegaLLMConfig:
 
 
 class VegaChatVisualizer(Visualizer):
-    def __init__(self, llm_config: LLMConfig):
+    def __init__(self, llm_config: LLMConfig, *, interactive_charts: bool = False):
         vega_llm = _convert_llm_config(llm_config)
         self._vega_config = VegaChatConfig(
             llm_config=vega_llm,
             data_normalize_column_names=True,  # To deal with column names that have special characters
         )
+
+        # Interactive refers to zooming, panning, etc.
+        self._interactive_charts = interactive_charts
 
     def visualize(self, request: str | None, data: ExecutionResult) -> VisualisationResult:
         if data.df is None:
@@ -53,9 +57,13 @@ class VegaChatVisualizer(Visualizer):
                 text=f"Failed to visualize request {request}", meta=dataclasses.asdict(model_out), plot=None, code=None
             )
 
+        preprocessed_df = model.dataframe
+        if self._interactive_charts:
+            spec = make_interactive_spec(preprocessed_df, spec)
+
         text = model_out.message.text()
         spec_json = json.dumps(spec, indent=2)
         # Use the possibly transformed dataframe tied to the generated spec
-        altair_chart = to_altair_chart(spec, model.dataframe)
+        altair_chart = to_altair_chart(spec, preprocessed_df)
 
         return VisualisationResult(text=text, meta=dataclasses.asdict(model_out), plot=altair_chart, code=spec_json)
