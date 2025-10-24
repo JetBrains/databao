@@ -41,6 +41,7 @@ class ColumnValuesStats(BaseModel):
     std: float | None = None
 
     # formal str stats
+    # TODO do we need averages?
     min_str_len: int | None = None
     max_str_len: int | None = None
     mean_str_len: float | None = None

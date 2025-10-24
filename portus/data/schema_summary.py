@@ -9,11 +9,10 @@ def summarize_database_metadata(schema: DatabaseSchema, *, include_name: bool = 
     s = ""
     if include_name and schema.name:
         # LLMs sometimes try to use the name in SELECT FROM statements, which can cause errors.
-        s += f"{schema.name}"
-        if schema.description:
-            s += f": {schema.description}"
-        s += "\n"
+        s += f"# {schema.name}\n"
     s += f" Database type: {schema.db_type}\n"
+    if schema.description:
+        s += f"\n## Description\n{schema.description}\n"
     return s
 
 
