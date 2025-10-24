@@ -2,21 +2,21 @@
 {# --- uniqueness and duplicates --- #}
 {%- if unique_rate is not none -%}
     {%- if unique_rate == 1.0 -%}
-        Contains no duplicated values.
+        No duplicates.
     {%- elif unique_rate is not none and unique_rate <= 0.10 -%}
-        Contains {{ n_unique }} unique values.
+        {{ n_unique }} unique values.
     {%- else -%}
-        Contains duplicate values.
+        Has duplicates.
     {%- endif -%}
 {%- endif -%}
 {{- ' ' -}}
 {%- if null_rate is not none -%}
     {%- if null_rate >= 0.03 -%}
-        Contains {{ (null_rate * 100) | round(2) }}% null values.
+        {{ (null_rate * 100) | round(1) | int }}% NULLs.
     {%- elif null_rate > 0 -%}
-        Contains almost no null values.
+        Some NULLs.
     {%- else -%}
-        Contains no null values.
+        No NULLs.
     {%- endif -%}
 {%- endif -%}
 {{- ' ' -}}
@@ -24,57 +24,62 @@
 {%- if min is not none and max is not none -%}
     {%- if min == max -%}
         {%- if sampled_values -%}
-            Contains a single constant value: {{ sampled_values }}.
+            Single constant: {{ sampled_values }}.
         {%- else -%}
-            Contains a single constant value: {{ min }}.
+            Single constant: {{ min }}.
         {%- endif -%}
     {%- elif mean is not none and std is not none -%}
-        The values vary between {{ min }} and {{ max }} with a mean of {{ mean | round(2)  }} and a standard deviation of {{ std | round(2)  }}.
+        Between {{ min }} and {{ max }} (mean = {{ mean | round(1) }}, std = {{ std | round(1) }}).
     {%- elif mean is not none -%}
-        The values vary between {{ min }} and {{ max }} with a mean of {{ mean | round(2)  }}.
+        Between {{ min }} and {{ max }} (mean = {{ mean | round(1) }}).
     {%- else -%}
-        The values vary between {{ min }} and {{ max }}.
+        Between {{ min }} and {{ max }}.
     {%- endif -%}
     {{- ' ' -}}
 {%- endif -%}
 {# --- string-related stats --- #}
 {%- if min_str_len is not none and max_str_len is not none -%}
     {%- if min_str_len == max_str_len -%}
-        Contains {% if null_rate == 0.0 %}only{% endif %} strings of length {{ max_str_len }}.
+        Constant {{ max_str_len }} chars. {# The exact string dtype and null information are already included. #}
     {%- else -%}
-        Contains strings of character length varying between {{ min_str_len }} and {{ max_str_len }} (the mean being {{ mean_str_len | round(2)  }}).
+        Between {{ min_str_len }} and {{ max_str_len }} chars (mean = {{ mean_str_len | round(1) }}).
     {%- endif -%}
     {{- ' ' -}}
 {%- endif -%}
 {# token count #}
 {%- if mean_token_count == 1 -%}
-    There is a single word per row.
+    Single word per row.
     {{- ' ' -}}
 {%- elif mean_token_count is not none -%}
-    The average number of words per row is {{ mean_token_count | round(2)  }}, ranging from {{ min_token_count }} to {{ max_token_count }}.
+    Between {{ min_token_count }} and {{ max_token_count }} words per row (mean = {{ mean_token_count | round(1) }}).
     {{- ' ' -}}
 {%- endif -%}
 {# syntax and punctuation stats #}
 {%- if all_lowercase_rate == 1.0 or all_uppercase_rate == 1.0 or contains_numbers or contains_punctuation -%}
-    The column consists of strings which contain:
-        {%- if all_lowercase_rate == 1.0 -%}
-            - only lowercase characters
-        {%- elif all_uppercase_rate == 1.0 -%}
-            - only uppercase characters
-        {%- endif -%}
-        {%- if contains_numbers -%}
-            - numbers
-        {%- endif -%}
-        {%- if contains_punctuation -%}
-            - punctuation
-        {%- endif -%}.
-    {{- ' ' -}}
+    {%- set text_features = [] -%}
+
+    {%- if all_lowercase_rate == 1.0 -%}
+        {% set _ = text_features.append('only lowercase chars') %}
+    {%- elif all_uppercase_rate == 1.0 -%}
+        {% set _ = text_features.append('only uppercase chars') %}
+    {%- endif -%}
+    {%- if contains_numbers -%}
+        {% set _ = text_features.append('numbers') %}
+    {%- endif -%}
+    {%- if contains_punctuation -%}
+        {% set _ = text_features.append('punctuation') %}
+    {%- endif -%}
+
+    {# If the list is not empty, print the formatted sentence #}
+    {%- if text_features -%}
+        {{ "May contain: " ~ text_features | join(', ') ~ "." }}{{- ' ' -}}
+    {%- endif -%}
 {%- endif -%}
 {# sampled values: if all values are unique "the most common" does not make sense #}
 {%- if sample_values is not none and unique_rate is none -%}
-    Example values: {{ sample_values | join(", ") }}.
+    Sample: {{ sample_values | join(", ") }}.
 {%- elif sample_values is not none and unique_rate!=1.0 -%}
-    The most common values are: {{ sample_values | join(", ") }}.
+    Common values: {{ sample_values | join(", ") }}.
 {%- elif sample_values is not none and unique_rate==1.0 -%}
-    Here are some randomly sampled values: {{ sample_values | join(", ") }}.
+    Sample: {{ sample_values | join(", ") }}.
 {%- endif -%}
