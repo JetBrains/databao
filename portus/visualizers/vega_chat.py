@@ -1,6 +1,8 @@
 import dataclasses
 import json
+from typing import Any
 
+import pandas as pd
 from edaplot.api import make_interactive_spec
 from edaplot.llms import LLMConfig as VegaLLMConfig
 from edaplot.vega import to_altair_chart
@@ -8,6 +10,20 @@ from edaplot.vega_chat.vega_chat import VegaChat, VegaChatConfig
 
 from portus.configs.llm import LLMConfig
 from portus.core import ExecutionResult, VisualisationResult, Visualizer
+from portus.visualizers.vega_vis_tool import VegaVisTool
+
+
+class VegaChatResult(VisualisationResult):
+    spec: dict[str, Any] | None = None
+    spec_df: pd.DataFrame | None = None
+
+    def display_interactive(self, *, force_display: bool = False) -> VegaVisTool | None:
+        if self.spec is None or self.spec_df is None:
+            return None
+        vis_tool = VegaVisTool(self.spec, self.spec_df)
+        if force_display:
+            vis_tool.display()
+        return vis_tool
 
 
 def _convert_llm_config(llm_config: LLMConfig) -> VegaLLMConfig:
@@ -37,9 +53,9 @@ class VegaChatVisualizer(Visualizer):
         # Interactive refers to zooming, panning, etc.
         self._interactive_charts = interactive_charts
 
-    def visualize(self, request: str | None, data: ExecutionResult) -> VisualisationResult:
+    def visualize(self, request: str | None, data: ExecutionResult) -> VegaChatResult:
         if data.df is None:
-            return VisualisationResult(text="Nothing to visualize", meta={}, plot=None, code=None)
+            return VegaChatResult(text="Nothing to visualize", meta={}, plot=None, code=None)
 
         if request is None:
             # We could also call the ChartRecommender module, but since we want a
@@ -53,8 +69,11 @@ class VegaChatVisualizer(Visualizer):
 
         spec = model_out.spec
         if spec is None or not model_out.is_drawable or model_out.is_empty_chart:
-            return VisualisationResult(
-                text=f"Failed to visualize request {request}", meta=dataclasses.asdict(model_out), plot=None, code=None
+            return VegaChatResult(
+                text=f"Failed to visualize request {request}",
+                meta=dataclasses.asdict(model_out),
+                plot=None,
+                code=None,
             )
 
         preprocessed_df = model.dataframe
@@ -66,4 +85,11 @@ class VegaChatVisualizer(Visualizer):
         # Use the possibly transformed dataframe tied to the generated spec
         altair_chart = to_altair_chart(spec, preprocessed_df)
 
-        return VisualisationResult(text=text, meta=dataclasses.asdict(model_out), plot=altair_chart, code=spec_json)
+        return VegaChatResult(
+            text=text,
+            meta=dataclasses.asdict(model_out),
+            plot=altair_chart,
+            code=spec_json,
+            spec=spec,
+            spec_df=preprocessed_df,
+        )
