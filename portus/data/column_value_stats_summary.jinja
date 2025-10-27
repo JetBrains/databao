@@ -23,11 +23,7 @@
 {# --- numeric-related stats --- #}
 {%- if min is not none and max is not none -%}
     {%- if min == max -%}
-        {%- if sampled_values -%}
-            Single constant: {{ sampled_values }}.
-        {%- else -%}
-            Single constant: {{ min }}.
-        {%- endif -%}
+        Single constant: {{ min }}.
     {%- elif mean is not none and std is not none -%}
         Between {{ min }} and {{ max }} (mean = {{ mean | round(1) }}, std = {{ std | round(1) }}).
     {%- elif mean is not none -%}
