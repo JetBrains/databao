@@ -30,7 +30,7 @@ jobs:
         run: uv sync --locked --all-extras --dev
 
       # Run fast tests on all PRs
-      - name: Run pytest (fast)
+      - name: Run pytest (subset)
         if: github.ref != 'refs/heads/main'
         env:
           OPENAI_API_KEY: 'test'  # dummy key for ChatOpenAI() to not fail since it expects a key

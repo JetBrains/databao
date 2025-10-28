@@ -93,3 +93,9 @@ ban-relative-imports = "all"
 
 [tool.uv]
 required-version = "==0.9.5"
+
+[tool.pytest.ini_options]
+addopts = ["--strict-markers"]
+markers = [
+    "apikey: marks tests that require an API key",
+]
