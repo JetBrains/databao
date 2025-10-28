@@ -47,7 +47,7 @@ def test_demo_smoke(db_engine: Engine) -> None:
     session.add_df(df)
 
     # Step 5: Ask a question and get results
-    ask = session.thread("count cancelled shows by directors")
+    ask = session.thread().ask("count cancelled shows by directors")
     assert ask is not None
 
     # Step 6: Get DataFrame result
@@ -81,7 +81,7 @@ def test_consecutive_ask_calls(db_engine: Engine) -> None:
     session.add_df(df)
 
     # Step 4: First ask - count cancelled shows by directors
-    ask1 = session.thread("count cancelled shows by directors")
+    ask1 = session.thread().ask("count cancelled shows by directors")
     assert ask1 is not None
 
     # Step 5: Get text result from first ask
