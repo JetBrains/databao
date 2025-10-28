@@ -31,7 +31,7 @@ jobs:
 
       # Run fast tests on all PRs
       - name: Run pytest (subset)
-#        if: github.ref != 'refs/heads/main'
+        if: github.ref != 'refs/heads/main'
         env:
           OPENAI_API_KEY: 'test'  # dummy key for ChatOpenAI() to not fail since it expects a key
         run: uv run pytest tests -v -m "not apikey"  # Skip tests requiring an API key
@@ -39,7 +39,7 @@ jobs:
       # TODO Use merge queues to make the PR fail should the tests fail before merging
       # Run all tests on main
       - name: Run pytest (all)
-#        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main'
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}  # Real API key for integration tests
         run: uv run pytest tests -v
