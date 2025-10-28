@@ -1,7 +1,7 @@
 [project]
 name = "portus-ai"
 description = "Portus: NL queries for data"
-version = "0.0.4"
+dynamic = ["version"]  # Based on the git tag
 requires-python = ">=3.12"
 readme = "README.md"
 authors = []
@@ -32,8 +32,18 @@ examples = [
 ]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "uv-dynamic-versioning"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "uv-dynamic-versioning"
+
+[tool.uv-dynamic-versioning]
+# Use `git tag -a v0.0.0 -m "v0.0.0"` to create a tag.
+vcs = "git"
+style = "pep440"
+fallback-version = "0.0.0"  # https://github.com/ninoseki/uv-dynamic-versioning/blob/main/docs/tips.md
+bump = true
 
 [tool.hatch.build.targets.sdist]
 include = ["/portus"]
@@ -93,6 +103,9 @@ ban-relative-imports = "all"
 
 [tool.uv]
 required-version = "==0.9.5"
+
+# https://github.com/ninoseki/uv-dynamic-versioning/blob/main/docs/tips.md#build-caching-and-editable-installs
+cache-keys = [{ file = "pyproject.toml" }, { git = { commit = true, tags = true }}]
 
 [tool.pytest.ini_options]
 addopts = ["--strict-markers"]
