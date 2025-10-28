@@ -2041,7 +2041,6 @@ wheels = [
 
 [[package]]
 name = "portus-ai"
-version = "0.0.4"
 source = { editable = "." }
 dependencies = [
     { name = "duckdb" },
