@@ -47,9 +47,10 @@ class Session:
             additional_context = Path(additional_context).read_text()
         self.__duckdb_collection.add_df(df, name=name, additional_context=additional_context)
 
-    def ask(self, query: str) -> Pipe:
+    def thread(self) -> Pipe:
+        """Start a new thread in this session."""
         self.__duckdb_collection.register_data_sources()
-        return Pipe(self, default_rows_limit=self.__default_rows_limit).ask(query)
+        return Pipe(self, default_rows_limit=self.__default_rows_limit)
 
     @property
     def dbs(self) -> dict[str, Any]:

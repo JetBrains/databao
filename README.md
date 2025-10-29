@@ -23,7 +23,8 @@ session.add_db(engine)
 ## Query data
 
 ```python
-session.ask("list all german shows").df()
+thread = session.thread()
+thread.ask("list all german shows").df()
 ```
 
 
