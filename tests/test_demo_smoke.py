@@ -17,6 +17,7 @@ def db_engine() -> Engine:
     return engine
 
 
+@pytest.mark.apikey
 def test_demo_smoke(db_engine: Engine) -> None:
     """Smoke test to ensure demo.py steps execute without exceptions."""
     # Configure logging
@@ -63,8 +64,9 @@ def test_demo_smoke(db_engine: Engine) -> None:
     assert len(ask.code) > 0, "Expected generated code to be non-empty"
 
 
+@pytest.mark.apikey
 def test_consecutive_ask_calls(db_engine: Engine) -> None:
-    """Test consecutive ask calls return different results (marko.py variation)."""
+    """Test consecutive ask calls return different results."""
     # Configure logging
     logging.basicConfig(level=logging.INFO)
 
