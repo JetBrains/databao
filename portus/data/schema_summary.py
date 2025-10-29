@@ -9,23 +9,25 @@ def summarize_database_metadata(schema: DatabaseSchema, *, include_name: bool = 
     s = ""
     if include_name and schema.name:
         # LLMs sometimes try to use the name in SELECT FROM statements, which can cause errors.
-        s += f"{schema.name}"
-        if schema.description:
-            s += f": {schema.description}"
-        s += "\n"
+        s += f"# {schema.name}\n"
     s += f" Database type: {schema.db_type}\n"
+    if schema.description:
+        s += f"\n## Description\n{schema.description}\n"
     return s
 
 
 def summarize_table_schema(table_schema: TableSchema) -> str:
     # TODO make it configurable whether to use fully qualified names or not
+    # TODO general table stats: num rows, num columns
     s = f"\n## Table `{table_schema.qualified_name}`\n"
     if table_schema.description:
         s += f"{table_schema.description}\n"
     for column_name, column_schema in table_schema.columns.items():
         desc = "" if not column_schema.description else f": {column_schema.description}."
         if not column_schema.value_stats.is_empty():
-            desc = f"{desc} {column_schema.value_stats.summarize()}"
+            value_stats_summary = column_schema.value_stats.summarize()
+            value_stats_summary = value_stats_summary.strip()
+            desc = f"{desc} {value_stats_summary}"
         if column_schema.values:
             if desc:
                 desc = f"{desc} Values: {', '.join(column_schema.values)}"
