@@ -1,8 +1,8 @@
 # Portus: NL queries for data
 
-Natural‑language queries for your data — connect SQL databases and DataFrames, ask questions in plain English, and get tables, plots, and explanations back. Portus runs agents on top of DuckDB and your connections, and can use both cloud and local LLMs.
+Natural‑language queries for your data — connect SQL databases and DataFrames, ask questions in plain English, and get tables, plots, and explanations back. 
+Portus runs agents on top of dataframes and your DB connections, and can use both cloud and local LLMs.
 
-Version: 0.0.4
 
 ## Overview
 - Ask questions like “list all German shows” or “plot revenue by month”.
@@ -11,17 +11,6 @@ Version: 0.0.4
 - Built‑in visualization via a Vega‑Lite chat visualizer.
 - Pluggable LLMs: OpenAI/Anthropic, or local models through Ollama or any OpenAI‑compatible server.
 
-## Stack and Tooling
-- Language: Python (>= 3.12)
-- Packaging/build: Hatchling
-- Package manager: uv (required version 0.9.5)
-- Key deps: pandas, duckdb, langchain, langgraph, jinja2, psycopg2‑binary, matplotlib, edaplot‑vl
-- Dev tools: ruff, mypy, pytest, pre‑commit
-
-## Requirements
-- Python 3.12+
-- uv 0.9.5 (see pyproject `[tool.uv]`)
-- Optional: Postgres client libs when using `psycopg2-binary` on your platform
 
 ## Installation
 Using uv (recommended):
