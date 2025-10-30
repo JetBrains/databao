@@ -13,8 +13,8 @@ engine = create_engine(
 ## Create portus session
 
 ```python
-llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-session = portus.open_session(llm)
+llm_config = LLMConfig(name="gpt-4o-mini", temperature=0)
+session = portus.open_session(llm_config=llm_config)
 session.add_db(engine)
 ```
 

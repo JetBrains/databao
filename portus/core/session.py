@@ -16,6 +16,11 @@ if TYPE_CHECKING:
 
 
 class Session:
+    """A session manages all databases and Dataframes as well as the context for them.
+    Session determines what LLM to use, what executor to use and how to visualize data for all threads.
+    Several threads can be spawned out of the session.
+    """
+
     def __init__(
         self,
         name: str,

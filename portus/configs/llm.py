@@ -16,8 +16,6 @@ _OPENAI_REASONING_INFIXES = ["o1", "o3", "o4", "gpt-5", "openai/gpt-oss"]
 class LLMConfig(BaseModel):
     """Base class with all fields and computed logic for LLM configurations."""
 
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
     # Fields declared in parent - can be overridden in children with different defaults
     name: str
     """The model name can be of the form 'provider:name' or 'name'."""
@@ -46,6 +44,8 @@ class LLMConfig(BaseModel):
 
     model_kwargs: dict[str, Any] = Field(default_factory=dict)
     """Additional kwargs for the model constructor."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     def _resolve_timeout(self) -> float | None:
         if self.timeout == "auto":

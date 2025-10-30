@@ -12,6 +12,11 @@ if TYPE_CHECKING:
 
 
 class Pipe:
+    """Pipe is one chat with an LLM. It contains a history of messages.
+    It has no access to messages from other pipes even if they are in the same session.
+    It returns the last obtained answer from the LLM.
+    """
+
     def __init__(self, session: "Session", *, default_rows_limit: int = 1000):
         self._session = session
         self._default_rows_limit = default_rows_limit
