@@ -4,6 +4,8 @@ description = "Portus: NL queries for data"
 version = "0.0.4"
 requires-python = ">=3.12"
 readme = "README.md"
+license = "Apache-2.0 AND LicenseRef-Additional-Terms"
+license-files = ["LICENSE.md"]
 authors = []
 classifiers = [
     "Programming Language :: Python :: 3",

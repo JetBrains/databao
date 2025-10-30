@@ -48,6 +48,8 @@ class LighthouseAgent(AgentExecutor):
     def execute(
         self, session: Session, opa: Opa, *, rows_limit: int = 100, cache_scope: str = "common_cache"
     ) -> ExecutionResult:
+        # TODO rows_limit is ignored
+
         # Get or create graph (cached after first use)
         agent_graph = ExecuteSubmit(session.data_engine)
         compiled_graph = self._get_or_create_cached_graph(session)

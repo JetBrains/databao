@@ -14,6 +14,9 @@ def open_session(
     cache: Cache | None = None,
     default_rows_limit: int = 1000,
 ) -> Session:
+    """This is an entry point for users to open a session.
+    Session can't be modified after it's created. Only new data sources can be added.
+    """
     llm_config = llm_config if llm_config else LLMConfigDirectory.DEFAULT
     return Session(
         name,
