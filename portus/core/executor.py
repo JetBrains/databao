@@ -27,5 +27,6 @@ class Executor(ABC):
         *,
         rows_limit: int = 100,
         cache_scope: str = "common_cache",
+        stream: bool = True,
     ) -> ExecutionResult:
         pass

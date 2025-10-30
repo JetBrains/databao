@@ -16,6 +16,8 @@ class Pipe:
         self._session = session
         self._default_rows_limit = default_rows_limit
 
+        self._streaming_enabled = True
+
         self._data_materialized_rows: int | None = None
         self._data_result: ExecutionResult | None = None
 
@@ -37,7 +39,11 @@ class Pipe:
         if len(new_opas) > 0 or rows_limit != self._data_materialized_rows:
             for opa in new_opas:
                 self._data_result = self._session.executor.execute(
-                    self._session, opa, rows_limit=rows_limit, cache_scope=self._cache_scope
+                    self._session,
+                    opa,
+                    rows_limit=rows_limit,
+                    cache_scope=self._cache_scope,
+                    stream=self._streaming_enabled,
                 )
                 self._meta.update(self._data_result.meta)
             self._opas_processed_count += len(new_opas)
@@ -73,9 +79,10 @@ class Pipe:
     def __str__(self) -> str:
         return self.text()
 
-    def ask(self, query: str) -> "Pipe":
+    def ask(self, query: str, *, stream: bool = True) -> "Pipe":
         self._opas.append(Opa(query=query))
         self._visualization_materialized = False
+        self._streaming_enabled = stream
         return self
 
     @property

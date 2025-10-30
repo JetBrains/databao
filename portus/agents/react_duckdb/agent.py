@@ -1,6 +1,8 @@
 import logging
 from typing import Any
 
+from langchain_core.runnables import RunnableConfig
+
 from portus.agents.base import AgentExecutor
 from portus.configs.llm import LLMConfig
 from portus.core import ExecutionResult, Opa, Session
@@ -15,7 +17,13 @@ class ReactDuckDBAgent(AgentExecutor):
         return make_react_duckdb_agent(data_connection, llm_config.chat_model)
 
     def execute(
-        self, session: Session, opa: Opa, *, rows_limit: int = 100, cache_scope: str = "common_cache"
+        self,
+        session: Session,
+        opa: Opa,
+        *,
+        rows_limit: int = 100,
+        cache_scope: str = "common_cache",
+        stream: bool = True,
     ) -> ExecutionResult:
         # Get or create graph (cached after first use)
         data_connection, compiled_graph = self._get_or_create_cached_graph(session)
@@ -24,13 +32,15 @@ class ReactDuckDBAgent(AgentExecutor):
         messages = self._process_opa(session, opa, cache_scope)
 
         # Execute the graph
-        state = compiled_graph.invoke({"messages": messages})
-        answer: AgentResponse = state["structured_response"]
+        init_state = {"messages": messages}
+        invoke_config = RunnableConfig(recursion_limit=self._graph_recursion_limit)
+        last_state = self._invoke_graph(compiled_graph, init_state, config=invoke_config, stream=stream)
+        answer: AgentResponse = last_state["structured_response"]
         logger.info("Generated query: %s", answer.sql)
         df = data_connection.execute(f"SELECT * FROM ({sql_strip(answer.sql)}) t LIMIT {rows_limit}").df()
 
         # Update message history
-        final_messages = state.get("messages", [])
+        final_messages = last_state.get("messages", [])
         self._update_message_history(session, cache_scope, final_messages)
 
         return ExecutionResult(text=answer.explanation, code=answer.sql, df=df, meta={})

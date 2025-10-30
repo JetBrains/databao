@@ -4,7 +4,10 @@ from io import BytesIO
 from typing import Any
 
 from langchain_core.messages import HumanMessage
+from langchain_core.runnables import RunnableConfig
+from langgraph.graph.state import CompiledStateGraph
 
+from portus.agents.frontend.text_frontend import TextWriterFrontend
 from portus.configs.llm import LLMConfig
 from portus.core import Executor, Opa, Session
 
@@ -16,7 +19,7 @@ except ImportError:
 
 class AgentExecutor(Executor):
     """
-    Base class for agents that execute with a DuckDB connection and LLM configuration.
+    Base class for LangGraph agents that execute with a DuckDB connection and LLM configuration.
     Provides common functionality for graph caching, message handling, and OPA processing.
     """
 
@@ -25,6 +28,7 @@ class AgentExecutor(Executor):
         self._cached_compiled_graph: Any | None = None
         self._cached_connection_id: int | None = None
         self._cached_llm_config_id: int | None = None
+        self._graph_recursion_limit = 50
 
     def _get_data_connection(self, session: Session) -> Any:
         """Get DuckDB connection from session."""
@@ -132,3 +136,65 @@ class AgentExecutor(Executor):
         """Update message history in cache with final messages from graph execution."""
         if final_messages:
             self._set_messages(session, cache_scope, final_messages)
+
+    def _invoke_graph(
+        self,
+        compiled_graph: CompiledStateGraph[Any],
+        start_state: dict[str, Any],
+        *,
+        config: RunnableConfig | None = None,
+        stream: bool = True,
+        **kwargs: Any,
+    ) -> Any:
+        """Invoke the graph with the given start state and return the output state."""
+        if stream:
+            return self._execute_stream_sync(compiled_graph, start_state, config=config, **kwargs)
+        else:
+            return compiled_graph.invoke(
+                start_state,
+                config=config,
+            )
+
+    @staticmethod
+    async def _execute_stream(
+        compiled_graph: CompiledStateGraph[Any],
+        start_state: dict[str, Any],
+        *,
+        config: RunnableConfig | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        writer = TextWriterFrontend()
+        last_state = None
+        async for mode, chunk in compiled_graph.astream(
+            start_state,
+            stream_mode=["values", "messages"],
+            config=config,
+            **kwargs,
+        ):
+            writer.add_chunk(mode, chunk)
+            if mode == "values":
+                last_state = chunk
+        assert last_state is not None
+        return last_state
+
+    @staticmethod
+    def _execute_stream_sync(
+        compiled_graph: CompiledStateGraph[Any],
+        start_state: dict[str, Any],
+        *,
+        config: RunnableConfig | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        writer = TextWriterFrontend()
+        last_state = None
+        for mode, chunk in compiled_graph.stream(
+            start_state,
+            stream_mode=["values", "messages"],
+            config=config,
+            **kwargs,
+        ):
+            writer.add_chunk(mode, chunk)
+            if mode == "values":
+                last_state = chunk
+        assert last_state is not None
+        return last_state
