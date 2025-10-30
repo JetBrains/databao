@@ -10,6 +10,14 @@ _logger = logging.getLogger(__name__)
 
 
 class VisualisationResult(BaseModel):
+    """Result of turning data into a visualization.
+
+    Attributes:
+        text: Short description produced alongside the plot.
+        meta: Additional details from the visualizer (debug info, quality flags, etc.).
+        plot: Backend-specific plot object (Altair, matplotlib, etc.) or None if not drawable.
+        code: Optional code used to generate the plot (e.g., Vega-Lite spec JSON).
+    """
     text: str
     meta: dict[str, Any]
     plot: Any | None
@@ -60,6 +68,12 @@ class VisualisationResult(BaseModel):
 
 
 class Visualizer(ABC):
+    """Abstract interface for converting data into plots/text.
+
+    Implementations may ignore the request and choose an appropriate visualization.
+    """
+
     @abstractmethod
     def visualize(self, request: str | None, data: ExecutionResult) -> VisualisationResult:
+        """Produce a visualization for the given data and optional user request."""
         pass

@@ -5,6 +5,12 @@ from duckdb import DuckDBPyConnection
 
 
 def describe_duckdb_schema(con: DuckDBPyConnection, max_cols_per_table: int = 40) -> str:
+    """Return a compact textual description of tables and columns in DuckDB.
+
+    Args:
+        con: An open DuckDB connection.
+        max_cols_per_table: Truncate column lists longer than this.
+    """
     rows = con.execute("""
                         SELECT table_catalog, table_schema, table_name
                         FROM information_schema.tables
@@ -36,6 +42,11 @@ def describe_duckdb_schema(con: DuckDBPyConnection, max_cols_per_table: int = 40
 
 
 def register_sqlalchemy(con: DuckDBPyConnection, sqlalchemy_engine: Any, name: str) -> None:
+    """Attach an external DB to DuckDB using an existing SQLAlchemy engine.
+
+    Supports PostgreSQL and MySQL/MariaDB (via DuckDB extensions). The external
+    database becomes available under the given `name` within the DuckDB connection.
+    """
     url = sqlalchemy_engine.url.render_as_string(hide_password=False)
     dialect = getattr(getattr(sqlalchemy_engine, "dialect", None), "name", "")
     if dialect.startswith("postgres"):
