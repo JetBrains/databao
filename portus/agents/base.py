@@ -150,10 +150,7 @@ class AgentExecutor(Executor):
         if stream:
             return self._execute_stream_sync(compiled_graph, start_state, config=config, **kwargs)
         else:
-            return compiled_graph.invoke(
-                start_state,
-                config=config,
-            )
+            return compiled_graph.invoke(start_state, config=config)
 
     @staticmethod
     async def _execute_stream(

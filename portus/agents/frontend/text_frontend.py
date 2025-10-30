@@ -10,12 +10,22 @@ from portus.agents.frontend.messages import get_reasoning_content, get_tool_call
 class TextStreamFrontend:
     """Helper for streaming LangGraph LLM outputs to a text stream (stdout, stderr, a file, etc.)."""
 
-    def __init__(self, start_state: dict[str, Any], *, writer: TextIO | None = None, escape_markdown: bool = False):
+    def __init__(
+        self,
+        start_state: dict[str, Any],
+        *,
+        writer: TextIO | None = None,
+        escape_markdown: bool = False,
+        show_headers: bool = True,
+        pretty_sql: bool = False,
+    ):
         self._writer = writer  # Use io.Writer type in Python 3.14
-        self._is_tool_calling = False
         self._escape_markdown = escape_markdown
-        self._started = False
+        self._show_headers = show_headers
         self._message_count = len(start_state.get("messages", []))
+        self._started = False
+        self._is_tool_calling = False
+        self._pretty_sql = pretty_sql
 
     def write(self, text: str) -> None:
         if not self._started:
@@ -39,19 +49,19 @@ class TextStreamFrontend:
             # N.B. LangChain sometimes waits for the whole string to complete before yielding chunks
             # That's why long "sql" tool calls take some time to show up and then the whole sql is shown in a batch
             if not self._is_tool_calling:
-                self.write("\n```\n\n")
+                self.write("\n\n```\n")  # Open code block
                 self._is_tool_calling = True
             for tool_call_chunk in chunk.tool_call_chunks:
                 if tool_call_chunk["args"] is not None:
                     self.write(tool_call_chunk["args"])
         elif self._is_tool_calling:
-            self.write("\n```\n\n")
+            self.write("\n```\n\n")  # Close code block
             self._is_tool_calling = False
 
     def write_state_chunk(self, state_chunk: dict[str, Any]) -> None:
         """The state chunk is assumed to contain a "messages" key."""
         if self._is_tool_calling:
-            self.write("\n```\n\n")
+            self.write("\n```\n\n")  # Close code block
             self._is_tool_calling = False
 
         # Loop through new messages only.
@@ -67,10 +77,10 @@ class TextStreamFrontend:
                     if "df" in message.artifact and message.artifact["df"] is not None:
                         self.write_dataframe(message.artifact["df"])
                     else:
-                        self.write(f"\n\n```\n{message.content}\n```\n\n")
+                        self.write(f"\n```\n{message.content}\n```\n\n")
                 else:
-                    self.write(f"\n\n```\n{message.content}\n```\n\n")
-            elif isinstance(message, AIMessage):
+                    self.write(f"\n```\n{message.content}\n```\n\n")
+            elif self._pretty_sql and isinstance(message, AIMessage):
                 # During tool calling we show raw JSON chunks, but for SQL we also want pretty formatting.
                 for tool_call in message.tool_calls:
                     sql = get_tool_call_sql(tool_call)
@@ -89,10 +99,12 @@ class TextStreamFrontend:
 
     def start(self) -> None:
         self._started = True
-        self.write("=" * 8 + " THINKING " + "=" * 8 + "\n\n")
+        if self._show_headers:
+            self.write("=" * 8 + " <THINKING> " + "=" * 8 + "\n\n")
 
     def end(self) -> None:
-        self.write("=" * 8 + " DONE " + "=" * 8 + "\n\n")
+        if self._show_headers:
+            self.write("\n" + "=" * 8 + " </THINKING> " + "=" * 8 + "\n\n")
         self._started = False
 
 
