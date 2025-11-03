@@ -1,4 +1,4 @@
-# databao: NL queries for data
+# Databao: NL queries for data
 
 ## Setup connection
 
@@ -10,7 +10,7 @@ engine = create_engine(
 )
 ```
 
-## Create databao session
+## Create a databao session
 
 ```python
 llm_config = LLMConfig(name="gpt-4o-mini", temperature=0)
@@ -28,7 +28,7 @@ thread.ask("list all german shows").df()
 
 ## Local models
 
-databao can be used with local LLMs either using ollama or OpenAI API compatible servers (LM Studio, llama.cpp, etc.).
+Databao can be used with local LLMs either using ollama or OpenAI API compatible servers (LM Studio, llama.cpp, etc.).
 
 ### Ollama
 
