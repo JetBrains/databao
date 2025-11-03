@@ -1,5 +1,6 @@
 from itertools import chain
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import duckdb
 import pandas as pd
@@ -42,6 +43,7 @@ class DuckDBCollection(DataSource[DuckDBCollectionConfig]):
         self._db_sources: dict[str, DatabaseSource] = {}
         self._df_sources: dict[str, DataFrameSource] = {}
         self._data_changed = False
+        self._tmp_dir: TemporaryDirectory[str] | None = None
         self._init_engine()
 
     @property
@@ -61,10 +63,11 @@ class DuckDBCollection(DataSource[DuckDBCollectionConfig]):
         else:
             # We fallback to a file-backed database, where only added dataframes will get materialized.
             db_name = "duck.db"  # This name is used in the schema inspection, so it must be simple
-            db_path = Path(db_name)
-            if db_path.exists():
-                db_path.unlink()
-            sa_engine = create_engine(f"duckdb:///{db_name}", connect_args={"read_only": False})
+            if self._tmp_dir is not None:
+                self._tmp_dir.cleanup()
+            self._tmp_dir = TemporaryDirectory()
+            db_path = Path(self._tmp_dir.name) / db_name
+            sa_engine = create_engine(f"duckdb:///{db_path}", connect_args={"read_only": False})
         sa_config = SqlAlchemyDataSourceConfig(source_type="sqlalchemy", name="duckdb_collection", db_type="duckdb")
         self._sa_source = _DuckDBSqlAlchemySource(sa_config, sa_engine)
 
@@ -82,9 +85,13 @@ class DuckDBCollection(DataSource[DuckDBCollectionConfig]):
 
     async def close(self) -> None:
         await self._sa_source.close()
+        if self._tmp_dir is not None:
+            self._tmp_dir.cleanup()
 
     def close_sync(self) -> None:
         self._sa_source.close_sync()
+        if self._tmp_dir is not None:
+            self._tmp_dir.cleanup()
 
     def add_df(self, df: pd.DataFrame, *, name: str | None = None, additional_context: str | None = None) -> None:
         df_name = name or f"df{len(self._df_sources) + 1}"
