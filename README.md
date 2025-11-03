@@ -1,4 +1,4 @@
-# Portus: NL queries for data
+# Databao: NL queries for data
 
 ## Setup connection
 
@@ -10,11 +10,11 @@ engine = create_engine(
 )
 ```
 
-## Create portus session
+## Create a databao session
 
 ```python
 llm_config = LLMConfig(name="gpt-4o-mini", temperature=0)
-session = portus.open_session(llm_config=llm_config)
+session = databao.open_session(llm_config=llm_config)
 session.add_db(engine)
 ```
 
@@ -28,7 +28,7 @@ thread.ask("list all german shows").df()
 
 ## Local models
 
-Portus can be used with local LLMs either using ollama or OpenAI API compatible servers (LM Studio, llama.cpp, etc.).
+Databao can be used with local LLMs either using ollama or OpenAI API compatible servers (LM Studio, llama.cpp, etc.).
 
 ### Ollama
 

@@ -3,12 +3,12 @@ from typing import TYPE_CHECKING, Any
 
 from pandas import DataFrame
 
-from portus.core.opa import Opa
+from databao.core.opa import Opa
 
 if TYPE_CHECKING:
-    from portus.core.executor import ExecutionResult
-    from portus.core.session import Session
-    from portus.core.visualizer import VisualisationResult
+    from databao.core.executor import ExecutionResult
+    from databao.core.session import Session
+    from databao.core.visualizer import VisualisationResult
 
 
 class Pipe:

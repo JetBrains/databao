@@ -6,13 +6,13 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from pandas import DataFrame
 from sqlalchemy import Engine
 
-from portus.configs.llm import LLMConfig
-from portus.core.pipe import Pipe
+from databao.configs.llm import LLMConfig
+from databao.core.pipe import Pipe
 
 if TYPE_CHECKING:
-    from portus.core.cache import Cache
-    from portus.core.executor import Executor
-    from portus.core.visualizer import Visualizer
+    from databao.core.cache import Cache
+    from databao.core.executor import Executor
+    from databao.core.visualizer import Visualizer
 
 
 class Session:
@@ -49,7 +49,7 @@ class Session:
         self.__default_rows_limit = default_rows_limit
 
     def add_db(self, connection: Any, *, name: str | None = None, context: str | None = None) -> None:
-        from portus.duckdb import register_sqlalchemy
+        from databao.duckdb import register_sqlalchemy
 
         conn_name = name or f"db{len(self.__dbs) + 1}"
 

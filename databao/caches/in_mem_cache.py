@@ -1,6 +1,6 @@
 from io import BytesIO
 
-from portus.core.cache import Cache
+from databao.core.cache import Cache
 
 
 class InMemCache(Cache):

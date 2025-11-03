@@ -5,8 +5,8 @@ from edaplot.llms import LLMConfig as VegaLLMConfig
 from edaplot.vega import to_altair_chart
 from edaplot.vega_chat.vega_chat import VegaChat, VegaChatConfig
 
-from portus.configs.llm import LLMConfig
-from portus.core import ExecutionResult, VisualisationResult, Visualizer
+from databao.configs.llm import LLMConfig
+from databao.core import ExecutionResult, VisualisationResult, Visualizer
 
 
 def _convert_llm_config(llm_config: LLMConfig) -> VegaLLMConfig:

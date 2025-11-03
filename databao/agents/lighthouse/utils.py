@@ -31,7 +31,7 @@ def _get_jinja_prompts_env(prompts_dir: Path | None = None) -> jinja2.Environmen
         # A package loader must be used for using as a library!
         # Use empty string to load from package directory itself, not from 'templates' subdirectory
         _jinja_prompts_env = jinja2.Environment(
-            loader=jinja2.PackageLoader("portus.agents.lighthouse", ""),
+            loader=jinja2.PackageLoader("databao.agents.lighthouse", ""),
             trim_blocks=True,  # better whitespace handling
             lstrip_blocks=True,
         )
