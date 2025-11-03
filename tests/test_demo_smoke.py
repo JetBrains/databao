@@ -5,7 +5,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
-import portus
+import databao
 
 
 @pytest.fixture
@@ -35,8 +35,8 @@ def test_demo_smoke(db_engine: Engine) -> None:
     assert df is not None
     assert len(df) > 0, "Expected to get some results from the database query"
 
-    # Step 2: Create portus session
-    session = portus.open_session("test_session")
+    # Step 2: Create databao session
+    session = databao.open_session("test_session")
     assert session is not None
 
     # Step 3: Add database to session
@@ -70,8 +70,8 @@ def test_consecutive_ask_calls(db_engine: Engine) -> None:
     # Configure logging
     logging.basicConfig(level=logging.INFO)
 
-    # Step 1: Create portus session
-    session = portus.open_session("test_consecutive_session")
+    # Step 1: Create databao session
+    session = databao.open_session("test_consecutive_session")
     assert session is not None
 
     # Step 2: Add database to session

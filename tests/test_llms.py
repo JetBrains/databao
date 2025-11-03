@@ -4,8 +4,8 @@ from pathlib import Path
 import pytest
 from langchain_core.language_models import BaseChatModel
 
-from portus.configs import LLMConfigDirectory
-from portus.configs.llm import LLMConfig, _parse_model_provider
+from databao.configs import LLMConfigDirectory
+from databao.configs.llm import LLMConfig, _parse_model_provider
 
 example_llm_config_paths = [
     p for p in Path(__file__).parent.parent.glob("examples/configs/*.yaml") if not p.name.startswith(".")
