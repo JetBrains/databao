@@ -15,7 +15,7 @@ Databao runs agents on top of dataframes and your DB connections, and can use bo
 ## Installation
 Using pip:
 ```bash
-pip install portus-ai
+pip install databao
 ```
 
 Using uv (for development):
@@ -148,4 +148,4 @@ tests/                   # pytest suite
 ```
 
 ## Entry points
-- Programmatic: `from portus.api import open_session`
+- Programmatic: `from databao.api import open_session`
