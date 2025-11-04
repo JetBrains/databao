@@ -17,7 +17,7 @@ class TextStreamFrontend:
         writer: TextIO | None = None,
         escape_markdown: bool = False,
         show_headers: bool = True,
-        pretty_sql: bool = False,
+        pretty_sql: bool = True,
     ):
         self._writer = writer  # Use io.Writer type in Python 3.14
         self._escape_markdown = escape_markdown
