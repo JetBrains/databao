@@ -1,6 +1,6 @@
 import pytest
 
-from portus.core.visualizer import VisualisationResult
+from databao.core.visualizer import VisualisationResult
 
 
 def test_visualisation_result_get_plot_html_with_no_plot() -> None:

@@ -1,9 +1,11 @@
 [project]
-name = "portus-ai"
-description = "Portus: NL queries for data"
+name = "databao"
+description = "databao: NL queries for data"
 dynamic = ["version"]  # Based on the git tag
 requires-python = ">=3.12"
 readme = "README.md"
+license = "Apache-2.0 AND LicenseRef-Additional-Terms"
+license-files = ["LICENSE.md"]
 authors = []
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -46,10 +48,10 @@ fallback-version = "0.0.0"  # https://github.com/ninoseki/uv-dynamic-versioning/
 bump = true
 
 [tool.hatch.build.targets.sdist]
-include = ["/portus"]
+include = ["/databao"]
 
 [tool.hatch.build.targets.wheel]
-include = ["/portus"]
+include = ["/databao"]
 
 [dependency-groups]
 dev = [
@@ -71,7 +73,7 @@ warn_unused_configs = true
 warn_unused_ignores = true
 allow_redefinition_new = true
 local_partial_types = true
-files = ["portus", "tests", "examples"]
+files = ["databao", "tests", "examples"]
 plugins = ["pydantic.mypy", "sqlalchemy.ext.mypy.plugin"]
 
 [tool.ruff]
