@@ -2,8 +2,8 @@ import dataclasses
 import json
 from typing import Any
 
+import altair
 import pandas as pd
-from edaplot.api import make_interactive_spec
 from edaplot.llms import LLMConfig as VegaLLMConfig
 from edaplot.vega import to_altair_chart
 from edaplot.vega_chat.vega_chat import VegaChat, VegaChatConfig
@@ -17,13 +17,21 @@ class VegaChatResult(VisualisationResult):
     spec: dict[str, Any] | None = None
     spec_df: pd.DataFrame | None = None
 
-    def interactive(self, *, force_display: bool = False) -> VegaVisTool | None:
+    def to_interactive(self) -> VegaVisTool | None:
+        """Return an interactive UI wizard for the Vega-Lite chart.
+
+        The returned chart object can be rendered in interactive notebooks."""
         if self.spec is None or self.spec_df is None:
             return None
-        vis_tool = VegaVisTool(self.spec, self.spec_df)
-        if force_display:
-            vis_tool.display()
-        return vis_tool
+        return VegaVisTool(self.spec, self.spec_df)
+
+    def to_altair(self) -> altair.Chart | None:
+        """Return an interactive Altair chart.
+
+        The returned chart object can be rendered in interactive notebooks."""
+        if self.spec is None or self.spec_df is None:
+            return None
+        return to_altair_chart(self.spec, self.spec_df)
 
 
 def _convert_llm_config(llm_config: LLMConfig) -> VegaLLMConfig:
@@ -43,15 +51,14 @@ def _convert_llm_config(llm_config: LLMConfig) -> VegaLLMConfig:
 
 
 class VegaChatVisualizer(Visualizer):
-    def __init__(self, llm_config: LLMConfig, *, interactive_charts: bool = False):
+    def __init__(self, llm_config: LLMConfig, *, return_interactive_chart: bool = True):
         vega_llm = _convert_llm_config(llm_config)
         self._vega_config = VegaChatConfig(
             llm_config=vega_llm,
             data_normalize_column_names=True,  # To deal with column names that have special characters
         )
 
-        # Interactive refers to zooming, panning, etc.
-        self._interactive_charts = interactive_charts
+        self._return_interactive_chart = return_interactive_chart
 
     def visualize(self, request: str | None, data: ExecutionResult) -> VegaChatResult:
         if data.df is None:
@@ -76,19 +83,20 @@ class VegaChatVisualizer(Visualizer):
                 code=None,
             )
 
-        preprocessed_df = model.dataframe
-        if self._interactive_charts:
-            spec = make_interactive_spec(preprocessed_df, spec)
-
         text = model_out.message.text()
         spec_json = json.dumps(spec, indent=2)
+
         # Use the possibly transformed dataframe tied to the generated spec
-        altair_chart = to_altair_chart(spec, preprocessed_df)
+        preprocessed_df = model.dataframe
+        if self._return_interactive_chart:
+            plot = VegaVisTool(spec, preprocessed_df)
+        else:
+            plot = to_altair_chart(spec, preprocessed_df)
 
         return VegaChatResult(
             text=text,
             meta=dataclasses.asdict(model_out),
-            plot=altair_chart,
+            plot=plot,
             code=spec_json,
             spec=spec,
             spec_df=preprocessed_df,
