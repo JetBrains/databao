@@ -1,4 +1,3 @@
-import importlib
 import os
 import re
 from pathlib import Path
@@ -50,22 +49,3 @@ def read_config_file(path: Path, *, parse_env_vars: bool = False) -> Any:
         if parse_env_vars:
             config = expand_env_vars(config)
         return config
-
-
-def import_plugin[T](class_import_path: str, return_type_parent_class: type[T]) -> type[T]:
-    """
-    Dynamically import a plugin class and check that it is a subclass of the return_type_parent_class.
-    Args:
-        class_import_path (str): The full path to the plugin class, e.g. "otherlib.plugins.my_plugin.MyPlugin"
-        return_type_parent_class: The parent class of the plugin class, e.g. "benchmark.plugins.Plugin"
-
-    Returns:
-        The imported class.
-    """
-    module_path_parts = class_import_path.split(".")
-    class_name = module_path_parts[-1]
-    module_path = ".".join(module_path_parts[:-1])
-    module = importlib.import_module(module_path)
-    class_: type[T] = getattr(module, class_name)
-    assert issubclass(class_, return_type_parent_class)
-    return class_

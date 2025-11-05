@@ -1,14 +1,11 @@
 import asyncio
 from collections.abc import Sequence
-from pathlib import Path
-from typing import Self
 
 import pandas as pd
 
 from databao.core.data_source import DataSource
 from databao.data.configs.data_source_config import DataSourceConfig
 from databao.data.configs.schema_inspection_config import SchemaInspectionConfig
-from databao.data.data_source_utils import get_data_source
 from databao.data.database_schema_types import DatabaseSchema
 from databao.data.schema_summary import summarize_schemas
 
@@ -104,14 +101,3 @@ class DataEngine:
     def close_sync(self) -> None:
         for source in self._sources.values():
             source.close_sync()
-
-    @classmethod
-    async def from_configs(cls, source_configs: Sequence[DataSourceConfig | Path]) -> Self:
-        sources: list[DataSource[DataSourceConfig]] = []
-        for config in source_configs:
-            source = await get_data_source(config)
-            if isinstance(source, DataSource):
-                sources.append(source)
-            else:
-                sources.extend(source)
-        return cls(sources)

@@ -43,22 +43,6 @@ class DataSourceConfig(BaseModel, ABC):
         examples=["sqlalchemy", "metabase"],
     )
 
-    source_class_import_path: str | None = Field(
-        default=None,
-        description="Import path to the DataSource sub-class which "
-        "to dynamically import as plugin. If provided, source_type is ignored for "
-        "building the DataSource object (but may be still used in building the "
-        "DataSourceConfig object).",
-    )
-
-    source_class_config_import_path: str | None = Field(
-        default=None,
-        description="Import path to the DataSourceConfig sub-class which "
-        "to dynamically import as plugin. If provided, source_type is ignored for "
-        "building the DataSourceConfig object (but may be still used in building the "
-        "DataSource object).",
-    )
-
     database_or_schema: str | list[str] | None = None
     """
     The database or the schema to use for queries. 
