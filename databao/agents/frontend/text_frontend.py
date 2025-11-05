@@ -34,6 +34,7 @@ class TextStreamFrontend:
 
     def write_dataframe(self, df: pd.DataFrame) -> None:
         self.write(df.to_markdown())
+        self.write("\n\n")
 
     def write_message_chunk(self, chunk: BaseMessageChunk) -> None:
         if not isinstance(chunk, AIMessageChunk):
