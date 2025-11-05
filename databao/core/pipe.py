@@ -1,5 +1,5 @@
 import uuid
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Self
 
 from pandas import DataFrame
 
@@ -19,11 +19,11 @@ class Pipe:
     - Exposes helpers to get the latest dataframe/text/plot/code.
     """
 
-    def __init__(self, session: "Session", *, default_rows_limit: int = 1000):
+    def __init__(self, session: "Session", *, default_rows_limit: int = 1000, stream: bool = True):
         self._session = session
         self._default_rows_limit = default_rows_limit
 
-        self._streaming_enabled = True
+        self._streaming_enabled = stream
 
         self._data_materialized_rows: int | None = None
         self._data_result: ExecutionResult | None = None
@@ -39,6 +39,11 @@ class Pipe:
 
         # A unique cache scope so agents can store per-thread state (e.g., message history)
         self._cache_scope = f"{self._session.name}/{uuid.uuid4()}"
+
+    def enable_streaming(self, value: bool) -> Self:
+        """Enable streaming for this pipe (if supported by the executor)."""
+        self._streaming_enabled = value
+        return self
 
     def _materialize_data(self, rows_limit: int | None) -> "ExecutionResult":
         """Materialize latest data state by executing pending OPAs if needed.
@@ -69,7 +74,9 @@ class Pipe:
         data = self._materialize_data(rows_limit)
         if not self._visualization_materialized or request != self._visualization_request:
             # TODO Cache visualization results as in Executor.execute()?
-            self._visualization_result = self._session.visualizer.visualize(request, data)
+            self._visualization_result = self._session.visualizer.visualize(
+                request, data, stream=self._streaming_enabled
+            )
             self._visualization_materialized = True
             self._visualization_request = request
             self._meta.update(self._visualization_result.meta)
@@ -114,14 +121,13 @@ class Pipe:
         else:
             return f"Unmaterialized {self.__class__.__name__}."
 
-    def ask(self, query: str, *, stream: bool = True) -> "Pipe":
+    def ask(self, query: str) -> Self:
         """Append a new user query to this pipe.
 
         Returns self to allow chaining (e.g., pipe.ask("..."))
         """
         self._opas.append(Opa(query=query))
         self._visualization_materialized = False
-        self._streaming_enabled = stream
         return self
 
     @property

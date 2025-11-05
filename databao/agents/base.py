@@ -137,10 +137,10 @@ class AgentExecutor(Executor):
         if final_messages:
             self._set_messages(session, cache_scope, final_messages)
 
-    def _invoke_graph(
-        self,
+    @staticmethod
+    def _invoke_graph_sync(
         compiled_graph: CompiledStateGraph[Any],
-        start_state: dict[str, Any],
+        start_state: Any,
         *,
         config: RunnableConfig | None = None,
         stream: bool = True,
@@ -148,14 +148,14 @@ class AgentExecutor(Executor):
     ) -> Any:
         """Invoke the graph with the given start state and return the output state."""
         if stream:
-            return self._execute_stream_sync(compiled_graph, start_state, config=config, **kwargs)
+            return AgentExecutor._execute_stream_sync(compiled_graph, start_state, config=config, **kwargs)
         else:
             return compiled_graph.invoke(start_state, config=config)
 
     @staticmethod
     async def _execute_stream(
         compiled_graph: CompiledStateGraph[Any],
-        start_state: dict[str, Any],
+        start_state: Any,
         *,
         config: RunnableConfig | None = None,
         **kwargs: Any,
@@ -178,7 +178,7 @@ class AgentExecutor(Executor):
     @staticmethod
     def _execute_stream_sync(
         compiled_graph: CompiledStateGraph[Any],
-        start_state: dict[str, Any],
+        start_state: Any,
         *,
         config: RunnableConfig | None = None,
         **kwargs: Any,

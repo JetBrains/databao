@@ -76,7 +76,7 @@ class LighthouseAgent(AgentExecutor):
 
         init_state = graph.init_state(messages_with_system)
         invoke_config = RunnableConfig(recursion_limit=self._graph_recursion_limit)
-        last_state = self._invoke_graph(compiled_graph, init_state, config=invoke_config, stream=stream)
+        last_state = self._invoke_graph_sync(compiled_graph, init_state, config=invoke_config, stream=stream)
         execution_result = graph.get_result(last_state)
 
         # Update message history (excluding system message which we add dynamically)

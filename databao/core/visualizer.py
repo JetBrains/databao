@@ -75,6 +75,6 @@ class Visualizer(ABC):
     """
 
     @abstractmethod
-    def visualize(self, request: str | None, data: ExecutionResult) -> VisualisationResult:
+    def visualize(self, request: str | None, data: ExecutionResult, *, stream: bool = True) -> VisualisationResult:
         """Produce a visualization for the given data and optional user request."""
         pass
