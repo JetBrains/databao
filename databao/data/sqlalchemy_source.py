@@ -15,9 +15,9 @@ from sqlalchemy.pool import ConnectionPoolEntry
 from tqdm.asyncio import tqdm_asyncio
 
 from databao.caches.disk_cache import DiskCache, DiskCacheConfig
-from databao.core.data_source import DataSource
 from databao.data.configs.schema_inspection_config import InspectionOptions, ValueSamplingStrategy
 from databao.data.configs.sqlalchemy_data_source_config import SqlAlchemyDataSourceConfig
+from databao.data.data_source import DataSource
 from databao.data.database_schema_types import (
     ColumnSchema,
     ColumnValuesStats,
@@ -217,7 +217,7 @@ class SqlAlchemyDataSource(DataSource[SqlAlchemyDataSourceConfig]):
         # TODO move common logic to DataSource?
         if options.cache_intermediate_results:
             # TODO how/when to invalidate the cache?
-            # TODO support using Session's Cache
+            # TODO support using Session's Cache and scope
             cache = DiskCache(DiskCacheConfig())
             # Storing json keys/values allows querying like `SELECT json_extract(tag, '$.source') FROM Cache;`
             cache_dict = {

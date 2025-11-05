@@ -8,7 +8,6 @@ from langgraph.graph.state import CompiledStateGraph
 from databao.agents.base import AgentExecutor
 from databao.agents.react_duckdb.react_tools import AgentResponse, make_react_duckdb_agent, sql_strip
 from databao.core import ExecutionResult, Opa, Session
-from databao.data.duckdb.duckdb_collection import DuckDBCollection
 
 logger = logging.getLogger(__name__)
 
@@ -20,12 +19,8 @@ class ReactDuckDBAgent(AgentExecutor):
 
     def _create_connection(self, session: Session) -> DuckDBPyConnection:
         """Get or create a connection to the DuckDB database."""
-        data_engine = session.data_engine
-        duckdb_collection = next((s for s in data_engine.sources.values() if isinstance(s, DuckDBCollection)), None)
-        if duckdb_collection is None:
-            raise RuntimeError(f"No DuckDBCollection found in the data engine when using {self.__class__.__name__}.")
         # Use a native duckdb connection for backwards compatibility.
-        connection = duckdb_collection.make_duckdb_connection()
+        connection = self._duckdb_collection.make_duckdb_connection()
         self._session_connections[session.name] = connection
         return connection
 

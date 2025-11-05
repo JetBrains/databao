@@ -13,7 +13,8 @@ from langgraph.graph.state import CompiledStateGraph, StateGraph
 
 from databao.agents.lighthouse.utils import exception_to_string
 from databao.configs.llm import LLMConfig
-from databao.core import DataEngine, ExecutionResult
+from databao.core import ExecutionResult
+from databao.data.data_source import DataSource
 
 
 class AgentState(TypedDict):
@@ -32,8 +33,8 @@ class ExecuteSubmit:
 
     MAX_ROWS = 12
 
-    def __init__(self, data_engine: DataEngine):
-        self._data_engine = data_engine
+    def __init__(self, data_source: DataSource[Any]) -> None:
+        self._data_source = data_source
 
     def init_state(self, messages: list[BaseMessage]) -> dict[str, Any]:
         state: dict[str, Any] = {
@@ -87,7 +88,7 @@ class ExecuteSubmit:
             Args:
                 sql: SQL query
             """
-            df_or_error = self._data_engine.execute_sync(sql)
+            df_or_error = self._data_source.execute_sync(sql)
             if isinstance(df_or_error, pd.DataFrame):
                 df_csv = df_or_error.head(self.MAX_ROWS).to_csv(index=False)
                 df_markdown = df_or_error.head(self.MAX_ROWS).to_markdown(index=False)

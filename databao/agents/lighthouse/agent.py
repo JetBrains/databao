@@ -20,16 +20,13 @@ class LighthouseAgent(AgentExecutor):
 
     def render_system_prompt(self, session: Session) -> str:
         """Render system prompt with database schema."""
-        data_engine = session.data_engine
-        db_schema_str = data_engine.get_source_schemas_summarization_sync(self._inspection_config)
-        # db_schema_str = asyncio.run(data_engine.get_source_schemas_summarization(self._inspection_config))  # Faster
+        db_schema_str = self._summarize_schema(self._inspection_config)
 
         # TODO add "context" as the DatabaseSchema.description?
-        db_contexts, df_contexts = session.context
         context = ""
-        for db_name, db_context in db_contexts.items():
+        for db_name, db_context in session.db_contexts.items():
             context += f"## Context for DB {db_name}\n\n{db_context}\n\n"
-        for df_name, df_context in df_contexts.items():
+        for df_name, df_context in session.df_contexts.items():
             context += f"## Context for DF {df_name}\n\n{df_context}\n\n"
 
         prompt_template = read_prompt_template(Path("system_prompt.jinja"))
@@ -42,7 +39,7 @@ class LighthouseAgent(AgentExecutor):
 
     def _create_graph(self, session: Session) -> CompiledStateGraph[Any]:
         """Create and compile the Lighthouse agent graph."""
-        agent_graph = ExecuteSubmit(session.data_engine)
+        agent_graph = ExecuteSubmit(self._duckdb_collection)
         return agent_graph.compile(session.llm_config)
 
     def execute(
@@ -57,8 +54,8 @@ class LighthouseAgent(AgentExecutor):
         # TODO rows_limit is ignored
 
         # Get or create graph (cached after first use)
-        agent_graph = ExecuteSubmit(session.data_engine)
         compiled_graph = self._get_or_create_cached_graph(session)
+        agent_graph = ExecuteSubmit(self._duckdb_collection)
 
         messages = self._process_opa(session, opa, cache_scope)
 

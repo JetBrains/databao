@@ -10,6 +10,9 @@ from langgraph.graph.state import CompiledStateGraph
 from databao.agents.frontend.text_frontend import TextStreamFrontend
 from databao.configs.llm import LLMConfig
 from databao.core import Executor, Opa, Session
+from databao.data.configs.schema_inspection_config import SchemaInspectionConfig
+from databao.data.duckdb.duckdb_collection import DuckDBCollection
+from databao.data.schema_summary import summarize_schema
 
 
 class AgentExecutor(Executor):
@@ -21,10 +24,42 @@ class AgentExecutor(Executor):
     def __init__(self) -> None:
         """Initialize agent with graph caching infrastructure."""
         # TODO Caching should be scoped to the Session/Pipe/Thread, not the Executor instance
-        self._cached_compiled_graph: CompiledStateGraph[Any] | None = None
-        self._cached_llm_config: LLMConfig | None = None
-        self._cached_data_source_names: list[str] | None = None
+        # For now assume the Executor will not be reused across sessions. Otherwise we would need per-session instances.
+        self._compiled_graph: CompiledStateGraph[Any] | None = None
+        self._llm_config: LLMConfig | None = None
+        # For now assume this Executor is only used with DuckDB compatible data sources.
+        self._duckdb_collection = DuckDBCollection()
+
         self._graph_recursion_limit = 50
+
+    def _update_data_connections(self, session: Session) -> bool:
+        # TODO The interaction and responsibilities of Session and Executor need to be redesigned.
+        # The Executor is responsible for connecting to the available data sources.
+
+        # Currently, we assume connections can only be added to a session and not removed.
+        # Otherwise, we would need to invalidate removed connections as well.
+        existing_db_names = {db_source.name for db_source in self._duckdb_collection.db_sources}
+        session_db_names = {name for name in session.dbs}
+        new_db_names = session_db_names.difference(existing_db_names)
+        for name in new_db_names:
+            engine = session.dbs[name]
+            additional_context = session.db_contexts.get(name)
+            self._duckdb_collection.add_db(engine, name=name, additional_context=additional_context)
+
+        # Same as above for DataFrames
+        existing_df_names = {df_source.name for df_source in self._duckdb_collection.df_sources}
+        session_df_names = {name for name in session.dfs}
+        new_df_names = session_df_names.difference(existing_df_names)
+        for name in new_df_names:
+            engine = session.dfs[name]
+            additional_context = session.df_contexts.get(name)
+            self._duckdb_collection.add_df(engine, name=name, additional_context=additional_context)
+
+        return self._duckdb_collection.register_data_sources()
+
+    def _summarize_schema(self, inspection_config: SchemaInspectionConfig) -> str:
+        schema = self._duckdb_collection.inspect_schema_sync(inspection_config.inspection_options)
+        return summarize_schema(schema, inspection_config.summary_type)
 
     def _get_messages(self, session: Session, cache_scope: str) -> list[BaseMessage]:
         """Retrieve messages from the session cache."""
@@ -56,31 +91,18 @@ class AgentExecutor(Executor):
         """
         pass
 
-    def _should_recompile_graph(self, session: Session) -> bool:
-        """Check if the graph needs recompilation (e.g., due to connection or config changes)."""
-        data_engine = session.data_engine
-        data_source_names = sorted(s.name for s in data_engine.sources.values())
-        return (
-            self._cached_compiled_graph is None
-            or self._cached_data_source_names != data_source_names
-            or self._cached_llm_config != session.llm_config
-        )
-
-    def _cache_graph(self, session: Session, compiled_graph: CompiledStateGraph[Any]) -> None:
-        """Cache the compiled graph and associated IDs."""
-        data_engine = session.data_engine
-        data_source_names = sorted(s.name for s in data_engine.sources.values())
-        self._cached_compiled_graph = compiled_graph
-        self._cached_llm_config = session.llm_config
-        self._cached_data_source_names = data_source_names
-
     def _get_or_create_cached_graph(self, session: Session) -> CompiledStateGraph[Any]:
         """Get cached graph or create new one if connection/config changed."""
-        if self._cached_compiled_graph is not None and not self._should_recompile_graph(session):
-            return self._cached_compiled_graph
+        connections_updated = self._update_data_connections(session)
+        should_recompile_graph = (
+            self._compiled_graph is None or connections_updated or self._llm_config != session.llm_config
+        )
+        if self._compiled_graph is not None and not should_recompile_graph:
+            return self._compiled_graph
 
         compiled_graph = self._create_graph(session)
-        self._cache_graph(session, compiled_graph)
+        self._compiled_graph = compiled_graph
+        self._llm_config = session.llm_config
         return compiled_graph
 
     def _process_opa(self, session: Session, opa: Opa, cache_scope: str) -> list[BaseMessage]:
