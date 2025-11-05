@@ -34,16 +34,6 @@ class InspectionOptions(BaseModel):
     cache_intermediate_results: bool = False
     """Whether to cache intermediate schema inspection results."""
 
-    tables_regex: str | None = None
-    """Regex to include **additional** tables in the schema inspection. 
-    Tables listed in the semantic dict are always included.
-    
-    Mainly for generated dbt projects, where not all tables are documented and would otherwise get skipped.
-    """
-    columns_regex: str | None = None
-    """Regex to include **additional** columns in the schema inspection. 
-    Columns listed in the semantic dict are always included."""
-
     retrieval_set_limit: int | None = Field(default=None, ge=0)
     """The size of a limited subset of the contents of a table/view to retrieve first and then perform 
     aggregations on. The column stats metrics may not be fully accurate, 

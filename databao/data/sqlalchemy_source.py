@@ -1,7 +1,6 @@
 import asyncio
 import itertools
 import logging
-import re
 import warnings
 from collections.abc import Generator
 from dataclasses import dataclass
@@ -16,7 +15,7 @@ from sqlalchemy.pool import ConnectionPoolEntry
 from tqdm.asyncio import tqdm_asyncio
 
 from databao.caches.disk_cache import DiskCache, DiskCacheConfig
-from databao.core.data_source import DataSource, SemanticDict
+from databao.core.data_source import DataSource
 from databao.data.configs.schema_inspection_config import InspectionOptions, ValueSamplingStrategy
 from databao.data.configs.sqlalchemy_data_source_config import SqlAlchemyDataSourceConfig
 from databao.data.database_schema_types import (
@@ -56,7 +55,6 @@ class ColumnInspectionTask:
     task_id: int
     table_name: str
     col_name: str
-    col_desc: str
     col_dtype: str
     database_or_schema: str | None
     options: InspectionOptions
@@ -73,7 +71,6 @@ class ColumnInspectionResult:
 class TableInspectionTask:
     table_name: str
     schema_name: str | None
-    table_desc: str | None
     column_tasks: list[ColumnInspectionTask]
 
 
@@ -113,13 +110,9 @@ class SqlAlchemyDataSource(DataSource[SqlAlchemyDataSourceConfig]):
         return execute_sql_query_sync(self.engine, query)
 
     # TODO: improve these names! inspect schema / inspect schema / inspect schema...
-    async def inspect_schema(
-        self,
-        semantic_dict: SemanticDict,
-        options: InspectionOptions,
-    ) -> DatabaseSchema:
+    async def inspect_schema(self, options: InspectionOptions) -> DatabaseSchema:
         async def _inspect(database_or_schema: str | None) -> DatabaseSchema:
-            generator = self._inspect_schema_helper(semantic_dict, options, database_or_schema)
+            generator = self._inspect_schema_helper(options, database_or_schema)
             column_inspection_tasks = generator.send(None)
             tasks = [self._run_column_inspection_task(task) for task in column_inspection_tasks]
             column_inspection_results = await tqdm_asyncio.gather(*tasks, desc="Inspecting columns")
@@ -139,13 +132,9 @@ class SqlAlchemyDataSource(DataSource[SqlAlchemyDataSourceConfig]):
 
         return self._merge_database_schemas(database_schemas)
 
-    def inspect_schema_sync(
-        self,
-        semantic_dict: SemanticDict,
-        options: InspectionOptions,
-    ) -> DatabaseSchema:
+    def inspect_schema_sync(self, options: InspectionOptions) -> DatabaseSchema:
         def _inspect(database_or_schema: str | None) -> DatabaseSchema:
-            generator = self._inspect_schema_helper(semantic_dict, options, database_or_schema)
+            generator = self._inspect_schema_helper(options, database_or_schema)
             column_inspection_tasks = generator.send(None)
             column_inspection_results = [
                 self._run_column_inspection_task_sync(task)
@@ -197,7 +186,6 @@ class SqlAlchemyDataSource(DataSource[SqlAlchemyDataSourceConfig]):
                 column_schema=ColumnSchema(
                     name=task.col_name,
                     dtype=task.col_dtype,
-                    description=task.col_desc,
                     values=column_values,
                     value_stats=column_value_stats,
                 ),
@@ -216,7 +204,6 @@ class SqlAlchemyDataSource(DataSource[SqlAlchemyDataSourceConfig]):
             column_schema=ColumnSchema(
                 name=task.col_name,
                 dtype=task.col_dtype,
-                description=task.col_desc,
                 values=column_values,
                 value_stats=column_value_stats,
             ),
@@ -224,7 +211,6 @@ class SqlAlchemyDataSource(DataSource[SqlAlchemyDataSourceConfig]):
 
     def _inspect_schema_helper(
         self,
-        semantic_dict: SemanticDict,
         options: InspectionOptions,
         database_or_schema: str | None,
     ) -> Generator[list[ColumnInspectionTask], list[ColumnInspectionResult] | None, DatabaseSchema]:
@@ -245,7 +231,7 @@ class SqlAlchemyDataSource(DataSource[SqlAlchemyDataSourceConfig]):
         else:
             cache = None
 
-        table_inspection_tasks = self._get_table_inspection_tasks(semantic_dict, options, database_or_schema)
+        table_inspection_tasks = self._get_table_inspection_tasks(options, database_or_schema)
         all_column_tasks = []
         for table_task in table_inspection_tasks:
             all_column_tasks.extend(table_task.column_tasks)
@@ -295,7 +281,6 @@ class SqlAlchemyDataSource(DataSource[SqlAlchemyDataSourceConfig]):
             table_schema = TableSchema(
                 name=table_task.table_name,
                 schema_name=table_task.schema_name,
-                description=table_task.table_desc,
                 columns=table_columns,
             )
             table_schemas[table_schema.qualified_name] = table_schema
@@ -305,84 +290,32 @@ class SqlAlchemyDataSource(DataSource[SqlAlchemyDataSourceConfig]):
 
     def _get_table_inspection_tasks(
         self,
-        semantic_dict: SemanticDict,
         options: InspectionOptions,
         database_or_schema: str | None,
     ) -> list[TableInspectionTask]:
         # Getting tasks is a _fast_ method.
-
         raw_schema = self._inspect_database_schema(database_or_schema)
-        raw_table_names = {t.name: t for t in raw_schema.tables.values()}
-
-        # TODO handle fully qualified table names in semantic_dict?
-        if semantic_dict == "full":
-            semantic_dict = {"tables": {t.name: "all" for t in raw_schema.tables.values()}}
-
-        if options.tables_regex is not None:
-            tables_regex = re.compile(options.tables_regex)
-            for table in raw_schema.tables.values():
-                # semantic dict always takes precedence
-                if table.name in semantic_dict["tables"]:
-                    continue
-                if tables_regex.fullmatch(table.name):
-                    semantic_dict["tables"][table.name] = "__all__"  # to distinguish from a user provided "all"
-
-        semantic_tables = semantic_dict["tables"]
         task_id = 0
-
-        def get_tasks_for_table(table_name: str) -> TableInspectionTask:
-            nonlocal task_id
-            if table_name not in raw_table_names:
-                raise ValueError(f"Table {table_name} doesn't exist.")
-
-            raw_table = raw_table_names[table_name]
-            semantic_table: dict[str, Any]
-            if semantic_tables[table_name] in ("all", "__all__"):
-                semantic_table = {"description": "", "columns": {col_name: "" for col_name in raw_table.columns}}
-            else:
-                semantic_table = semantic_tables[table_name]
-
-            # "all" takes precedence over regex filtering
-            if semantic_tables[table_name] != "all" and options.columns_regex is not None:
-                columns_regex = re.compile(options.columns_regex)
-                for col_name in raw_table.columns:
-                    if semantic_tables[table_name] != "__all__" and col_name in semantic_table["columns"]:
-                        continue
-                    if columns_regex.fullmatch(col_name):
-                        semantic_table["columns"][col_name] = ""
-
-            table_desc = semantic_table.get("description", "")
-
+        table_tasks = []
+        for table in raw_schema.tables.values():
             column_tasks = []
-            for col_name, col_desc in semantic_table["columns"].items():
-                if col_name not in raw_table.columns:
-                    raise ValueError(
-                        f"Column {table_name}.{col_name} doesn't exist. "
-                        f"Available columns: {list(raw_table.columns.keys())}"
-                    )
-                col_dtype = raw_table.columns[col_name].dtype
+            for col in table.columns.values():
                 column_task = ColumnInspectionTask(
                     task_id=task_id,
-                    table_name=table_name,
-                    col_name=col_name,
-                    col_desc=col_desc,
-                    col_dtype=col_dtype,
+                    table_name=table.name,
+                    col_name=col.name,
+                    col_dtype=col.dtype,
                     database_or_schema=database_or_schema,
                     options=options,
                 )
                 task_id += 1
                 column_tasks.append(column_task)
-
-            return TableInspectionTask(
-                table_name=table_name,
-                schema_name=raw_table.schema_name,
-                table_desc=table_desc,
+            table_task = TableInspectionTask(
+                table_name=table.name,
+                schema_name=table.schema_name,
                 column_tasks=column_tasks,
             )
-
-        table_tasks = []
-        for table_name in semantic_tables:
-            table_tasks.append(get_tasks_for_table(table_name))
+            table_tasks.append(table_task)
         return table_tasks
 
     def _inspect_column_values_helper(
@@ -415,7 +348,6 @@ class SqlAlchemyDataSource(DataSource[SqlAlchemyDataSourceConfig]):
         table_name: str,
         col_name: str,
         *,
-        dtype: str,
         retrieval_set_limit: int | None = None,
     ) -> GeneralSchemaValueStats:
         return retrieve_general_stats(
@@ -436,7 +368,7 @@ class SqlAlchemyDataSource(DataSource[SqlAlchemyDataSourceConfig]):
             return [], ColumnValuesStats()
 
         general_stats = self._retrieve_general_stats(
-            conn, database_or_schema, table_name, col_name, dtype=dtype, retrieval_set_limit=options.retrieval_set_limit
+            conn, database_or_schema, table_name, col_name, retrieval_set_limit=options.retrieval_set_limit
         )
 
         low_cardinality_values: list[str] = []

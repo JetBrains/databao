@@ -7,7 +7,7 @@ import pandas as pd
 from duckdb import DuckDBPyConnection
 from sqlalchemy import Engine, create_engine
 
-from databao.core.data_source import DataSource, SemanticDict
+from databao.core.data_source import DataSource
 from databao.data.configs.data_source_config import DataSourceConfig
 from databao.data.configs.schema_inspection_config import InspectionOptions
 from databao.data.configs.sqlalchemy_data_source_config import SqlAlchemyDataSourceConfig
@@ -77,11 +77,11 @@ class DuckDBCollection(DataSource[DuckDBCollectionConfig]):
     def execute_sync(self, query: str) -> pd.DataFrame | Exception:
         return self._sa_source.execute_sync(query)
 
-    async def inspect_schema(self, semantic_dict: SemanticDict, options: InspectionOptions) -> DatabaseSchema:
-        return await self._sa_source.inspect_schema(semantic_dict, options)
+    async def inspect_schema(self, options: InspectionOptions) -> DatabaseSchema:
+        return await self._sa_source.inspect_schema(options)
 
-    def inspect_schema_sync(self, semantic_dict: SemanticDict, options: InspectionOptions) -> DatabaseSchema:
-        return self._sa_source.inspect_schema_sync(semantic_dict, options)
+    def inspect_schema_sync(self, options: InspectionOptions) -> DatabaseSchema:
+        return self._sa_source.inspect_schema_sync(options)
 
     async def close(self) -> None:
         await self._sa_source.close()

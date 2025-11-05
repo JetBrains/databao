@@ -60,7 +60,7 @@ class DataEngine:
         ds = self._get_source(source)
         if source in self._source_schemas:
             return self._source_schemas[source]
-        schema = await ds.inspect_schema("full", inspection_config.inspection_options)
+        schema = await ds.inspect_schema(inspection_config.inspection_options)
         self._source_schemas[source] = schema
         return schema
 
@@ -72,7 +72,7 @@ class DataEngine:
         ds = self._get_source(source)
         if source in self._source_schemas:
             return self._source_schemas[source]
-        schema = ds.inspect_schema_sync("full", inspection_config.inspection_options)
+        schema = ds.inspect_schema_sync(inspection_config.inspection_options)
         self._source_schemas[source] = schema
         return schema
 
