@@ -54,7 +54,7 @@ class Session:
             name (str | None): Optional name to assign to the database connection. If
                 not provided, a default name such as 'db1', 'db2', etc., will be
                 generated dynamically based on the collection size.
-            context (str | None): Optional context for the database connection. It can
+            additional_context (str | None): Optional context for the database connection. It can
                 be either the path to a file whose content will be used as the context or
                 the direct context as a string.
         """
@@ -68,7 +68,7 @@ class Session:
         Args:
             df: DataFrame to expose to agents/executors/SQL.
             name: Optional name; defaults to df1/df2/...
-            context: Optional text or path to a file describing this dataset for the LLM.
+            additional_context: Optional text or path to a file describing this dataset for the LLM.
         """
         if additional_context is not None and Path(additional_context).is_file():
             additional_context = Path(additional_context).read_text()
