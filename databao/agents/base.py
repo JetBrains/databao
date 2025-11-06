@@ -10,7 +10,8 @@ from langgraph.graph.state import CompiledStateGraph
 from databao.agents.frontend.text_frontend import TextStreamFrontend
 from databao.configs.llm import LLMConfig
 from databao.core import Executor, Opa, Session
-from databao.data.configs.schema_inspection_config import SchemaInspectionConfig
+from databao.data.configs.schema_inspection_config import InspectionOptions, SchemaInspectionConfig
+from databao.data.database_schema_types import DatabaseSchema
 from databao.data.duckdb.duckdb_collection import DuckDBCollection
 from databao.data.schema_summary import summarize_schema
 
@@ -29,6 +30,10 @@ class AgentExecutor(Executor):
         self._llm_config: LLMConfig | None = None
         # For now assume this Executor is only used with DuckDB compatible data sources.
         self._duckdb_collection = DuckDBCollection()
+
+        # Cache schema inspection results
+        self._inspected_schema: DatabaseSchema | None = None
+        self._inspected_schema_options: InspectionOptions | None = None
 
         self._graph_recursion_limit = 50
 
@@ -58,8 +63,13 @@ class AgentExecutor(Executor):
         return self._duckdb_collection.register_data_sources()
 
     def _summarize_schema(self, inspection_config: SchemaInspectionConfig) -> str:
-        schema = self._duckdb_collection.inspect_schema_sync(inspection_config.inspection_options)
-        return summarize_schema(schema, inspection_config.summary_type)
+        # We can cache the schema inspection since we assume the data connection won't change
+        inspection_options = inspection_config.inspection_options
+        if self._inspected_schema is not None and self._inspected_schema_options == inspection_options:
+            return summarize_schema(self._inspected_schema, inspection_config.summary_type)
+        self._inspected_schema_options = inspection_options
+        self._inspected_schema = self._duckdb_collection.inspect_schema_sync(inspection_options)
+        return summarize_schema(self._inspected_schema, inspection_config.summary_type)
 
     def _get_messages(self, session: Session, cache_scope: str) -> list[BaseMessage]:
         """Retrieve messages from the session cache."""
