@@ -62,14 +62,17 @@ class AgentExecutor(Executor):
 
         return self._duckdb_collection.register_data_sources()
 
-    def _summarize_schema(self, inspection_config: SchemaInspectionConfig) -> str:
+    def _get_or_inspect_schema(self, inspection_options: InspectionOptions) -> DatabaseSchema:
         # We can cache the schema inspection since we assume the data connection won't change
-        inspection_options = inspection_config.inspection_options
         if self._inspected_schema is not None and self._inspected_schema_options == inspection_options:
-            return summarize_schema(self._inspected_schema, inspection_config.summary_type)
+            return self._inspected_schema
         self._inspected_schema_options = inspection_options
         self._inspected_schema = self._duckdb_collection.inspect_schema_sync(inspection_options)
-        return summarize_schema(self._inspected_schema, inspection_config.summary_type)
+        return self._inspected_schema
+
+    def _summarize_schema(self, inspection_config: SchemaInspectionConfig) -> str:
+        schema = self._get_or_inspect_schema(inspection_config.inspection_options)
+        return summarize_schema(schema, inspection_config.summary_type)
 
     def _get_messages(self, session: Session, cache_scope: str) -> list[BaseMessage]:
         """Retrieve messages from the session cache."""

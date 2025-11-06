@@ -14,8 +14,8 @@ from langgraph.graph.state import CompiledStateGraph, StateGraph
 from databao.agents.lighthouse.utils import exception_to_string
 from databao.configs.llm import LLMConfig
 from databao.core import ExecutionResult
-from databao.data.configs.schema_inspection_config import SchemaInspectionConfig
 from databao.data.data_source import DataSource
+from databao.data.database_schema_types import DatabaseSchema
 from databao.data.schema_summary import summarize_table_schemas
 
 
@@ -46,12 +46,12 @@ class LighthouseAgentGraph:
     def __init__(
         self,
         data_source: DataSource[Any],
-        inspection_config: SchemaInspectionConfig,
+        db_schema: DatabaseSchema,
         *,
         enable_inspect_tables_tool: bool = True,
     ):
         self._data_source = data_source
-        self._inspection_config = inspection_config
+        self._db_schema = db_schema
         self._enable_inspect_tables_tool = enable_inspect_tables_tool
 
     def init_state(self, messages: list[BaseMessage]) -> dict[str, Any]:
@@ -110,8 +110,7 @@ class LighthouseAgentGraph:
                 table_names: List of fully qualified table names to inspect.
             """
             # TODO Lazily inspect just the provided tables
-            db_schema = self._data_source.inspect_schema_sync(self._inspection_config.inspection_options)
-            available_tables = {table.qualified_name for table in db_schema.tables.values()}
+            available_tables = {table.qualified_name for table in self._db_schema.tables.values()}
             available_tables_str = ", ".join(f"`{name}`" for name in available_tables)
             if len(table_names) == 0:
                 return f"No tables specified. Available tables: {available_tables_str}."
@@ -119,7 +118,7 @@ class LighthouseAgentGraph:
             if len(nonexistent_tables) > 0:
                 return f"Tables {nonexistent_tables} do not exist. Available tables: {available_tables_str}."
 
-            return summarize_table_schemas(db_schema, table_names)
+            return summarize_table_schemas(self._db_schema, table_names)
 
         @tool(parse_docstring=True)
         def run_sql_query(sql: str) -> dict[str, Any]:

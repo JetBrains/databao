@@ -16,12 +16,13 @@ class LighthouseAgent(AgentExecutor):
     def __init__(self, inspection_config: SchemaInspectionConfig | None = None) -> None:
         """Initialize agent with lazy graph compilation."""
         super().__init__()
-        self._inspection_config = inspection_config or SchemaInspectionConfig()
+        self._inspection_config = inspection_config or SchemaInspectionConfig(summary_type=SchemaSummaryType.FULL)
 
     def _get_agent_graph(self) -> LighthouseAgentGraph:
+        schema = self._get_or_inspect_schema(self._inspection_config.inspection_options)
         return LighthouseAgentGraph(
             self._duckdb_collection,
-            self._inspection_config,
+            schema,
             enable_inspect_tables_tool=self._inspection_config.summary_type == SchemaSummaryType.LIST_ALL_TABLES,
         )
 
