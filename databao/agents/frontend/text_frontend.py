@@ -32,8 +32,10 @@ class TextStreamFrontend:
             self.start()
         print(text, end="", flush=True, file=self._writer)
 
-    def write_dataframe(self, df: pd.DataFrame) -> None:
-        self.write(df.to_markdown())
+    def write_dataframe(self, df: pd.DataFrame, *, max_rows: int = 10) -> None:
+        rows_to_show = min(max_rows, len(df))
+        self.write(f"Showing {rows_to_show} / {len(df)} rows:\n")
+        self.write(df.head(rows_to_show).to_markdown() + "\n")
 
     def write_message_chunk(self, chunk: BaseMessageChunk) -> None:
         if not isinstance(chunk, AIMessageChunk):
