@@ -1,4 +1,4 @@
-import pathlib
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import duckdb
@@ -48,7 +48,14 @@ class Session:
         self.__cache = cache
         self.__default_rows_limit = default_rows_limit
 
-    def add_db(self, connection: Any, *, name: str | None = None, context: str | None = None) -> None:
+    def _parse_context_arg(self, context: str | Path | None) -> str | None:
+        if context is None:
+            return None
+        if isinstance(context, Path):
+            return context.read_text()
+        return context
+
+    def add_db(self, connection: Any, *, name: str | None = None, context: str | Path | None = None) -> None:
         """
         Add a database connection to the internal collection and optionally associate it
         with a specific context for query execution. Supports integration with SQLAlchemy
@@ -60,7 +67,7 @@ class Session:
             name (str | None): Optional name to assign to the database connection. If
                 not provided, a default name such as 'db1', 'db2', etc., will be
                 generated dynamically based on the collection size.
-            context (str | None): Optional context for the database connection. It can
+            context (str | Path | None): Optional context for the database connection. It can
                 be either the path to a file whose content will be used as the context or
                 the direct context as a string.
         """
@@ -78,12 +85,10 @@ class Session:
             # For other connection types (like native DuckDB), store directly
             self.__dbs[conn_name] = connection
 
-        if context:
-            if pathlib.Path(context).is_file():
-                context = pathlib.Path(context).read_text()
-            self.__db_contexts[conn_name] = context
+        if (context_text := self._parse_context_arg(context)) is not None:
+            self.__db_contexts[conn_name] = context_text
 
-    def add_df(self, df: DataFrame, *, name: str | None = None, context: str | None = None) -> None:
+    def add_df(self, df: DataFrame, *, name: str | None = None, context: str | Path | None = None) -> None:
         """Register a DataFrame in this session and in the session's DuckDB.
 
         Args:
@@ -101,10 +106,8 @@ class Session:
         if "duckdb" not in self.__dbs:
             self.__dbs["duckdb"] = self.__duckdb_connection
 
-        if context:
-            if pathlib.Path(context).is_file():
-                context = pathlib.Path(context).read_text()
-            self.__df_contexts[df_name] = context
+        if (context_text := self._parse_context_arg(context)) is not None:
+            self.__df_contexts[df_name] = context_text
 
     def thread(self) -> Pipe:
         """Start a new thread in this session."""
