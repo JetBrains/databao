@@ -75,19 +75,18 @@ class TextStreamFrontend:
 
         for message in new_messages:
             if isinstance(message, ToolMessage):
-                if message.artifact is not None:
-                    if "df" in message.artifact and message.artifact["df"] is not None:
-                        self.write_dataframe(message.artifact["df"])
-                    else:
-                        self.write(f"\n```\n{message.content}\n```\n\n")
-                else:
-                    self.write(f"\n```\n{message.content}\n```\n\n")
+                self.write(f"\n```\n{message.text().strip()}\n```\n\n")
+                if message.artifact is not None and isinstance(message.artifact, dict):
+                    for art_name, art_value in message.artifact.items():
+                        if isinstance(art_value, pd.DataFrame):
+                            self.write(f"Showing DataFrame '{art_name}':\n")
+                            self.write_dataframe(art_value)
             elif self._pretty_sql and isinstance(message, AIMessage):
                 # During tool calling we show raw JSON chunks, but for SQL we also want pretty formatting.
                 for tool_call in message.tool_calls:
                     sql = get_tool_call_sql(tool_call)
                     if sql is not None:
-                        self.write(f"\n```sql\n{sql}\n```\n\n")
+                        self.write(f"\n```sql\n{sql.strip()}\n```\n\n")
 
     def write_stream_chunk(self, mode: str, chunk: Any) -> None:
         if mode == "messages":
