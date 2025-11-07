@@ -110,7 +110,7 @@ class Session:
         if (context_text := self._parse_context_arg(context)) is not None:
             self.__df_contexts[df_name] = context_text
 
-    def add_additional_context(self, context: str | Path) -> None:
+    def add_general_context(self, context: str | Path) -> None:
         """Add additional context to help models understand your data.
 
         Use this method to add general information that might not be associated with a specific data source.
