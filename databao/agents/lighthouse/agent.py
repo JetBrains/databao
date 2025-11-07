@@ -22,15 +22,17 @@ class LighthouseAgent(AgentExecutor):
     def render_system_prompt(self, data_connection: Any, session: Session) -> str:
         """Render system prompt with database schema."""
         db_schema = describe_duckdb_schema(data_connection)
+
         db_contexts, df_contexts = session.context
         context = ""
         for db_name, db_context in db_contexts.items():
             context += f"## Context for DB {db_name}\n\n{db_context}\n\n"
         for df_name, df_context in df_contexts.items():
             context += f"## Context for DF {df_name} (fully qualified name 'temp.main.{df_name}')\n\n{df_context}\n\n"
-        if (additional_context := session.additional_context) is not None:
-            additional_context = additional_context.strip()
-            context += f"## Additional context\n\n{additional_context}\n\n"
+        for idx, additional_ctx in enumerate(session.additional_context, start=1):
+            additional_context = additional_ctx.strip()
+            context += f"## Additional context {idx}\n\n{additional_context}\n\n"
+        context = context.strip()
 
         prompt = self._prompt_template.render(
             date=get_today_date_str(),

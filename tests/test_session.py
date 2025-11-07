@@ -92,7 +92,7 @@ def test_add_additional_context_with_temp_file(temp_context_file: Path) -> None:
     """Ensure additional context can be loaded from a temporary file path."""
     session = databao.open_session("additional_ctx_from_file")
     session.add_additional_context(temp_context_file)
-    assert session.additional_context == temp_context_file.read_text()
+    assert session.additional_context == [temp_context_file.read_text()]
 
 
 def test_add_additional_context_with_string() -> None:
@@ -100,4 +100,20 @@ def test_add_additional_context_with_string() -> None:
     session = databao.open_session("additional_ctx_from_string")
     text = "Global instructions for the session go here."
     session.add_additional_context(text)
-    assert session.additional_context == text
+    assert session.additional_context == [text]
+
+
+def test_add_additional_context_multiple_calls_mixed_sources(temp_context_file: Path) -> None:
+    """Calling add_additional_context multiple times should append in order."""
+    session = databao.open_session("additional_ctx_multiple")
+    first = "First global instruction."
+    second = temp_context_file.read_text()
+    third = "Third bit of context."
+
+    session.add_additional_context(first)
+    session.add_additional_context(temp_context_file)
+    session.add_additional_context(third)
+
+    assert first in session.additional_context
+    assert second in session.additional_context
+    assert third in session.additional_context

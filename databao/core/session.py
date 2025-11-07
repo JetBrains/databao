@@ -39,7 +39,7 @@ class Session:
 
         self.__db_contexts: dict[str, str] = {}
         self.__df_contexts: dict[str, str] = {}
-        self.__additional_context: str | None = None
+        self.__additional_context: list[str] = []
 
         # Create a DuckDB connection for the session
         self.__duckdb_connection = duckdb.connect(":memory:")
@@ -116,8 +116,10 @@ class Session:
         Args:
             context: The string or the path to a file containing the additional context.
         """
-        if (text := self._parse_context_arg(context)) is not None:
-            self.__additional_context = text
+        text = self._parse_context_arg(context)
+        if text is None:
+            raise ValueError("Invalid context provided.")
+        self.__additional_context.append(text)
 
     def thread(self) -> Pipe:
         """Start a new thread in this session."""
@@ -161,5 +163,5 @@ class Session:
         return self.__db_contexts, self.__df_contexts
 
     @property
-    def additional_context(self) -> str | None:
+    def additional_context(self) -> list[str]:
         return self.__additional_context
