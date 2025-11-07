@@ -39,6 +39,7 @@ class Session:
 
         self.__db_contexts: dict[str, str] = {}
         self.__df_contexts: dict[str, str] = {}
+        self.__additional_system_instructions: str | None = None
 
         # Create a DuckDB connection for the session
         self.__duckdb_connection = duckdb.connect(":memory:")
@@ -109,6 +110,15 @@ class Session:
         if (context_text := self._parse_context_arg(context)) is not None:
             self.__df_contexts[df_name] = context_text
 
+    def add_system_instructions(self, prompt: str | Path) -> None:
+        """Add additional instructions directly to any existing system prompts.
+
+        Args:
+            prompt: The prompt text or the path to a file containing the prompt text.
+        """
+        if (text := self._parse_context_arg(prompt)) is not None:
+            self.__additional_system_instructions = text
+
     def thread(self) -> Pipe:
         """Start a new thread in this session."""
         return Pipe(self, default_rows_limit=self.__default_rows_limit)
@@ -149,3 +159,7 @@ class Session:
     def context(self) -> tuple[dict[str, str], dict[str, str]]:
         """Per-source natural-language context for DBs and DFs: (db_contexts, df_contexts)."""
         return self.__db_contexts, self.__df_contexts
+
+    @property
+    def additional_system_instructions(self) -> str | None:
+        return self.__additional_system_instructions

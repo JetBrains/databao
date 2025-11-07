@@ -17,10 +17,10 @@ class LighthouseAgent(AgentExecutor):
         """Initialize agent with lazy graph compilation."""
         super().__init__()
         self._cached_graph: ExecuteSubmit | None = None
+        self._prompt_template = read_prompt_template(Path("system_prompt.jinja"))
 
     def render_system_prompt(self, data_connection: Any, session: Session) -> str:
         """Render system prompt with database schema."""
-        prompt_template = read_prompt_template(Path("system_prompt.jinja"))
         db_schema = describe_duckdb_schema(data_connection)
         db_contexts, df_contexts = session.context
         context = ""
@@ -29,11 +29,16 @@ class LighthouseAgent(AgentExecutor):
         for df_name, df_context in df_contexts.items():
             context += f"## Context for DF {df_name} (fully qualified name 'temp.main.{df_name}')\n\n{df_context}\n\n"
 
-        prompt = prompt_template.render(
+        prompt = self._prompt_template.render(
             date=get_today_date_str(),
             db_schema=db_schema,
             context=context,
         )
+
+        if (additional_instructions := session.additional_system_instructions) is not None:
+            additional_instructions = additional_instructions.strip()
+            prompt += f"\n\n# Additional instructions\n\n{additional_instructions}"
+
         return prompt
 
     def _create_graph(self, data_connection: Any, llm_config: LLMConfig) -> Any:
