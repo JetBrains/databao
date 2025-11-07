@@ -17,7 +17,7 @@ class VegaChatResult(VisualisationResult):
     spec: dict[str, Any] | None = None
     spec_df: pd.DataFrame | None = None
 
-    def to_interactive(self) -> VegaVisTool | None:
+    def interactive(self) -> VegaVisTool | None:
         """Return an interactive UI wizard for the Vega-Lite chart.
 
         The returned chart object can be rendered in interactive notebooks."""
@@ -25,7 +25,7 @@ class VegaChatResult(VisualisationResult):
             return None
         return VegaVisTool(self.spec, self.spec_df)
 
-    def to_altair(self) -> altair.Chart | None:
+    def altair(self) -> altair.Chart | None:
         """Return an interactive Altair chart.
 
         The returned chart object can be rendered in interactive notebooks."""
@@ -51,7 +51,7 @@ def _convert_llm_config(llm_config: LLMConfig) -> VegaLLMConfig:
 
 
 class VegaChatVisualizer(Visualizer):
-    def __init__(self, llm_config: LLMConfig, *, return_interactive_chart: bool = True):
+    def __init__(self, llm_config: LLMConfig, *, return_interactive_chart: bool = False):
         vega_llm = _convert_llm_config(llm_config)
         self._vega_config = VegaChatConfig(
             llm_config=vega_llm,
