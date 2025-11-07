@@ -1,0 +1,7 @@
+segment,lifecycle_stage,target_discount_pct,campaign_channel,email_template,cadence_days,upsell_flag,retention_priority,notes
+Best Customers,Advocacy,5,Email;SMS;In‑app,best_vip_1,14,true,Low,"Surprise & delight; prioritize exclusivity and early access."
+Loyal Customers,Loyalty,10,Email;In‑app,loyal_tier_2,21,true,Medium,"Invite to loyalty tiers; cross‑sell complementary categories."
+At Risk,Retention,15,Email;Paid Social,winback_v1,7,false,High,"Win‑back with limited‑time offers; request feedback."
+Recent but Infrequent,Nurture,10,Email;Push,nurture_recency_1,14,false,Medium,"Educate on value props; bundle offers to increase frequency."
+Lost Customers,Reactivation,20,Email;SMS,reactivation_90d,7,false,Critical,"Aggressive discount ladder; simplify return path."
+Others,Prospecting,0,Email;On‑site,prospecting_generic,30,false,Low,"Collect preferences; qualify into more specific journeys."

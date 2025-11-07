@@ -25,6 +25,7 @@ dependencies = [
     "psycopg2-binary>=2.9.10",
     "matplotlib>=3.10.0",
     "edaplot-vl~=0.1.0",
+    "diskcache>=5.6.3",
 ]
 
 [project.optional-dependencies]
