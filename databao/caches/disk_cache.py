@@ -17,8 +17,8 @@ class DiskCacheConfig:
 class DiskCache(Cache):
     """A simple SQLite-backed cache."""
 
-    def __init__(self, config: DiskCacheConfig, cache: diskcache.Cache | None = None, prefix: str = ""):
-        self.config = config
+    def __init__(self, config: DiskCacheConfig | None = None, cache: diskcache.Cache | None = None, prefix: str = ""):
+        self.config = config or DiskCacheConfig()
         self._cache = cache or diskcache.Cache(str(self.config.db_dir))
         self._prefix = prefix
 
