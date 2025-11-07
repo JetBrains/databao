@@ -81,22 +81,22 @@ def test_add_additional_context_with_nonexistent_path_raises() -> None:
     """add_additional_context should raise if given a non-existent Path."""
     session = databao.open_session("additional_ctx_missing_path")
     with pytest.raises(FileNotFoundError):
-        session.add_general_context(Path("no_such_context_file_123.md"))
+        session.add_context(Path("no_such_context_file_123.md"))
 
 
 def test_add_additional_context_with_temp_file(temp_context_file: Path) -> None:
     """Ensure additional context can be loaded from a temporary file path."""
     session = databao.open_session("additional_ctx_from_file")
-    session.add_general_context(temp_context_file)
-    assert session.general_context == [temp_context_file.read_text()]
+    session.add_context(temp_context_file)
+    assert session.additional_context == [temp_context_file.read_text()]
 
 
 def test_add_additional_context_with_string() -> None:
     """Ensure additional context can be provided directly as a string."""
     session = databao.open_session("additional_ctx_from_string")
     text = "Global instructions for the session go here."
-    session.add_general_context(text)
-    assert session.general_context == [text]
+    session.add_context(text)
+    assert session.additional_context == [text]
 
 
 def test_add_additional_context_multiple_calls_mixed_sources(temp_context_file: Path) -> None:
@@ -106,10 +106,10 @@ def test_add_additional_context_multiple_calls_mixed_sources(temp_context_file: 
     second = temp_context_file.read_text()
     third = "Third bit of context."
 
-    session.add_general_context(first)
-    session.add_general_context(temp_context_file)
-    session.add_general_context(third)
+    session.add_context(first)
+    session.add_context(temp_context_file)
+    session.add_context(third)
 
-    assert first in session.general_context
-    assert second in session.general_context
-    assert third in session.general_context
+    assert first in session.additional_context
+    assert second in session.additional_context
+    assert third in session.additional_context

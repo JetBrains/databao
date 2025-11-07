@@ -39,7 +39,7 @@ class Session:
 
         self.__db_context: dict[str, str] = {}
         self.__df_context: dict[str, str] = {}
-        self.__general_context: list[str] = []
+        self.__additional_context: list[str] = []
 
         # Create a DuckDB connection for the session
         self.__duckdb_connection = duckdb.connect(":memory:")
@@ -110,7 +110,7 @@ class Session:
         if (context_text := self._parse_context_arg(context)) is not None:
             self.__df_context[df_name] = context_text
 
-    def add_general_context(self, context: str | Path) -> None:
+    def add_context(self, context: str | Path) -> None:
         """Add additional context to help models understand your data.
 
         Use this method to add general information that might not be associated with a specific data source.
@@ -122,7 +122,7 @@ class Session:
         text = self._parse_context_arg(context)
         if text is None:
             raise ValueError("Invalid context provided.")
-        self.__general_context.append(text)
+        self.__additional_context.append(text)
 
     def thread(self) -> Pipe:
         """Start a new thread in this session."""
@@ -171,6 +171,6 @@ class Session:
         return self.__df_context
 
     @property
-    def general_context(self) -> list[str]:
-        """General natural-language context not specific to any one data source."""
-        return self.__general_context
+    def additional_context(self) -> list[str]:
+        """General additional context not specific to any one data source."""
+        return self.__additional_context
