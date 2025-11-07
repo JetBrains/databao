@@ -28,7 +28,10 @@ class Session:
         data_executor: "Executor",
         visualizer: "Visualizer",
         cache: "Cache",
+        *,
         default_rows_limit: int,
+        default_stream_ask: bool = True,
+        default_stream_plot: bool = False,
     ):
         self.__name = name
         self.__llm = llm.chat_model
@@ -46,7 +49,11 @@ class Session:
         self.__executor = data_executor
         self.__visualizer = visualizer
         self.__cache = cache
+
+        # Pipe/thread defaults
         self.__default_rows_limit = default_rows_limit
+        self.__default_stream_ask = default_stream_ask
+        self.__default_stream_plot = default_stream_plot
 
     def add_db(self, connection: Any, *, name: str | None = None, context: str | None = None) -> None:
         """
@@ -106,13 +113,13 @@ class Session:
                 context = pathlib.Path(context).read_text()
             self.__df_contexts[df_name] = context
 
-    def thread(self, *, stream_ask: bool = True, stream_plot: bool = False) -> Pipe:
+    def thread(self, *, stream_ask: bool | None = None, stream_plot: bool | None = None) -> Pipe:
         """Start a new thread in this session."""
         return Pipe(
             self,
             default_rows_limit=self.__default_rows_limit,
-            default_stream_ask=stream_ask,
-            default_stream_plot=stream_plot,
+            default_stream_ask=stream_ask if stream_ask is not None else self.__default_stream_ask,
+            default_stream_plot=stream_plot if stream_plot is not None else self.__default_stream_plot,
         )
 
     @property
