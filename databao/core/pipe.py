@@ -96,6 +96,11 @@ class Pipe:
         """Return the latest generated code."""
         return self._materialize_data(self._data_materialized_rows).code
 
+    def meta(self) -> dict[str, Any]:
+        """Aggregated metadata from executor/visualizer for this pipe."""
+        self._materialize_data(self._data_materialized_rows)
+        return self._meta
+
     def df(self, *, rows_limit: int | None = None) -> DataFrame | None:
         """Return the latest dataframe, materializing data as needed.
 
@@ -147,8 +152,3 @@ class Pipe:
             self._materialize_data(self._data_materialized_rows)
 
         return self
-
-    @property
-    def meta(self) -> dict[str, Any]:
-        """Aggregated metadata from executor/visualizer for this pipe."""
-        return self._meta
