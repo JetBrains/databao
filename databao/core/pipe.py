@@ -126,7 +126,7 @@ class Pipe:
         """Return the latest textual answer from the executor/LLM."""
         return self._materialize_data(self._data_materialized_rows).text
 
-    def ask(self, query: str, *, stream: bool | None = None) -> Self:
+    def ask(self, query: str, *, rows_limit: int | None = None, stream: bool | None = None) -> Self:
         """Append a new user query to this pipe.
 
         Returns self to allow chaining (e.g., pipe.ask("..."))
@@ -143,7 +143,7 @@ class Pipe:
         self._stream_ask = stream
 
         if not self._lazy_mode:
-            self._materialize_data(self._data_materialized_rows)
+            self._materialize_data(rows_limit)
 
         return self
 
