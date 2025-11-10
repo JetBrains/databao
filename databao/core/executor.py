@@ -53,5 +53,6 @@ class Executor(ABC):
             opa: User intent/query to process.
             rows_limit: Preferred row limit for data materialization (may be ignored by executors).
             cache_scope: Logical scope for caching per chat/thread.
+            stream: Stream LLM output to stdout.
         """
         pass
