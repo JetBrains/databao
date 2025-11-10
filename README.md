@@ -6,7 +6,7 @@ Databao runs agents on top of dataframes and your DB connections, and can use bo
 
 ## Overview
 - Ask questions like “list all German shows” or “plot revenue by month”.
-- Works with SQLAlchemy engines (e.g., Postgres/MySQL/SQLite), DuckDB and in‑memory DataFrames.
+- Works with SQLAlchemy engines and in‑memory DataFrames.
 - Built‑in visualization via a Vega‑Lite chat visualizer.
 - Pluggable LLMs: OpenAI/Anthropic or local models via Ollama or any OpenAI‑compatible server.
 
@@ -37,7 +37,7 @@ engine = create_engine(
 
 ```python
 import databao 
-from databao.configs.llm import LLMConfig
+from databao import LLMConfig
 
 # Option A - Local: install and run any compatible local LLM. For list of compatible models, see: "Local models" below 
 # llm = LLMConfig(name="ollama:gpt-oss:20b", temperature=0)
@@ -81,7 +81,7 @@ Specify your API keys in the environment variables:
 Databao can be used with local LLMs either using Ollama or OpenAI‑compatible servers (LM Studio, llama.cpp, etc.).
 
 ### Ollama
-1. Install Ollama for your OS and make sure it is running. https://ollama.com/download
+1. Install [Ollama](https://ollama.com/download) for your OS and make sure it is running. 
 2. Use an `LLMConfig` with `name` of the form `"ollama:<model_name>"`.
    For example, `LLMConfig(name="ollama:gpt-oss:20b", temperature=0)`
 
@@ -158,5 +158,3 @@ examples/                # notebooks, demo script, configs
 tests/                   # pytest suite
 ```
 
-### Entry points
-- Programmatic: `from databao.api import open_session`
