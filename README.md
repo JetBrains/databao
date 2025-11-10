@@ -6,11 +6,9 @@ Databao runs agents on top of dataframes and your DB connections, and can use bo
 
 ## Overview
 - Ask questions like “list all German shows” or “plot revenue by month”.
-- Works with SQLAlchemy engines (e.g., Postgres) and in‑memory DataFrames via a session.
-- Uses DuckDB under the hood to federate/query data.
+- Works with SQLAlchemy engines and in‑memory DataFrames.
 - Built‑in visualization via a Vega‑Lite chat visualizer.
-- Pluggable LLMs: OpenAI/Anthropic, or local models through Ollama or any OpenAI‑compatible server.
-
+- Pluggable LLMs: OpenAI/Anthropic or local models via Ollama or any OpenAI‑compatible server.
 
 ## Installation
 Using pip:
@@ -18,29 +16,11 @@ Using pip:
 pip install databao
 ```
 
-Using uv (for development):
-Clone this repo and run:
-```bash
-# Install dependencies for the library
-uv sync
-
-# Optionally include example extras (notebooks, dotenv)
-uv sync --extra examples
-```
-
-## Environment variables
-
-Specify your API keys in the environment variables:
-- `OPENAI_API_KEY` — if using OpenAI models
-- `ANTHROPIC_API_KEY` — if using Anthropic models
-- Optional for local/OAI‑compatible servers:
-  - `OPENAI_BASE_URL` (aka `api_base_url` in code)
-  - `OLLAMA_HOST` (e.g., `127.0.0.1:11434`)
-
 ## Quickstart
 
 ### 1) Create a database connection (SQLAlchemy)
 ```python
+import os
 from sqlalchemy import create_engine
 
 user = os.environ.get("DATABASE_USER")
@@ -56,10 +36,17 @@ engine = create_engine(
 ### 2) Open a databao session and register sources
 
 ```python
+import databao 
+from databao import LLMConfig
+
+# Option A - Local: install and run any compatible local LLM. For list of compatible models, see: "Local models" below 
+# llm = LLMConfig(name="ollama:gpt-oss:20b", temperature=0)
+
+# Option B - Cloud (requires an API key, e.g. OPENAI_API_KEY)
 llm_config = LLMConfig(name="gpt-4o-mini", temperature=0)
 session = databao.open_session(name="demo", llm_config=llm_config)
 
-# Register your engine
+# Add your database to the session
 session.add_db(engine)
 ```
 
@@ -81,13 +68,22 @@ plot = thread.plot("bar chart of shows by country")
 print(plot.code)  # access generated plot code if needed
 ```
 
+## Environment variables
+
+Specify your API keys in the environment variables:
+- `OPENAI_API_KEY` — if using OpenAI models
+- `ANTHROPIC_API_KEY` — if using Anthropic models
+- Optional for local/OAI‑compatible servers:
+  - `OPENAI_BASE_URL` (aka `api_base_url` in code)
+  - `OLLAMA_HOST` (e.g., `127.0.0.1:11434`)
+
 ## Local models
 Databao can be used with local LLMs either using Ollama or OpenAI‑compatible servers (LM Studio, llama.cpp, etc.).
 
 ### Ollama
-1. Install Ollama for your OS and make sure it is running.
+1. Install [Ollama](https://ollama.com/download) for your OS and make sure it is running. 
 2. Use an `LLMConfig` with `name` of the form `"ollama:<model_name>"`.
-   For an example see `examples/configs/qwen3-8b-ollama.yaml`.
+   For example, `LLMConfig(name="ollama:gpt-oss:20b", temperature=0)`
 
 The model will be downloaded automatically if it doesn't already exist. Alternatively, run `ollama pull <model_name>` to download it manually.
 
@@ -101,7 +97,22 @@ Examples of compatible servers:
 - llama.cpp (`llama-server`)
 - vLLM
 
-## Scripts and common tasks
+
+
+## Development
+
+Installation using uv (for development):
+
+Clone this repo and run:
+```bash
+# Install dependencies for the library
+uv sync
+
+# Optionally include example extras (notebooks, dotenv)
+uv sync --extra examples
+```
+
+
 Using Makefile targets:
 
 ```bash
@@ -119,7 +130,7 @@ uv run pytest -v
 uv run pre-commit run --all-files
 ```
 
-## Tests
+### Tests
 - Test suite uses `pytest`.
 - Some tests are marked `@pytest.mark.apikey` and require provider API keys.
 
@@ -135,7 +146,7 @@ Run only tests that do NOT require API keys:
 uv run pytest -v -m "not apikey"
 ```
 
-## Project structure
+### Project structure
 ```
 databao/
   api.py                 # public entry: open_session(...)
@@ -147,5 +158,3 @@ examples/                # notebooks, demo script, configs
 tests/                   # pytest suite
 ```
 
-## Entry points
-- Programmatic: `from databao.api import open_session`
