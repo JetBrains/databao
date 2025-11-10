@@ -15,7 +15,7 @@ class Pipe:
     """A single conversational thread within a session.
 
     - Maintains its own message history (isolated from other pipes).
-    - Materializes data and visualizations lazily on demand and caches results per pipe.
+    - Materializes data and visualizations eagerly or lazily and caches results per pipe.
     - Exposes helpers to get the latest dataframe/text/plot/code.
     """
 
@@ -40,7 +40,6 @@ class Pipe:
         self._data_materialized_rows: int | None = None
         self._data_result: ExecutionResult | None = None
 
-        self._visualization_materialized = False
         self._visualization_result: VisualisationResult | None = None
         self._visualization_request: str | None = None
 
@@ -80,11 +79,10 @@ class Pipe:
     def _materialize_visualization(self, request: str | None, rows_limit: int | None) -> "VisualisationResult":
         """Materialize latest visualization for the given request and current data."""
         data = self._materialize_data(rows_limit)
-        if not self._visualization_materialized or request != self._visualization_request:
+        if self._visualization_result is None or request != self._visualization_request:
             # TODO Cache visualization results as in Executor.execute()?
             stream = self._stream_plot if self._stream_plot is not None else self._default_stream_plot
             self._visualization_result = self._session.visualizer.visualize(request, data, stream=stream)
-            self._visualization_materialized = True
             self._visualization_request = request
             self._meta.update(self._visualization_result.meta)
             self._meta["plot_code"] = self._visualization_result.code  # maybe worth to expand as a property later
@@ -128,22 +126,18 @@ class Pipe:
         """Return the latest textual answer from the executor/LLM."""
         return self._materialize_data(self._data_materialized_rows).text
 
-    def __str__(self) -> str:
-        if self._data_result is not None:
-            return (
-                f"Materialized {self.__class__.__name__} with "
-                f"{len(self._data_result.df) if self._data_result.df is not None else 0} data rows."
-            )
-        else:
-            return f"Unmaterialized {self.__class__.__name__}."
-
     def ask(self, query: str, *, stream: bool | None = None) -> Self:
         """Append a new user query to this pipe.
 
         Returns self to allow chaining (e.g., pipe.ask("..."))
         """
+        # NB. A new Opa is created even if it's identical to the previous one.
         self._opas.append(Opa(query=query))
-        self._visualization_materialized = False
+
+        # Invalidate old results so they are not used by repr methods
+        self._data_result = None
+        self._visualization_result = None
+
         # If multiple .asks are chained, the last setting takes precedence.
         # Tracking the stream setting for each ask in a chain would not work with "opa-collocation".
         self._stream_ask = stream
@@ -152,3 +146,47 @@ class Pipe:
             self._materialize_data(self._data_materialized_rows)
 
         return self
+
+    def __repr__(self) -> str:
+        if self._data_result is not None:
+            return (
+                f"Materialized {self.__class__.__name__} with "
+                f"{len(self._data_result.df) if self._data_result.df is not None else 0} data rows."
+            )
+        else:
+            return f"Unmaterialized {self.__class__.__name__}."
+
+    def _repr_mimebundle_(self, include: Any = None, exclude: Any = None) -> Any:
+        """Return MIME bundle for rendering in notebooks.
+
+        No materialization is performed in this method. If using lazy mode, you must trigger materialization manually.
+        """
+        # See docs for the behavior of magic methods https://ipython.readthedocs.io/en/stable/config/integrating.html#custom-methods
+
+        # Prioritize plots over other modalities
+        if self._visualization_result is not None:
+            plot_mimebundle = self._visualization_result._repr_mimebundle_(include, exclude)
+            if plot_mimebundle is not None:
+                return plot_mimebundle
+
+        # If None is returned, IPython will fall back to repr()
+        if self._data_result is None:
+            return None
+
+        text_parts = [self._data_result.text]
+        if self._data_result.code is not None:
+            text_parts.append(self._data_result.code)
+
+        mimebundle = {}
+        if (df := self._data_result.df) is not None:
+            if hasattr(df, "_repr_html_") and callable(df._repr_html_):
+                # Use _repr_html_ to get the exact same output as if evaluating `df` in a notebook.
+                # NB. PyCharm notebooks have special rendering if the output type is a pd.DataFrame,
+                #  so returning just the correct mimetype is not enough to "unlock" all features, but
+                #  it's the best we can do for now.
+                mimebundle["text/html"] = df._repr_html_()
+            text_parts.append(df.to_string())
+
+        # Fallback text-only representation
+        mimebundle["text/plain"] = "\n".join(text_parts)
+        return mimebundle
