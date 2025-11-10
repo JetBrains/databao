@@ -17,18 +17,18 @@ class DiskCacheConfig:
 class DiskCache(Cache):
     """A simple SQLite-backed cache."""
 
-    def __init__(self, config: DiskCacheConfig, cache: diskcache.Cache | None = None, prefix: str = ""):
-        self.config = config
+    def __init__(self, config: DiskCacheConfig | None = None, cache: diskcache.Cache | None = None, prefix: str = ""):
+        self.config = config or DiskCacheConfig()
         self._cache = cache or diskcache.Cache(str(self.config.db_dir))
         self._prefix = prefix
 
     def put(self, key: str, source: BytesIO) -> None:
         k = f"{self._prefix}{key}"
-        self._cache.set_object(k, value=source.getvalue(), tag=self._prefix)
+        self.set_object(k, value=source.getvalue(), tag=self._prefix)
 
     def get(self, key: str, dest: BytesIO) -> None:
         k = f"{self._prefix}{key}"
-        val = self._cache.get_object(k, default=None)
+        val = self.get_object(k, default=None)
         if val is None:
             raise KeyError(f"Key {key} not found in cache.")
         dest.write(val)
