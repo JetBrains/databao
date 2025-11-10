@@ -1,4 +1,4 @@
-import pathlib
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import duckdb
@@ -28,7 +28,10 @@ class Session:
         data_executor: "Executor",
         visualizer: "Visualizer",
         cache: "Cache",
+        *,
         default_rows_limit: int,
+        default_stream_ask: bool = True,
+        default_stream_plot: bool = False,
     ):
         self.__name = name
         self.__llm = llm.chat_model
@@ -37,8 +40,9 @@ class Session:
         self.__dbs: dict[str, Any] = {}
         self.__dfs: dict[str, DataFrame] = {}
 
-        self.__db_contexts: dict[str, str] = {}
-        self.__df_contexts: dict[str, str] = {}
+        self.__db_context: dict[str, str] = {}
+        self.__df_context: dict[str, str] = {}
+        self.__additional_context: list[str] = []
 
         # Create a DuckDB connection for the session
         self.__duckdb_connection = duckdb.connect(":memory:")
@@ -46,9 +50,20 @@ class Session:
         self.__executor = data_executor
         self.__visualizer = visualizer
         self.__cache = cache
-        self.__default_rows_limit = default_rows_limit
 
-    def add_db(self, connection: Any, *, name: str | None = None, context: str | None = None) -> None:
+        # Pipe/thread defaults
+        self.__default_rows_limit = default_rows_limit
+        self.__default_stream_ask = default_stream_ask
+        self.__default_stream_plot = default_stream_plot
+
+    def _parse_context_arg(self, context: str | Path | None) -> str | None:
+        if context is None:
+            return None
+        if isinstance(context, Path):
+            return context.read_text()
+        return context
+
+    def add_db(self, connection: Any, *, name: str | None = None, context: str | Path | None = None) -> None:
         """
         Add a database connection to the internal collection and optionally associate it
         with a specific context for query execution. Supports integration with SQLAlchemy
@@ -60,7 +75,7 @@ class Session:
             name (str | None): Optional name to assign to the database connection. If
                 not provided, a default name such as 'db1', 'db2', etc., will be
                 generated dynamically based on the collection size.
-            context (str | None): Optional context for the database connection. It can
+            context (str | Path | None): Optional context for the database connection. It can
                 be either the path to a file whose content will be used as the context or
                 the direct context as a string.
         """
@@ -78,12 +93,10 @@ class Session:
             # For other connection types (like native DuckDB), store directly
             self.__dbs[conn_name] = connection
 
-        if context:
-            if pathlib.Path(context).is_file():
-                context = pathlib.Path(context).read_text()
-            self.__db_contexts[conn_name] = context
+        if (context_text := self._parse_context_arg(context)) is not None:
+            self.__db_context[conn_name] = context_text
 
-    def add_df(self, df: DataFrame, *, name: str | None = None, context: str | None = None) -> None:
+    def add_df(self, df: DataFrame, *, name: str | None = None, context: str | Path | None = None) -> None:
         """Register a DataFrame in this session and in the session's DuckDB.
 
         Args:
@@ -101,14 +114,31 @@ class Session:
         if "duckdb" not in self.__dbs:
             self.__dbs["duckdb"] = self.__duckdb_connection
 
-        if context:
-            if pathlib.Path(context).is_file():
-                context = pathlib.Path(context).read_text()
-            self.__df_contexts[df_name] = context
+        if (context_text := self._parse_context_arg(context)) is not None:
+            self.__df_context[df_name] = context_text
 
-    def thread(self) -> Pipe:
+    def add_context(self, context: str | Path) -> None:
+        """Add additional context to help models understand your data.
+
+        Use this method to add general information that might not be associated with a specific data source.
+        If the information is specific to a data source, use the `context` argument of `add_db` and `add_df`.
+
+        Args:
+            context: The string or the path to a file containing the additional context.
+        """
+        text = self._parse_context_arg(context)
+        if text is None:
+            raise ValueError("Invalid context provided.")
+        self.__additional_context.append(text)
+
+    def thread(self, *, stream_ask: bool | None = None, stream_plot: bool | None = None) -> Pipe:
         """Start a new thread in this session."""
-        return Pipe(self, default_rows_limit=self.__default_rows_limit)
+        return Pipe(
+            self,
+            default_rows_limit=self.__default_rows_limit,
+            default_stream_ask=stream_ask if stream_ask is not None else self.__default_stream_ask,
+            default_stream_plot=stream_plot if stream_plot is not None else self.__default_stream_plot,
+        )
 
     @property
     def dbs(self) -> dict[str, Any]:
@@ -143,6 +173,16 @@ class Session:
         return self.__cache
 
     @property
-    def context(self) -> tuple[dict[str, str], dict[str, str]]:
-        """Per-source natural-language context for DBs and DFs: (db_contexts, df_contexts)."""
-        return self.__db_contexts, self.__df_contexts
+    def db_context(self) -> dict[str, str]:
+        """Per-source natural-language context for DBs."""
+        return self.__db_context
+
+    @property
+    def df_context(self) -> dict[str, str]:
+        """Per-source natural-language context for DFs."""
+        return self.__df_context
+
+    @property
+    def additional_context(self) -> list[str]:
+        """General additional context not specific to any one data source."""
+        return self.__additional_context

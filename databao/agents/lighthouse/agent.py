@@ -17,24 +17,29 @@ class LighthouseAgent(AgentExecutor):
         """Initialize agent with lazy graph compilation."""
         super().__init__()
         self._cached_graph: ExecuteSubmit | None = None
+        self._prompt_template = read_prompt_template(Path("system_prompt.jinja"))
 
     def render_system_prompt(self, data_connection: Any, session: Session) -> str:
         """Render system prompt with database schema."""
-        prompt_template = read_prompt_template(Path("system_prompt.jinja"))
         db_schema = describe_duckdb_schema(data_connection)
-        db_contexts, df_contexts = session.context
-        context = ""
-        for db_name, db_context in db_contexts.items():
-            context += f"## Context for DB {db_name}\n\n{db_context}\n\n"
-        for df_name, df_context in df_contexts.items():
-            context += f"## Context for DF {df_name} (fully qualified name 'temp.main.{df_name}')\n\n{df_context}\n\n"
 
-        prompt = prompt_template.render(
+        context = ""
+        for db_name, db_context in session.db_context.items():
+            context += f"## Context for DB {db_name}\n\n{db_context}\n\n"
+        for df_name, df_context in session.df_context.items():
+            context += f"## Context for DF {df_name} (fully qualified name 'temp.main.{df_name}')\n\n{df_context}\n\n"
+        for idx, additional_ctx in enumerate(session.additional_context, start=1):
+            additional_context = additional_ctx.strip()
+            context += f"## General information {idx}\n\n{additional_context}\n\n"
+        context = context.strip()
+
+        prompt = self._prompt_template.render(
             date=get_today_date_str(),
             db_schema=db_schema,
             context=context,
         )
-        return prompt
+
+        return prompt.strip()
 
     def _create_graph(self, data_connection: Any, llm_config: LLMConfig) -> Any:
         """Create and compile the Lighthouse agent graph."""
@@ -76,7 +81,7 @@ class LighthouseAgent(AgentExecutor):
 
         init_state = graph.init_state(messages_with_system)
         invoke_config = RunnableConfig(recursion_limit=self._graph_recursion_limit)
-        last_state = self._invoke_graph(compiled_graph, init_state, config=invoke_config, stream=stream)
+        last_state = self._invoke_graph_sync(compiled_graph, init_state, config=invoke_config, stream=stream)
         execution_result = graph.get_result(last_state)
 
         # Update message history (excluding system message which we add dynamically)

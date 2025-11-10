@@ -13,6 +13,8 @@ def open_session(
     visualizer: Visualizer | None = None,
     cache: Cache | None = None,
     default_rows_limit: int = 1000,
+    default_stream_ask: bool = True,
+    default_stream_plot: bool = False,
 ) -> Session:
     """This is an entry point for users to open a session.
     Session can't be modified after it's created. Only new data sources can be added.
@@ -25,4 +27,6 @@ def open_session(
         visualizer=visualizer or VegaChatVisualizer(llm_config),
         cache=cache or InMemCache(),
         default_rows_limit=default_rows_limit,
+        default_stream_ask=default_stream_ask,
+        default_stream_plot=default_stream_plot,
     )

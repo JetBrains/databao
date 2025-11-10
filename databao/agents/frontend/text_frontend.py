@@ -34,8 +34,8 @@ class TextStreamFrontend:
 
     def write_dataframe(self, df: pd.DataFrame, *, name: str | None = None, max_rows: int = 10) -> None:
         rows_to_show = min(max_rows, len(df))
-        self.write(f" [df: name={name or ''}, showing {rows_to_show} / {len(df)} rows]\n")
-        self.write(df.head(rows_to_show).to_markdown() + "\n")
+        self.write(f"[df: name={name or ''}, showing {rows_to_show} / {len(df)} rows]\n")
+        self.write(df.head(rows_to_show).to_markdown() + "\n\n")
 
     def write_message_chunk(self, chunk: BaseMessageChunk) -> None:
         if not isinstance(chunk, AIMessageChunk):

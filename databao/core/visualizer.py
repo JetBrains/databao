@@ -38,9 +38,19 @@ class VisualisationResult(BaseModel):
         if hasattr(self.plot, "_repr_mimebundle_"):
             return self.plot._repr_mimebundle_(include, exclude)
 
-        plot_html = self._get_plot_html()
-        if plot_html is not None:
-            return {"text/html": plot_html}
+        mimebundle = {}
+        if (plot_html := self._get_plot_html()) is not None:
+            mimebundle["text/html"] = plot_html
+
+        # TODO Handle all _repr_*_ methods
+        # These are mostly for fallback representations
+        if hasattr(self.plot, "_repr_png_"):
+            mimebundle["image/png"] = self.plot._repr_png_()
+        if hasattr(self.plot, "_repr_jpeg_"):
+            mimebundle["image/jpeg"] = self.plot._repr_jpeg_()
+
+        if len(mimebundle) > 0:
+            return mimebundle
         return None
 
     def _get_plot_html(self) -> str | None:
@@ -75,6 +85,6 @@ class Visualizer(ABC):
     """
 
     @abstractmethod
-    def visualize(self, request: str | None, data: ExecutionResult) -> VisualisationResult:
+    def visualize(self, request: str | None, data: ExecutionResult, *, stream: bool = True) -> VisualisationResult:
         """Produce a visualization for the given data and optional user request."""
         pass
