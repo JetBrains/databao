@@ -9,6 +9,7 @@ from databao.agents.lighthouse.graph import ExecuteSubmit
 from databao.agents.lighthouse.utils import get_today_date_str, read_prompt_template
 from databao.configs.llm import LLMConfig
 from databao.core import ExecutionResult, Opa, Session
+from databao.core.executor import OutputModalityHints
 from databao.duckdb.utils import describe_duckdb_schema
 
 
@@ -89,5 +90,8 @@ class LighthouseAgent(AgentExecutor):
         if final_messages:
             messages_without_system = [msg for msg in final_messages if msg.type != "system"]
             self._update_message_history(session, cache_scope, messages_without_system)
+
+        # Set modality hints
+        execution_result.meta[OutputModalityHints.META_KEY] = self._make_output_modality_hints(execution_result)
 
         return execution_result

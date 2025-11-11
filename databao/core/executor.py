@@ -1,11 +1,20 @@
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 from pandas import DataFrame
 from pydantic import BaseModel, ConfigDict
 
-from databao.core.opa import Opa
-from databao.core.session import Session
+if TYPE_CHECKING:
+    from databao.core.opa import Opa
+    from databao.core.session import Session
+
+
+class OutputModalityHints(BaseModel):
+    """Hints on how to present the execution results."""
+
+    META_KEY: ClassVar[Literal["output_modality_hints"]] = "output_modality_hints"
+    is_visualizable: bool | None = None
+    visualization_prompt: str | None = None
 
 
 class ExecutionResult(BaseModel):
@@ -39,8 +48,8 @@ class Executor(ABC):
     @abstractmethod
     def execute(
         self,
-        session: Session,
-        opa: Opa,
+        session: "Session",
+        opa: "Opa",
         *,
         rows_limit: int = 100,
         cache_scope: str = "common_cache",

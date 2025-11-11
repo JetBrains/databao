@@ -3,10 +3,10 @@ from typing import TYPE_CHECKING, Any, Self
 
 from pandas import DataFrame
 
+from databao.core.executor import ExecutionResult, OutputModalityHints
 from databao.core.opa import Opa
 
 if TYPE_CHECKING:
-    from databao.core.executor import ExecutionResult
     from databao.core.session import Session
     from databao.core.visualizer import VisualisationResult
 
@@ -27,14 +27,14 @@ class Pipe:
         default_stream_ask: bool = True,
         default_stream_plot: bool = False,
         lazy: bool = False,
-        automatic_modality: bool = True,
+        auto_output_modality: bool = True,
     ):
         self._session = session
         self._default_rows_limit = default_rows_limit
 
         self._lazy_mode = lazy
 
-        self._automatic_modality = automatic_modality
+        self._auto_output_modality = auto_output_modality
         """Automatically detect the appropriate modality to output based on the user's input. If False, you must
         manually call the appropriate ask/plot method.
         
@@ -78,7 +78,6 @@ class Pipe:
                     rows_limit=rows_limit,
                     cache_scope=self._cache_scope,
                     stream=stream,
-                    # TODO automatic_modality
                 )
                 self._meta.update(self._data_result.meta)
             self._opas_processed_count += len(new_opas)
@@ -104,15 +103,16 @@ class Pipe:
     def _materialize(self, rows_limit: int | None) -> None:
         data_result = self._materialize_data(rows_limit)
 
-        if not self._automatic_modality or data_result.df is None or len(data_result.df) == 0:
+        if not self._auto_output_modality:
             return
 
-        # The Executor is responsible for returning a visualization prompt suggestion if the data should be visualized.
-        vis_prompt = data_result.meta.get("visualization_prompt", None)
-        if vis_prompt is not None and len(vis_prompt) > 0:
-            self.plot(vis_prompt)
-        else:
-            self.plot()  # Let the Visualizer recommend a plot based on the df
+        # The Executor can provide output modality hints
+        hints = data_result.meta.get(OutputModalityHints.META_KEY, OutputModalityHints())
+        if not hints.is_visualizable:
+            return
+
+        # Let the Visualizer recommend a plot based on the df if no prompt is provided (None)
+        self.plot(hints.visualization_prompt)
 
     def text(self) -> str:
         """Return the latest textual answer from the executor/LLM."""

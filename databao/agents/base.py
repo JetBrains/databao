@@ -9,7 +9,9 @@ from langgraph.graph.state import CompiledStateGraph
 
 from databao.agents.frontend.text_frontend import TextStreamFrontend
 from databao.configs.llm import LLMConfig
-from databao.core import Executor, Opa, Session
+from databao.core.executor import ExecutionResult, Executor, OutputModalityHints
+from databao.core.opa import Opa
+from databao.core.session import Session
 
 try:
     from duckdb import DuckDBPyConnection
@@ -136,6 +138,15 @@ class AgentExecutor(Executor):
         """Update message history in cache with final messages from graph execution."""
         if final_messages:
             self._set_messages(session, cache_scope, final_messages)
+
+    def _make_output_modality_hints(self, result: ExecutionResult) -> OutputModalityHints:
+        # A separate LLM module could be used to fill out the hints
+        vis_prompt = result.meta.get("visualization_prompt", None)
+        if vis_prompt is not None and len(vis_prompt) == 0:
+            vis_prompt = None
+
+        is_visualizable = vis_prompt is not None or (result.df is not None and len(result.df) >= 3)
+        return OutputModalityHints(visualization_prompt=vis_prompt, is_visualizable=is_visualizable)
 
     @staticmethod
     def _invoke_graph_sync(
