@@ -66,7 +66,7 @@ class Session:
             return context.read_text()
         return context
 
-    def _register_change(self):
+    def _register_change(self) -> None:
         for thread in self.__threads:
             thread.deactivate()
 
