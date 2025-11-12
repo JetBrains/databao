@@ -2,7 +2,7 @@
 name = "databao"
 description = "databao: NL queries for data"
 dynamic = ["version"]  # Based on the git tag
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.14"
 readme = "README.md"
 license = "Apache-2.0 AND LicenseRef-Additional-Terms"
 license-files = ["LICENSE.md"]
