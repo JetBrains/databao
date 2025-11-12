@@ -60,38 +60,39 @@ class ExecutionResult(BaseModel):
         import html
 
         modality_hints = self.meta.get(OutputModalityHints.META_KEY, OutputModalityHints())
-        html_parts = []
+        html_parts = {}
 
-        text_html = f"<p>{html.escape(self.text)}</p>"  # TODO markdown to html
-        html_parts.append(text_html)
+        text_html = f"<summary>Response</summary><pre>{html.escape(self.text.strip())}</pre>"  # TODO markdown to HTML
+        html_parts["text"] = text_html
         if self.code is not None:
-            code_html = f"<pre><code>{html.escape(self.code)}</code></pre>"
-            html_parts.append(code_html)
+            code = self.code.strip()
+            if len(code) > 0:
+                code_html = f"<summary>Code</summary><pre><code>{html.escape(code)}</code></pre>"
+                html_parts["code"] = code_html
 
         if self.df is not None and hasattr(self.df, "_repr_html_") and callable(self.df._repr_html_):
             # Use _repr_html_ to get the exact same output as if evaluating `df` in a notebook.
             # NB. PyCharm notebooks have special rendering if the output type is a pd.DataFrame,
             #  so returning just the correct mimetype is not enough to "unlock" all features, but
             #  it's the best we can do for now.
-            html_parts.append(self.df._repr_html_())
+            df_html = self.df._repr_html_()
+            html_parts["df"] = f"<summary>Data</summary>{df_html}"
 
         if modality_hints.should_visualize and plot_mimebundle is not None:  # noqa: SIM102
             if (plot_html := plot_mimebundle.get("text/html")) is not None:
-                html_parts.append(plot_html)
+                html_parts["visualization"] = f"<summary>Visualization</summary>{plot_html}"
             # TODO embed image/png and image/jpeg into html
-            # elif (png_base64 := plot_mimebundle.get("image/png")) is not None:
-            #     png_html = f'<img src="data:image/png;base64,{png_base64}" alt="Plot"/>'
-            #     html_parts.append(png_html)
-            # elif (jpeg_base64 := plot_mimebundle.get("image/jpeg")) is not None:
-            #     jpeg_html = f'<img src="data:image/jpeg;base64,{jpeg_base64}" alt="Plot"/>'
-            #     html_parts.append(jpeg_html)
 
-        return "\n\n".join(html_parts)
+        # Determine which section should be expanded by default
+        expand_keys = ["visualization"] if "visualization" in html_parts else ["df", "text"]
+        html_parts = {k: f"<details{' open' if k in expand_keys else ''}>{v}</details>" for k, v in html_parts.items()}
+
+        return "\n\n".join(html_parts.values())
 
     def _repr_mimebundle_(
         self, include: Any = None, exclude: Any = None, *, plot_mimebundle: dict[str, Any] | None = None
     ) -> dict[str, Any] | None:
-        """Subclass ExecutionResult with its own _repr_mimebundle_ method to customize displaying outputs."""
+        """Subclass ExecutionResult with its own _repr_mimebundle_ method to fully customize displaying outputs."""
         markdown = self._to_markdown()
         html_ = self._to_html(plot_mimebundle=plot_mimebundle)
         mimebundle = {
