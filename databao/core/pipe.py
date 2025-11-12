@@ -172,6 +172,16 @@ class Pipe:
 
         return self
 
+    def __str__(self) -> str:
+        if self._data_result is not None:
+            bundle = self._data_result._repr_mimebundle_()
+            if bundle is not None:
+                if (text_markdown := bundle.get("text/markdown")) is not None:
+                    return text_markdown  # type: ignore[no-any-return]
+                elif (text_plain := bundle.get("text/plain")) is not None:
+                    return text_plain  # type: ignore[no-any-return]
+        return repr(self)
+
     def __repr__(self) -> str:
         if self._data_result is not None:
             return (
@@ -191,8 +201,8 @@ class Pipe:
         if self._data_result is None:
             return None
         modality_hints = self._data_result.meta.get(OutputModalityHints.META_KEY, OutputModalityHints())
-        plot_mimebundle: dict[str, Any] | None = None
+        plot_bundle: dict[str, Any] | None = None
         if modality_hints.should_visualize and self._visualization_result is not None:
-            plot_mimebundle = self._visualization_result._repr_mimebundle_(include, exclude)
-        mimebundle = self._data_result._repr_mimebundle_(include, exclude, plot_mimebundle=plot_mimebundle)
-        return mimebundle
+            plot_bundle = self._visualization_result._repr_mimebundle_(include, exclude)
+        bundle = self._data_result._repr_mimebundle_(include, exclude, plot_mimebundle=plot_bundle)
+        return bundle
