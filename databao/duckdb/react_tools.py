@@ -1,8 +1,8 @@
 import json
-import re
 from typing import Any
 
 import pandas as pd
+import sqlglot
 from duckdb import DuckDBPyConnection
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.tools import tool
@@ -27,10 +27,12 @@ def sql_strip(query: str) -> str:
 
 def sql_with_limit(sql: str, limit: int) -> str:
     """Ensure the SQL has a LIMIT clause, appending one if missing."""
+    # TODO Change the limit value if limit is already present in the query?
     sql_to_run = sql_strip(sql)
-    # Only match if there's a LIMIT clause at the end of the SQL
-    if not re.search(r"\blimit\b\s*\S+\s*$", sql_to_run, flags=re.IGNORECASE):
-        sql_to_run = f"{sql_to_run} LIMIT {limit}"
+    ast = sqlglot.parse_one(sql_to_run, dialect="duckdb")
+    if not ast.args.get("limit") and isinstance(ast, sqlglot.expressions.Query):
+        ast_with_limit = ast.limit(limit)  # Add outer LIMIT clause
+        sql_to_run = ast_with_limit.sql()
     return sql_to_run
 
 
