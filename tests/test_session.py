@@ -21,11 +21,15 @@ def temp_context_file(tmp_path: Path) -> Path:
     return context_file
 
 
-def test_add_db_with_nonexistent_context_path_raises() -> None:
-    conn = duckdb.connect(":memory:")
+@pytest.fixture
+def duckdb_conn() -> duckdb.DuckDBPyConnection:
+    return duckdb.connect("./examples/data/web_shop.duckdb")
+
+
+def test_add_db_with_nonexistent_context_path_raises(duckdb_conn: duckdb.DuckDBPyConnection) -> None:
     session = databao.open_session("ctx_path_session_db")
     with pytest.raises(FileNotFoundError):
-        session.add_db(conn, context=Path("this_file_does_not_exist_123456.md"))
+        session.add_db(duckdb_conn, context=Path("this_file_does_not_exist_123456.md"))
 
 
 def test_add_df_with_nonexistent_context_path_raises() -> None:
@@ -35,11 +39,10 @@ def test_add_df_with_nonexistent_context_path_raises() -> None:
         session.add_df(df, context=Path("another_missing_context_987654.md"))
 
 
-def test_add_db_with_temp_file_context(temp_context_file: Path) -> None:
+def test_add_db_with_temp_file_context(temp_context_file: Path, duckdb_conn: duckdb.DuckDBPyConnection) -> None:
     """Test adding a database with context from a temporary file."""
-    conn = duckdb.connect(":memory:")
     session = databao.open_session("ctx_path_session_db_file")
-    session.add_db(conn, context=temp_context_file)
+    session.add_db(duckdb_conn, context=temp_context_file)
 
     assert "db1" in session.db_context
     assert session.db_context["db1"] == temp_context_file.read_text()
@@ -55,12 +58,11 @@ def test_add_df_with_temp_file_context(temp_context_file: Path) -> None:
     assert session.df_context["df1"] == temp_context_file.read_text()
 
 
-def test_add_db_with_string_context() -> None:
+def test_add_db_with_string_context(duckdb_conn: duckdb.DuckDBPyConnection) -> None:
     """Test adding a database with context as a string."""
-    conn = duckdb.connect(":memory:")
     session = databao.open_session("ctx_string_session_db")
     context_string = "This is a string context for the database."
-    session.add_db(conn, context=context_string)
+    session.add_db(duckdb_conn, context=context_string)
 
     assert "db1" in session.db_context
     assert session.db_context["db1"] == context_string

@@ -1,23 +1,29 @@
 from pathlib import Path
 from typing import Any
 
+import duckdb
+import pandas as pd
 from langchain_core.messages import SystemMessage
 from langchain_core.runnables import RunnableConfig
+from langgraph.graph.state import CompiledStateGraph
+from sqlalchemy import Engine
 
 from databao.agents.base import AgentExecutor
 from databao.agents.lighthouse.graph import ExecuteSubmit
 from databao.agents.lighthouse.utils import get_today_date_str, read_prompt_template
-from databao.configs.llm import LLMConfig
 from databao.core import ExecutionResult, Opa, Session
-from databao.duckdb.utils import describe_duckdb_schema
+from databao.duckdb.utils import describe_duckdb_schema, get_db_path, register_sqlalchemy
 
 
 class LighthouseAgent(AgentExecutor):
     def __init__(self) -> None:
-        """Initialize agent with lazy graph compilation."""
         super().__init__()
-        self._cached_graph: ExecuteSubmit | None = None
         self._prompt_template = read_prompt_template(Path("system_prompt.jinja"))
+
+        # Create a DuckDB connection for the agent
+        self._duckdb_connection = duckdb.connect(":memory:")
+        self._graph: ExecuteSubmit = ExecuteSubmit(self._duckdb_connection)
+        self._compiled_graph: CompiledStateGraph[Any] | None = None
 
     def render_system_prompt(self, data_connection: Any, session: Session) -> str:
         """Render system prompt with database schema."""
@@ -41,19 +47,30 @@ class LighthouseAgent(AgentExecutor):
 
         return prompt.strip()
 
-    def _create_graph(self, data_connection: Any, llm_config: LLMConfig) -> Any:
-        """Create and compile the Lighthouse agent graph."""
-        self._cached_graph = ExecuteSubmit(data_connection)
-        return self._cached_graph.compile(llm_config)
+    def register_db(self, name: str, connection: Any) -> None:
+        """Register DB in the DuckDB connection."""
 
-    def _get_graph_and_compiled(self, session: Session) -> tuple[Any, ExecuteSubmit, Any]:
-        """Get connection, uncompiled graph, and compiled graph."""
-        data_connection, compiled_graph = self._get_or_create_cached_graph(session)
+        if isinstance(connection, duckdb.DuckDBPyConnection):
+            path = get_db_path(connection)
+            if path is not None:
+                connection.close()
+                self._duckdb_connection.execute(f"ATTACH '{path}' AS {name}")
+            else:
+                raise RuntimeError("Memory-based DuckDB is not supported.")
+        elif isinstance(connection, Engine):
+            register_sqlalchemy(self._duckdb_connection, connection, name)
+        else:
+            raise ValueError("Only DuckDB or SQLAlchemy connections are supported.")
 
-        if self._cached_graph is None:
-            raise RuntimeError("Graph was not properly initialized after creation")
+    def register_df(self, name: str, df: pd.DataFrame) -> None:
+        self._duckdb_connection.register(name, df)
 
-        return data_connection, self._cached_graph, compiled_graph
+    def _get_compiled_graph(self, session: Session) -> CompiledStateGraph[Any]:
+        """Get compiled graph."""
+        compiled_graph = self._compiled_graph or self._graph.compile(session.llm_config)
+        self._compiled_graph = compiled_graph
+
+        return compiled_graph
 
     def execute(
         self,
@@ -64,8 +81,7 @@ class LighthouseAgent(AgentExecutor):
         cache_scope: str = "common_cache",
         stream: bool = True,
     ) -> ExecutionResult:
-        # Get or create graph (cached after first use)
-        data_connection, graph, compiled_graph = self._get_graph_and_compiled(session)
+        compiled_graph = self._get_compiled_graph(session)
 
         messages = self._process_opa(session, opa, cache_scope)
 
@@ -73,14 +89,14 @@ class LighthouseAgent(AgentExecutor):
         messages_with_system = messages
         if not messages_with_system or messages_with_system[0].type != "system":
             messages_with_system = [
-                SystemMessage(self.render_system_prompt(data_connection, session)),
+                SystemMessage(self.render_system_prompt(self._duckdb_connection, session)),
                 *messages_with_system,
             ]
 
-        init_state = graph.init_state(messages_with_system, limit_max_rows=rows_limit)
+        init_state = self._graph.init_state(messages_with_system, limit_max_rows=rows_limit)
         invoke_config = RunnableConfig(recursion_limit=self._graph_recursion_limit)
         last_state = self._invoke_graph_sync(compiled_graph, init_state, config=invoke_config, stream=stream)
-        execution_result = graph.get_result(last_state)
+        execution_result = self._graph.get_result(last_state)
 
         # Update message history (excluding system message which we add dynamically)
         final_messages = last_state.get("messages", [])

@@ -37,6 +37,14 @@ class Executor(ABC):
     """
 
     @abstractmethod
+    def register_db(self, name: str, connection: Any) -> None:
+        pass
+
+    @abstractmethod
+    def register_df(self, name: str, df: DataFrame) -> None:
+        pass
+
+    @abstractmethod
     def execute(
         self,
         session: Session,
