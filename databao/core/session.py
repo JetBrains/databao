@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any
 from duckdb import DuckDBPyConnection
 from langchain_core.language_models.chat_models import BaseChatModel
 from pandas import DataFrame
-from sqlalchemy import Engine
+from sqlalchemy import Connection, Engine
 
 from databao.configs.llm import LLMConfig
 from databao.core.pipe import Pipe
@@ -64,7 +64,7 @@ class Session:
 
     def add_db(
         self,
-        connection: DuckDBPyConnection | Engine,
+        connection: DuckDBPyConnection | Engine | Connection,
         *,
         name: str | None = None,
         context: str | Path | None = None,
@@ -75,8 +75,8 @@ class Session:
         engines and direct DuckDB connections.
 
         Args:
-            connection (DuckDBPyConnection[Any] | Engine): The database connection to be added. Can be a SQLAlchemy
-                engine or a native DuckDB connection.
+            connection (DuckDBPyConnection | Engine | Connection): The database connection to be added.
+                Can be an SQLAlchemy engine or connection or a native DuckDB connection.
             name (str | None): Optional name to assign to the database connection. If
                 not provided, a default name such as 'db1', 'db2', etc., will be
                 generated dynamically based on the collection size.
@@ -84,7 +84,7 @@ class Session:
                 be either the path to a file whose content will be used as the context or
                 the direct context as a string.
         """
-        if not isinstance(connection, (DuckDBPyConnection, Engine)):
+        if not isinstance(connection, (DuckDBPyConnection, Engine, Connection)):
             raise ValueError("Connection must be a DuckDB connection or SQLAlchemy engine.")
 
         conn_name = name or f"db{len(self.__dbs) + 1}"

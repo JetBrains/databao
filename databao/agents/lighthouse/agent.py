@@ -6,7 +6,7 @@ import pandas as pd
 from langchain_core.messages import SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
-from sqlalchemy import Engine
+from sqlalchemy import Connection, Engine
 
 from databao.agents.base import AgentExecutor
 from databao.agents.lighthouse.graph import ExecuteSubmit
@@ -47,8 +47,10 @@ class LighthouseAgent(AgentExecutor):
 
         return prompt.strip()
 
-    def register_db(self, name: str, connection: Any) -> None:
+    def register_db(self, name: str, connection: duckdb.DuckDBPyConnection | Connection | Engine) -> None:
         """Register DB in the DuckDB connection."""
+        if isinstance(connection, Connection):
+            connection = connection.engine
 
         if isinstance(connection, duckdb.DuckDBPyConnection):
             path = get_db_path(connection)
