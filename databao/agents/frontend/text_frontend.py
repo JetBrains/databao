@@ -35,7 +35,8 @@ class TextStreamFrontend:
     def write_dataframe(self, df: pd.DataFrame, *, name: str | None = None, max_rows: int = 10) -> None:
         rows_to_show = min(max_rows, len(df))
         self.write(f"[df: name={name or ''}, showing {rows_to_show} / {len(df)} rows]\n")
-        self.write(df.head(rows_to_show).to_markdown() + "\n\n")
+        df_str = dataframe_to_markdown(df.head(rows_to_show))
+        self.write(f"{df_str}\n\n")
 
     def write_message_chunk(self, chunk: BaseMessageChunk) -> None:
         if not isinstance(chunk, AIMessageChunk):
@@ -128,3 +129,11 @@ def escape_markdown_text(text: str) -> str:
     text = escape_strikethrough(text)
     text = escape_currency_dollar_signs(text)
     return text
+
+
+def dataframe_to_markdown(df: pd.DataFrame, *, index: bool = False) -> str:
+    try:
+        # to_markdown doesn't work with all types: https://github.com/pandas-dev/pandas/issues/50866
+        return df.to_markdown(index=index)
+    except Exception:
+        return df.to_string(index=index)

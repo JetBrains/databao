@@ -36,7 +36,7 @@ thread.ask("count cancelled shows by directors")
 print(thread.text())
 print(f"\n```\n{thread.code()}\n```\n")
 df = thread.df()
-print(f"\n{df.to_markdown() if df is not None else df}\n")
+print(f"\n{df.to_string() if df is not None else df}\n")
 
 plot = thread.plot()
 print(plot.text)

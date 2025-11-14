@@ -1,6 +1,8 @@
+import numpy as np
+import pandas as pd
 import pytest
 
-from databao.agents.frontend.text_frontend import escape_markdown_text
+from databao.agents.frontend.text_frontend import dataframe_to_markdown, escape_markdown_text
 
 
 @pytest.mark.parametrize(
@@ -52,3 +54,22 @@ from databao.agents.frontend.text_frontend import escape_markdown_text
 )
 def test_escape_text(input_text: str, expected_output: str) -> None:
     assert escape_markdown_text(input_text) == expected_output
+
+
+def test_dataframe_to_markdown_with_missing_values_various_dtypes() -> None:
+    """
+    Ensure `dataframe_to_markdown` does not raise and reasonably renders
+    common pandas missing value sentinels across dtypes.
+    """
+
+    df = pd.DataFrame(
+        {
+            "a_int": pd.Series([1, pd.NA], dtype="Int64"),
+            "b_bool": pd.Series([True, pd.NA], dtype="boolean"),
+            "c_float": [1.0, np.nan],
+            "d_obj": ["x", None],
+            "e_datetime": pd.to_datetime(["2020-01-01", pd.NaT]),  # type: ignore[arg-type]
+        }
+    )
+    out = dataframe_to_markdown(df, index=False)
+    assert isinstance(out, str) and len(out) > 0

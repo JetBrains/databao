@@ -13,6 +13,7 @@ from langgraph.graph import add_messages
 from langgraph.graph.state import CompiledStateGraph, StateGraph
 from langgraph.prebuilt import InjectedState
 
+from databao.agents.frontend.text_frontend import dataframe_to_markdown
 from databao.agents.lighthouse.utils import exception_to_string
 from databao.configs.llm import LLMConfig
 from databao.core import ExecutionResult
@@ -29,6 +30,14 @@ class AgentState(TypedDict):
     limit_max_rows: int | None
 
 
+def get_query_ids_mapping(messages: list[BaseMessage]) -> dict[str, ToolMessage]:
+    query_ids = {}
+    for message in messages:
+        if isinstance(message, ToolMessage) and isinstance(message.artifact, dict) and "query_id" in message.artifact:
+            query_ids[message.artifact["query_id"]] = message
+    return query_ids
+
+
 class ExecuteSubmit:
     """Simple graph with two tools: run_sql_query and submit_query_id.
     All context must be in the SystemMessage."""
@@ -42,7 +51,7 @@ class ExecuteSubmit:
     def init_state(self, messages: list[BaseMessage], *, limit_max_rows: int | None = None) -> AgentState:
         return AgentState(
             messages=messages,
-            query_ids={},
+            query_ids=get_query_ids_mapping(messages),
             sql=None,
             df=None,
             visualization_prompt=None,
@@ -59,8 +68,19 @@ class ExecuteSubmit:
         if last_ai_message is None:
             raise RuntimeError("No AI message found in message log")
         if len(last_ai_message.tool_calls) == 0:
+            # Sometimes models don't call the submit_query_id tool, but we still want to return some dataframe.
+            sql = state.get("sql", "")
+            df = state.get("df")  # Latest df result (usually from run_sql_query)
+            visualization_prompt = state.get("visualization_prompt")
             result = ExecutionResult(
-                text=last_ai_message.text(), df=None, code="", meta={"messages": state["messages"]}
+                text=last_ai_message.text(),
+                df=df,
+                code=sql,
+                meta={
+                    "visualization_prompt": visualization_prompt,
+                    "messages": state["messages"],
+                    "submit_called": False,
+                },
             )
         elif len(last_ai_message.tool_calls) > 1:
             raise RuntimeError("Expected exactly one tool call in AI message")
@@ -78,7 +98,11 @@ class ExecuteSubmit:
                 text=text,
                 df=df,
                 code=sql,
-                meta={"visualization_prompt": visualization_prompt, "messages": state["messages"]},
+                meta={
+                    "visualization_prompt": visualization_prompt,
+                    "messages": state["messages"],
+                    "submit_called": True,
+                },
             )
         return result
 
@@ -96,7 +120,7 @@ class ExecuteSubmit:
                 limit = graph_state["limit_max_rows"]
                 df = execute_duckdb_sql(sql, self._connection, limit=limit)
                 df_csv = df.head(self.MAX_TOOL_ROWS).to_csv(index=False)
-                df_markdown = df.head(self.MAX_TOOL_ROWS).to_markdown(index=False)
+                df_markdown = dataframe_to_markdown(df.head(self.MAX_TOOL_ROWS), index=False)
                 if len(df) > self.MAX_TOOL_ROWS:
                     df_csv += f"\nResult is truncated from {len(df)} to {self.MAX_TOOL_ROWS} rows."
                     df_markdown += f"\nResult is truncated from {len(df)} to {self.MAX_TOOL_ROWS} rows."
