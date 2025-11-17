@@ -10,6 +10,7 @@ from sqlalchemy import Engine
 from databao.agents.base import AgentExecutor
 from databao.configs.llm import LLMConfig
 from databao.core import ExecutionResult, Opa, Session
+from databao.core.executor import OutputModalityHints
 from databao.duckdb import register_sqlalchemy
 from databao.duckdb.react_tools import AgentResponse, execute_duckdb_sql, make_react_duckdb_agent
 from databao.duckdb.utils import get_db_path
@@ -73,4 +74,9 @@ class ReactDuckDBAgent(AgentExecutor):
         final_messages = last_state.get("messages", [])
         self._update_message_history(session, cache_scope, final_messages)
 
-        return ExecutionResult(text=answer.explanation, code=answer.sql, df=df, meta={})
+        execution_result = ExecutionResult(text=answer.explanation, code=answer.sql, df=df, meta={})
+
+        # Set modality hints
+        execution_result.meta[OutputModalityHints.META_KEY] = self._make_output_modality_hints(execution_result)
+
+        return execution_result

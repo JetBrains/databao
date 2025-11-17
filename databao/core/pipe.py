@@ -3,10 +3,10 @@ from typing import TYPE_CHECKING, Any, Self
 
 from pandas import DataFrame
 
+from databao.core.executor import ExecutionResult, OutputModalityHints
 from databao.core.opa import Opa
 
 if TYPE_CHECKING:
-    from databao.core.executor import ExecutionResult
     from databao.core.session import Session
     from databao.core.visualizer import VisualisationResult
 
@@ -27,10 +27,19 @@ class Pipe:
         default_stream_ask: bool = True,
         default_stream_plot: bool = False,
         lazy: bool = False,
+        auto_output_modality: bool = True,
     ):
         self._session = session
         self._default_rows_limit = default_rows_limit
+
         self._lazy_mode = lazy
+
+        self._auto_output_modality = auto_output_modality
+        """Automatically detect the appropriate modality to output based on the user's input. If False, you must
+        manually call the appropriate ask/plot method.
+        
+        This allows .ask to be used for plotting, i.e. `ask("show a bar chart")` will result in a plot being generated.
+        """
 
         self._stream_ask: bool | None = None
         self._stream_plot: bool | None = None
@@ -86,6 +95,24 @@ class Pipe:
             raise RuntimeError("_visualization_result is None after materialization")
         return self._visualization_result
 
+    def _materialize(self, rows_limit: int | None) -> None:
+        data_result = self._materialize_data(rows_limit)
+
+        if not self._auto_output_modality:
+            return
+
+        # The Executor can provide output modality hints
+        hints = data_result.meta.get(OutputModalityHints.META_KEY, OutputModalityHints())
+        if not hints.should_visualize:
+            return
+
+        # Let the Visualizer recommend a plot based on the df if no prompt is provided (None)
+        self.plot(hints.visualization_prompt)
+
+    def text(self) -> str:
+        """Return the latest textual answer from the executor/LLM."""
+        return self._materialize_data(self._data_materialized_rows).text
+
     def code(self) -> str | None:
         """Return the latest generated code."""
         return self._materialize_data(self._data_materialized_rows).code
@@ -112,15 +139,8 @@ class Pipe:
             request: Optional natural-language plotting request.
             rows_limit: Optional row limit for data materialization in lazy mode.
         """
-        # TODO Currently, we can't chain calls or maintain a "plot history": pipe.plot("red").plot("blue").
-        #  We have to do pipe.plot("red"), but then pipe.plot("blue") is independent of the first call.
-        # Plotting is always computed eagerly.
         self._stream_plot = stream
         return self._materialize_visualization(request, rows_limit if rows_limit else self._data_materialized_rows)
-
-    def text(self) -> str:
-        """Return the latest textual answer from the executor/LLM."""
-        return self._materialize_data(self._data_materialized_rows).text
 
     def ask(self, query: str, *, rows_limit: int | None = None, stream: bool | None = None) -> Self:
         """Append a new user query to this pipe.
@@ -141,9 +161,19 @@ class Pipe:
         self._stream_ask = stream
 
         if not self._lazy_mode:
-            self._materialize_data(rows_limit)
+            self._materialize(rows_limit)
 
         return self
+
+    def __str__(self) -> str:
+        if self._data_result is not None:
+            bundle = self._data_result._repr_mimebundle_()
+            if bundle is not None:
+                if (text_markdown := bundle.get("text/markdown")) is not None:
+                    return text_markdown  # type: ignore[no-any-return]
+                elif (text_plain := bundle.get("text/plain")) is not None:
+                    return text_plain  # type: ignore[no-any-return]
+        return repr(self)
 
     def __repr__(self) -> str:
         if self._data_result is not None:
@@ -154,37 +184,18 @@ class Pipe:
         else:
             return f"Unmaterialized {self.__class__.__name__}."
 
-    def _repr_mimebundle_(self, include: Any = None, exclude: Any = None) -> Any:
+    def _repr_mimebundle_(self, include: Any = None, exclude: Any = None) -> dict[str, Any] | None:
         """Return MIME bundle for rendering in notebooks.
 
         No materialization is performed in this method. If using lazy mode, you must trigger materialization manually.
         """
         # See docs for the behavior of magic methods https://ipython.readthedocs.io/en/stable/config/integrating.html#custom-methods
-
-        # Prioritize plots over other modalities
-        if self._visualization_result is not None:
-            plot_mimebundle = self._visualization_result._repr_mimebundle_(include, exclude)
-            if plot_mimebundle is not None:
-                return plot_mimebundle
-
         # If None is returned, IPython will fall back to repr()
         if self._data_result is None:
             return None
-
-        text_parts = [self._data_result.text]
-        if self._data_result.code is not None:
-            text_parts.append(self._data_result.code)
-
-        mimebundle = {}
-        if (df := self._data_result.df) is not None:
-            if hasattr(df, "_repr_html_") and callable(df._repr_html_):
-                # Use _repr_html_ to get the exact same output as if evaluating `df` in a notebook.
-                # NB. PyCharm notebooks have special rendering if the output type is a pd.DataFrame,
-                #  so returning just the correct mimetype is not enough to "unlock" all features, but
-                #  it's the best we can do for now.
-                mimebundle["text/html"] = df._repr_html_()
-            text_parts.append(df.to_string())
-
-        # Fallback text-only representation
-        mimebundle["text/plain"] = "\n".join(text_parts)
-        return mimebundle
+        modality_hints = self._data_result.meta.get(OutputModalityHints.META_KEY, OutputModalityHints())
+        plot_bundle: dict[str, Any] | None = None
+        if modality_hints.should_visualize and self._visualization_result is not None:
+            plot_bundle = self._visualization_result._repr_mimebundle_(include, exclude)
+        bundle = self._data_result._repr_mimebundle_(include, exclude, plot_mimebundle=plot_bundle)
+        return bundle
