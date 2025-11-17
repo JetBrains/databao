@@ -3,7 +3,7 @@ from typing import Any
 from urllib.parse import quote, urlsplit, urlunsplit
 
 from duckdb import DuckDBPyConnection
-from sqlalchemy import Engine
+from sqlalchemy import URL, Engine
 
 
 def get_db_path(conn: Any) -> str | None:
@@ -60,24 +60,34 @@ def register_sqlalchemy(con: DuckDBPyConnection, sqlalchemy_engine: Engine, name
     Supports PostgreSQL and MySQL/MariaDB (via DuckDB extensions). The external
     database becomes available under the given `name` within the DuckDB connection.
     """
-    url = sqlalchemy_engine.url.render_as_string(hide_password=False)
+    sa_url = sqlalchemy_engine.url.render_as_string(hide_password=False)
     dialect = getattr(getattr(sqlalchemy_engine, "dialect", None), "name", "")
     if dialect.startswith("postgres"):
-        con.execute("INSTALL postgres_scanner;")
-        con.execute("LOAD postgres_scanner;")
-        con.execute(f"ATTACH '{url}' AS {name} (TYPE POSTGRES);")
+        con.execute("INSTALL postgres;")
+        con.execute("LOAD postgres;")
+        pg_url = sqlalchemy_to_postgres_url(sqlalchemy_engine.url)
+        con.execute(f"ATTACH '{pg_url}' AS {name} (TYPE POSTGRES);")
     elif dialect.startswith(("mysql", "mariadb")):
         con.execute("INSTALL mysql;")
         con.execute("LOAD mysql;")
-        mysql_url = sqlalchemy_to_duckdb_mysql(str(url))
+        mysql_url = sqlalchemy_to_duckdb_mysql(sa_url)
         con.execute(f"ATTACH '{mysql_url}' AS {name} (TYPE MYSQL);")
     elif dialect.startswith("sqlite"):
         con.execute("INSTALL sqlite;")
         con.execute("LOAD sqlite;")
-        sqlite_path = re.sub("^sqlite:///", "", url)
+        sqlite_path = re.sub("^sqlite:///", "", sa_url)
         con.execute(f"ATTACH '{sqlite_path}' AS {name} (TYPE SQLITE);")
     else:
-        raise ValueError(f"Database engine '{sqlalchemy_engine.dialect.name}' is not supported yet")
+        raise ValueError(f"Database engine '{dialect}' is not supported yet")
+
+
+def sqlalchemy_to_postgres_url(url: URL) -> str:
+    """Convert SQLAlchemy-style PostgreSQL URL to a PostgreSQL URI."""
+    # https://docs.sqlalchemy.org/en/20/core/engines.html#postgresql
+    # https://duckdb.org/docs/1.3/core_extensions/postgres#configuration
+    # https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING-URIS
+    new_url = url.set(drivername=url.drivername.split("+")[0])  # Remove the +driver part
+    return new_url.render_as_string(hide_password=False)
 
 
 def sqlalchemy_to_duckdb_mysql(sa_url: str, keep_query: bool = True) -> str:
