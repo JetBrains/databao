@@ -45,7 +45,7 @@ def execute_duckdb_sql(sql: str, con: DuckDBPyConnection, *, limit: int | None =
 
 def make_duckdb_tool(con: DuckDBPyConnection) -> Any:
     """
-    Create a DuckDB SQL execution tool for LangChain agents.
+    Create a DuckDB SQL execution tool for LangChain executors.
 
     Args:
         con: DuckDB connection to execute queries against.

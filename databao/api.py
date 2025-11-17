@@ -1,7 +1,7 @@
-from databao.agents.lighthouse.agent import LighthouseAgent
 from databao.caches.in_mem_cache import InMemCache
 from databao.configs.llm import LLMConfig, LLMConfigDirectory
-from databao.core import Cache, Executor, Session, Visualizer
+from databao.core import Agent, Cache, Executor, Visualizer
+from databao.executors.lighthouse.executor import LighthouseExecutor
 from databao.visualizers.vega_chat import VegaChatVisualizer
 
 
@@ -17,15 +17,15 @@ def open_session(
     default_stream_plot: bool = False,
     default_lazy_threads: bool = False,
     default_auto_output_modality: bool = True,
-) -> Session:
-    """This is an entry point for users to open a session.
-    Session can't be modified after it's created. Only new data sources can be added.
+) -> Agent:
+    """This is an entry point for users to open an agent.
+    Agent can't be modified after it's created. Only new data sources can be added.
     """
     llm_config = llm_config if llm_config else LLMConfigDirectory.DEFAULT
-    return Session(
+    return Agent(
         name,
         llm_config,
-        data_executor=data_executor or LighthouseAgent(),
+        data_executor=data_executor or LighthouseExecutor(),
         visualizer=visualizer or VegaChatVisualizer(llm_config),
         cache=cache or InMemCache(),
         default_rows_limit=default_rows_limit,

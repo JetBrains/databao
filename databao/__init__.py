@@ -8,15 +8,15 @@ except importlib.metadata.PackageNotFoundError:
 
 from databao.api import open_session
 from databao.configs.llm import LLMConfig
-from databao.core import ExecutionResult, Executor, Opa, Pipe, Session, VisualisationResult, Visualizer
+from databao.core import Agent, ExecutionResult, Executor, Opa, Pipe, VisualisationResult, Visualizer
 
 __all__ = [
+    "Agent",
     "ExecutionResult",
     "Executor",
     "LLMConfig",
     "Opa",
     "Pipe",
-    "Session",
     "VisualisationResult",
     "Visualizer",
     "__version__",

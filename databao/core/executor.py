@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict
 
 if TYPE_CHECKING:
     from databao.core.opa import Opa
-    from databao.core.session import Session
+    from databao.core.session import Agent
 
 
 class OutputModalityHints(BaseModel):
@@ -118,10 +118,10 @@ class ExecutionResult(BaseModel):
 class Executor(ABC):
     """
     Defines the Executor interface as an abstract base class for execution of
-    operations within a given session.
+    operations within a given agent.
 
     Methods:
-        execute: Abstract method to execute a single OPA within a session.
+        execute: Abstract method to execute a single OPA within an agent.
     """
 
     @abstractmethod
@@ -135,17 +135,17 @@ class Executor(ABC):
     @abstractmethod
     def execute(
         self,
-        session: "Session",
+        session: "Agent",
         opa: "Opa",
         *,
         rows_limit: int = 100,
         cache_scope: str = "common_cache",
         stream: bool = True,
     ) -> ExecutionResult:
-        """Execute a single OPA within a session.
+        """Execute a single OPA within an agent.
 
         Args:
-            session: Active session providing LLM, data connections, cache, etc.
+            session: Active agent providing LLM, data connections, cache, etc.
             opa: User intent/query to process.
             rows_limit: Preferred row limit for data materialization (may be ignored by executors).
             cache_scope: Logical scope for caching per chat/thread.

@@ -13,9 +13,9 @@ from edaplot.vega_chat.vega_chat import VegaChat, VegaChatConfig, VegaChatState
 from langchain_core.runnables import RunnableConfig
 from PIL import Image
 
-from databao.agents.base import AgentExecutor
 from databao.configs.llm import LLMConfig
 from databao.core import ExecutionResult, VisualisationResult, Visualizer
+from databao.executors.base import GraphExecutor
 from databao.visualizers.vega_vis_tool import VegaVisTool
 
 logger = logging.getLogger(__name__)
@@ -90,7 +90,7 @@ class VegaChatVisualizer(Visualizer):
         vega_chat = VegaChat.from_config(config=self._vega_config, df=data.df)
         start_state, compiled_graph = vega_chat.start_query(request, is_async=False)
         # Use an empty `config` instead of `None` due to a bug in the "AI Agents Debugger" PyCharm plugin.
-        final_state: VegaChatState = AgentExecutor._invoke_graph_sync(
+        final_state: VegaChatState = GraphExecutor._invoke_graph_sync(
             compiled_graph, start_state, config=RunnableConfig(), stream=stream
         )
         model_out = vega_chat.submit_query(final_state)

@@ -33,7 +33,7 @@ engine = create_engine(
 )
 ```
 
-### 2) Open a databao session and register sources
+### 2) Open a databao agent and register sources
 
 ```python
 import databao 
@@ -44,17 +44,17 @@ from databao import LLMConfig
 
 # Option B - Cloud (requires an API key, e.g. OPENAI_API_KEY)
 llm_config = LLMConfig(name="gpt-4o-mini", temperature=0)
-session = databao.open_session(name="demo", llm_config=llm_config)
+agent = databao.open_session(name="demo", llm_config=llm_config)
 
-# Add your database to the session
-session.add_db(engine)
+# Add your database to the agent
+agent.add_db(engine)
 ```
 
 ### 3) Ask questions and materialize results
 
 ```python
 # Start a conversational thread
-thread = session.thread()
+thread = agent.thread()
 
 # Ask a question and get a DataFrame
 df = thread.ask("list all german shows").df()
@@ -150,7 +150,7 @@ uv run pytest -v -m "not apikey"
 ```
 databao/
   api.py                 # public entry: open_session(...)
-  core/                  # Session, Pipe, Executor, Visualizer abstractions
+  core/                  # Agent, Pipe, Executor, Visualizer abstractions
   agents/                # Lighthouse (default) and React-DuckDB agents
   duckdb/                # DuckDB integration and tools
   visualizers/           # Vega-Lite chat visualizer and utilities

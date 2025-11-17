@@ -15,10 +15,10 @@ if TYPE_CHECKING:
     from databao.core.visualizer import Visualizer
 
 
-class Session:
-    """A session manages all databases and Dataframes as well as the context for them.
-    Session determines what LLM to use, what executor to use and how to visualize data for all threads.
-    Several threads can be spawned out of the session.
+class Agent:
+    """An agent manages all databases and Dataframes as well as the context for them.
+    Agent determines what LLM to use, what executor to use and how to visualize data for all threads.
+    Several threads can be spawned out of the agent.
     """
 
     def __init__(
@@ -98,10 +98,10 @@ class Session:
             self.__db_context[conn_name] = context_text
 
     def add_df(self, df: DataFrame, *, name: str | None = None, context: str | Path | None = None) -> None:
-        """Register a DataFrame in this session and in the session's DuckDB.
+        """Register a DataFrame in this agent and in the agent's DuckDB.
 
         Args:
-            df: DataFrame to expose to agents/executors/SQL.
+            df: DataFrame to expose to executors/executors/SQL.
             name: Optional name; defaults to df1/df2/...
             context: Optional text or path to a file describing this dataset for the LLM.
         """
@@ -135,9 +135,9 @@ class Session:
         lazy: bool | None = None,
         auto_output_modality: bool | None = None,
     ) -> Pipe:
-        """Start a new thread in this session."""
+        """Start a new thread in this agent."""
         if not self.__dbs and not self.__dfs:
-            raise ValueError("No databases or dataframes registered in this session.")
+            raise ValueError("No databases or dataframes registered in this agent.")
         return Pipe(
             self,
             default_rows_limit=self.__default_rows_limit,
