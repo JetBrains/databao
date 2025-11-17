@@ -1,7 +1,8 @@
 import uuid
-from typing import TYPE_CHECKING, Any, Self
+from typing import TYPE_CHECKING, Any
 
 from pandas import DataFrame
+from typing_extensions import Self
 
 from databao.core.executor import ExecutionResult, OutputModalityHints
 from databao.core.opa import Opa

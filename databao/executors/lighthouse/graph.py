@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from typing import Annotated, Any, Literal, TypedDict
+from typing import Annotated, Any, Literal
 
 import pandas as pd
 from duckdb import DuckDBPyConnection
@@ -12,6 +12,7 @@ from langgraph.constants import END, START
 from langgraph.graph import add_messages
 from langgraph.graph.state import CompiledStateGraph, StateGraph
 from langgraph.prebuilt import InjectedState
+from typing_extensions import TypedDict
 
 from databao.configs.llm import LLMConfig
 from databao.core import ExecutionResult

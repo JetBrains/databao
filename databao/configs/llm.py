@@ -1,11 +1,12 @@
 import os
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Literal, Self
+from typing import Any, Literal
 
 from langchain.chat_models import init_chat_model
 from langchain_core.language_models import BaseChatModel
 from pydantic import BaseModel, ConfigDict, Field
+from typing_extensions import Self
 
 _OPENAI_PREFIXES = ["gpt", "o1", "o3", "o4"]
 _ANTHROPIC_PREFIXES = ["claude", "anthropic"]
