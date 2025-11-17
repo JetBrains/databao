@@ -7,12 +7,12 @@ from databao.core.executor import ExecutionResult, OutputModalityHints
 from databao.core.opa import Opa
 
 if TYPE_CHECKING:
-    from databao.core.session import Session
+    from databao.core.session import Agent
     from databao.core.visualizer import VisualisationResult
 
 
 class Pipe:
-    """A single conversational thread within a session.
+    """A single conversational thread within an agent.
 
     - Maintains its own message history (isolated from other pipes).
     - Materializes data and visualizations eagerly or lazily and caches results per pipe.
@@ -21,7 +21,7 @@ class Pipe:
 
     def __init__(
         self,
-        session: "Session",
+        session: "Agent",
         *,
         default_rows_limit: int = 1000,
         default_stream_ask: bool = True,
@@ -57,7 +57,7 @@ class Pipe:
         self._opas: list[Opa] = []
         self._meta: dict[str, Any] = {}
 
-        # A unique cache scope so agents can store per-thread state (e.g., message history)
+        # A unique cache scope so executors can store per-thread state (e.g., message history)
         self._cache_scope = f"{self._session.name}/{uuid.uuid4()}"
 
     def _materialize_data(self, rows_limit: int | None) -> "ExecutionResult":

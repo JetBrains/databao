@@ -8,15 +8,15 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
 from sqlalchemy import Connection, Engine
 
-from databao.agents.base import AgentExecutor
-from databao.agents.lighthouse.graph import ExecuteSubmit
-from databao.agents.lighthouse.utils import get_today_date_str, read_prompt_template
-from databao.core import ExecutionResult, Opa, Session
+from databao.core import Agent, ExecutionResult, Opa
 from databao.core.executor import OutputModalityHints
 from databao.duckdb.utils import describe_duckdb_schema, get_db_path, register_sqlalchemy
+from databao.executors.base import GraphExecutor
+from databao.executors.lighthouse.graph import ExecuteSubmit
+from databao.executors.lighthouse.utils import get_today_date_str, read_prompt_template
 
 
-class LighthouseAgent(AgentExecutor):
+class LighthouseExecutor(GraphExecutor):
     def __init__(self) -> None:
         super().__init__()
         self._prompt_template = read_prompt_template(Path("system_prompt.jinja"))
@@ -26,7 +26,7 @@ class LighthouseAgent(AgentExecutor):
         self._graph: ExecuteSubmit = ExecuteSubmit(self._duckdb_connection)
         self._compiled_graph: CompiledStateGraph[Any] | None = None
 
-    def render_system_prompt(self, data_connection: Any, session: Session) -> str:
+    def render_system_prompt(self, data_connection: Any, session: Agent) -> str:
         """Render system prompt with database schema."""
         db_schema = describe_duckdb_schema(data_connection)
 
@@ -68,7 +68,7 @@ class LighthouseAgent(AgentExecutor):
     def register_df(self, name: str, df: pd.DataFrame) -> None:
         self._duckdb_connection.register(name, df)
 
-    def _get_compiled_graph(self, session: Session) -> CompiledStateGraph[Any]:
+    def _get_compiled_graph(self, session: Agent) -> CompiledStateGraph[Any]:
         """Get compiled graph."""
         compiled_graph = self._compiled_graph or self._graph.compile(session.llm_config)
         self._compiled_graph = compiled_graph
@@ -77,7 +77,7 @@ class LighthouseAgent(AgentExecutor):
 
     def execute(
         self,
-        session: Session,
+        session: Agent,
         opa: Opa,
         *,
         rows_limit: int = 100,

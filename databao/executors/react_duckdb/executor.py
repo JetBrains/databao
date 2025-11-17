@@ -7,18 +7,18 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
 from sqlalchemy import Engine
 
-from databao.agents.base import AgentExecutor
 from databao.configs.llm import LLMConfig
-from databao.core import ExecutionResult, Opa, Session
+from databao.core import Agent, ExecutionResult, Opa
 from databao.core.executor import OutputModalityHints
 from databao.duckdb import register_sqlalchemy
 from databao.duckdb.react_tools import AgentResponse, execute_duckdb_sql, make_react_duckdb_agent
 from databao.duckdb.utils import get_db_path
+from databao.executors.base import GraphExecutor
 
 logger = logging.getLogger(__name__)
 
 
-class ReactDuckDBAgent(AgentExecutor):
+class ReactDuckDBExecutor(GraphExecutor):
     def __init__(self) -> None:
         """Initialize agent with lazy graph compilation."""
         super().__init__()
@@ -49,7 +49,7 @@ class ReactDuckDBAgent(AgentExecutor):
 
     def execute(
         self,
-        session: Session,
+        session: Agent,
         opa: Opa,
         *,
         rows_limit: int = 100,

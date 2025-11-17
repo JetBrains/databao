@@ -1,4 +1,5 @@
 import pickle
+from abc import ABC
 from io import BytesIO
 from typing import Any
 
@@ -6,11 +7,11 @@ from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
 
-from databao.agents.frontend.text_frontend import TextStreamFrontend
 from databao.configs.llm import LLMConfig
 from databao.core.executor import ExecutionResult, Executor, OutputModalityHints
 from databao.core.opa import Opa
-from databao.core.session import Session
+from databao.core.session import Agent
+from databao.executors.frontend.text_frontend import TextStreamFrontend
 
 try:
     from duckdb import DuckDBPyConnection
@@ -18,9 +19,9 @@ except ImportError:
     DuckDBPyConnection = Any  # type: ignore
 
 
-class AgentExecutor(Executor):
+class GraphExecutor(Executor, ABC):
     """
-    Base class for LangGraph agents that execute with a DuckDB connection and LLM configuration.
+    Base class for LangGraph executors that execute with a DuckDB connection and LLM configuration.
     Provides common functionality for graph caching, message handling, and OPA processing.
     """
 
@@ -28,12 +29,12 @@ class AgentExecutor(Executor):
         """Initialize agent with graph caching infrastructure."""
         self._graph_recursion_limit = 50
 
-    def _get_llm_config(self, session: Session) -> LLMConfig:
-        """Get LLM config from session."""
+    def _get_llm_config(self, session: Agent) -> LLMConfig:
+        """Get LLM config from agent."""
         return session.llm_config
 
-    def _get_messages(self, session: Session, cache_scope: str) -> list[Any]:
-        """Retrieve messages from the session cache."""
+    def _get_messages(self, session: Agent, cache_scope: str) -> list[Any]:
+        """Retrieve messages from the agent cache."""
         try:
             buffer = BytesIO()
             session.cache.scoped(cache_scope).get("messages", buffer)
@@ -43,14 +44,14 @@ class AgentExecutor(Executor):
         except (KeyError, EOFError):
             return []
 
-    def _set_messages(self, session: Session, cache_scope: str, messages: list[Any]) -> None:
-        """Store messages in the session cache."""
+    def _set_messages(self, session: Agent, cache_scope: str, messages: list[Any]) -> None:
+        """Store messages in the agent cache."""
         buffer = BytesIO()
         pickle.dump(messages, buffer)
         buffer.seek(0)
         session.cache.scoped(cache_scope).put("messages", buffer)
 
-    def _process_opa(self, session: Session, opa: Opa, cache_scope: str) -> list[Any]:
+    def _process_opa(self, session: Agent, opa: Opa, cache_scope: str) -> list[Any]:
         """
         Process a single opa and convert it to a message, appending to message history.
 
@@ -61,7 +62,7 @@ class AgentExecutor(Executor):
         messages.append(HumanMessage(content=opa.query))
         return messages
 
-    def _update_message_history(self, session: Session, cache_scope: str, final_messages: list[Any]) -> None:
+    def _update_message_history(self, session: Agent, cache_scope: str, final_messages: list[Any]) -> None:
         """Update message history in cache with final messages from graph execution."""
         if final_messages:
             self._set_messages(session, cache_scope, final_messages)
@@ -86,7 +87,7 @@ class AgentExecutor(Executor):
     ) -> Any:
         """Invoke the graph with the given start state and return the output state."""
         if stream:
-            return AgentExecutor._execute_stream_sync(compiled_graph, start_state, config=config, **kwargs)
+            return GraphExecutor._execute_stream_sync(compiled_graph, start_state, config=config, **kwargs)
         else:
             return compiled_graph.invoke(start_state, config=config)
 
