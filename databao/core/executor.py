@@ -1,4 +1,5 @@
 import base64
+import re
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
@@ -57,6 +58,13 @@ class ExecutionResult(BaseModel):
             text_parts.append(self.df.head(10).to_markdown())
         return "\n\n".join(text_parts)
 
+    def _dataframe_to_html(self, df: DataFrame) -> str:
+        # Workaround due to a bug in PyCharm notebooks, where using _repr_html_
+        # would prevent other <details> sections from being shown.
+        df_html = df.to_html(notebook=False, max_rows=10)
+        df_html = re.sub(r'\s*class="dataframe"', "", df_html)
+        return df_html
+
     def _to_html(self, *, plot_mimebundle: dict[str, Any] | None = None) -> str:
         import html
 
@@ -71,13 +79,8 @@ class ExecutionResult(BaseModel):
                 code_html = f"<pre><code>{html.escape(code)}</code></pre>"
                 html_parts["code"] = code_html
 
-        if self.df is not None and hasattr(self.df, "_repr_html_") and callable(self.df._repr_html_):
-            # Use _repr_html_ to get the exact same output as if evaluating `df` in a notebook.
-            # NB. PyCharm notebooks have special rendering if the output type is a pd.DataFrame,
-            #  so returning just the correct mimetype is not enough to "unlock" all features, but
-            #  it's the best we can do for now.
-            df_html = self.df._repr_html_()
-            html_parts["df"] = df_html
+        if self.df is not None:
+            html_parts["df"] = self._dataframe_to_html(self.df)
 
         if modality_hints.should_visualize and plot_mimebundle is not None:
             vis_html: str | None = None
