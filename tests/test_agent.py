@@ -17,7 +17,7 @@ def temp_context_file(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def duckdb_conn() -> duckdb.DuckDBPyConnection:
-    return duckdb.connect("./examples/data/web_shop.duckdb")
+    return duckdb.connect("./examples/web_shop_orders/data/web_shop.duckdb")
 
 
 def test_add_db_with_nonexistent_context_path_raises(duckdb_conn: duckdb.DuckDBPyConnection) -> None:
