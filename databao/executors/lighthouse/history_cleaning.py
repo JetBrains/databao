@@ -39,7 +39,6 @@ Text:
 """
     if tool_call["args"].get("visualization_prompt"):
         text += f"\n\nVisualization prompt: {tool_call['args']['visualization_prompt']}"
-    print(f"Message history was truncated. {len(messages) - 1} messages were deleted.")
     return AIMessage(content=text)
 
 
@@ -55,7 +54,6 @@ def clean_tool_history(
     """
     current_messages = current_messages or all_messages
     if count_tokens_approximately(current_messages) < token_limit:
-        print(f"Message history is within token limit. {count_tokens_approximately(current_messages)} < {token_limit}.")
         return current_messages
 
     dfs: dict[str, dict[str, str]] = {}
