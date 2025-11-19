@@ -16,7 +16,7 @@ def _make_result(**kwargs: Any) -> VegaChatResult:
 
     Allows overriding/adding fields via kwargs.
     """
-    base: dict[str, Any] = dict(text="", meta={}, plot=None, code=None)
+    base: dict[str, Any] = dict(text="", meta={}, plot=None, code=None, visualizer=None)
     base.update(kwargs)
     return VegaChatResult(**base)
 

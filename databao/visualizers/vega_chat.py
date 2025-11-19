@@ -9,7 +9,7 @@ import pandas as pd
 from edaplot.image_utils import vl_to_png_bytes
 from edaplot.llms import LLMConfig as VegaLLMConfig
 from edaplot.vega import to_altair_chart
-from edaplot.vega_chat.vega_chat import VegaChat, VegaChatConfig, VegaChatState
+from edaplot.vega_chat.vega_chat import MessageInfo, VegaChatConfig, VegaChatGraph, VegaChatState
 from langchain_core.runnables import RunnableConfig
 from PIL import Image
 
@@ -26,6 +26,7 @@ class VegaChatResult(VisualisationResult):
     spec: dict[str, Any] | None = None
     spec_df: pd.DataFrame | None = None
 
+    # TODO expose as part of the VisualisationResult API
     def interactive(self) -> VegaVisTool | None:
         """Return an interactive UI wizard for the Vega-Lite chart.
 
@@ -76,29 +77,12 @@ class VegaChatVisualizer(Visualizer):
         )
         self._return_interactive_chart = return_interactive_chart
 
-    def visualize(self, request: str | None, data: ExecutionResult, *, stream: bool = True) -> VegaChatResult:
-        if data.df is None:
-            return VegaChatResult(text="Nothing to visualize", meta={}, plot=None, code=None)
-
-        if request is None:
-            # We could also call the ChartRecommender module, but since we want a
-            # single output plot, we'll just use a simple prompt.
-            request = (
-                "I don't know what the data is about. Show me an interesting plot. Don't show the same plot twice."
-            )
-
-        vega_chat = VegaChat.from_config(config=self._vega_config, df=data.df)
-        start_state, compiled_graph = vega_chat.start_query(request, is_async=False)
-        # Use an empty `config` instead of `None` due to a bug in the "AI Agents Debugger" PyCharm plugin.
-        final_state: VegaChatState = GraphExecutor._invoke_graph_sync(
-            compiled_graph, start_state, config=RunnableConfig(), stream=stream
-        )
-        model_out = vega_chat.submit_query(final_state)
-
+    def _process_result(self, state: VegaChatState, spec_df: pd.DataFrame) -> VegaChatResult:
         # Use the possibly transformed dataframe tied to the generated spec
-        preprocessed_df = vega_chat.dataframe
+        model_out = state["messages"][-1]
         text = model_out.message.text()
         meta = dataclasses.asdict(model_out)
+        meta["messages"] = state["messages"]
         spec = model_out.spec
         spec_json = json.dumps(spec, indent=2) if spec is not None else None
         if spec is None or not model_out.is_drawable or model_out.is_empty_chart:
@@ -108,7 +92,8 @@ class VegaChatVisualizer(Visualizer):
                 plot=None,
                 code=spec_json,
                 spec=spec,
-                spec_df=preprocessed_df,
+                spec_df=spec_df,
+                visualizer=self,
             )
 
         if not model_out.is_valid_schema and model_out.is_drawable:
@@ -117,8 +102,8 @@ class VegaChatVisualizer(Visualizer):
             logger.warning("Generated Vega-Lite spec is not valid, but it is still drawable: %s", spec_json)
             if self._return_interactive_chart:
                 # The VegaVisTool backend uses vega-embed so it can handle corrupt specs
-                plot = VegaVisTool(spec, preprocessed_df)
-            elif (png_bytes := vl_to_png_bytes(spec, preprocessed_df)) is not None:
+                plot = VegaVisTool(spec, spec_df)
+            elif (png_bytes := vl_to_png_bytes(spec, spec_df)) is not None:
                 # Try to convert to an Image that can still be displayed in Jupyter notebooks
                 plot = Image.open(io.BytesIO(png_bytes))
             else:
@@ -128,12 +113,13 @@ class VegaChatVisualizer(Visualizer):
                     plot=None,
                     code=spec_json,
                     spec=spec,
-                    spec_df=preprocessed_df,
+                    spec_df=spec_df,
+                    visualizer=self,
                 )
         elif self._return_interactive_chart:
-            plot = VegaVisTool(spec, preprocessed_df)
+            plot = VegaVisTool(spec, spec_df)
         else:
-            plot = to_altair_chart(spec, preprocessed_df)
+            plot = to_altair_chart(spec, spec_df)
 
         return VegaChatResult(
             text=text,
@@ -141,5 +127,38 @@ class VegaChatVisualizer(Visualizer):
             plot=plot,
             code=spec_json,
             spec=spec,
-            spec_df=preprocessed_df,
+            spec_df=spec_df,
+            visualizer=self,
         )
+
+    def _run_vega_chat(
+        self, request: str, df: pd.DataFrame, *, messages: list[MessageInfo] | None = None, stream: bool = False
+    ) -> VegaChatResult:
+        vega_chat = VegaChatGraph(self._vega_config, df=df)
+        start_state = vega_chat.get_start_state(request, messages=messages)
+        compiled_graph = vega_chat.compile_graph(is_async=False)
+        # Use an empty `config` instead of `None` due to a bug in the "AI Agents Debugger" PyCharm plugin.
+        final_state: VegaChatState = GraphExecutor._invoke_graph_sync(
+            compiled_graph, start_state, config=RunnableConfig(), stream=stream
+        )
+        processed_df = vega_chat.dataframe
+        return self._process_result(final_state, processed_df)
+
+    def visualize(self, request: str | None, data: ExecutionResult, *, stream: bool = False) -> VegaChatResult:
+        if data.df is None:
+            return VegaChatResult(text="Nothing to visualize", meta={}, plot=None, code=None, visualizer=self)
+        if request is None:
+            # We could also call the ChartRecommender module, but since we want a
+            # single output plot, we'll just use a simple prompt.
+            request = "I don't know what the data is about. Show me an interesting plot."
+        return self._run_vega_chat(request, data.df, stream=stream)
+
+    def edit(self, request: str, visualization: VisualisationResult, *, stream: bool = False) -> VegaChatResult:
+        if not isinstance(visualization, VegaChatResult):
+            raise ValueError(f"{self.__class__.__name__} can only edit {VegaChatResult.__name__} objects")
+        if visualization.spec_df is None:
+            raise ValueError("No dataframe found in the provided visualization")
+        messages = visualization.meta.get("messages", None)
+        if messages is None:
+            raise ValueError("No message history found in the provided visualization")
+        return self._run_vega_chat(request, visualization.spec_df, messages=messages, stream=stream)

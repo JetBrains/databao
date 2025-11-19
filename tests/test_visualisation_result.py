@@ -4,7 +4,7 @@ from databao.core.visualizer import VisualisationResult
 
 
 def test_visualisation_result_get_plot_html_with_no_plot() -> None:
-    result = VisualisationResult(text="Test", meta={}, plot=None, code=None)
+    result = VisualisationResult(text="Test", meta={}, plot=None, code=None, visualizer=None)
     assert result._repr_mimebundle_() is None
 
 
@@ -12,7 +12,7 @@ def test_visualisation_result_get_plot_html_with_invalid_plot() -> None:
     class InvalidPlot:
         pass
 
-    result = VisualisationResult(text="Test", meta={}, plot=InvalidPlot(), code=None)
+    result = VisualisationResult(text="Test", meta={}, plot=InvalidPlot(), code=None, visualizer=None)
     assert result._repr_mimebundle_() is None
 
 
@@ -35,7 +35,7 @@ def test_visualisation_result_altair() -> None:
         .interactive()
     )
 
-    result = VisualisationResult(text="Test representation", meta={}, plot=chart, code=None)
+    result = VisualisationResult(text="Test representation", meta={}, plot=chart, code=None, visualizer=None)
     assert result._repr_mimebundle_() is not None
 
 
@@ -49,5 +49,5 @@ def test_visualisation_result_matplotlib() -> None:
     ax.set_title("Simple plot")
     ax.set_ylabel("Y axis")
     ax.set_xlabel("X axis")
-    result = VisualisationResult(text="Test representation", meta={}, plot=fig, code=None)
+    result = VisualisationResult(text="Test representation", meta={}, plot=fig, code=None, visualizer=None)
     assert result._repr_mimebundle_() is not None

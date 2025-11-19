@@ -2,7 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from databao.core.executor import ExecutionResult
 
@@ -24,8 +24,21 @@ class VisualisationResult(BaseModel):
     plot: Any | None
     code: str | None
 
+    visualizer: "Visualizer | None" = Field(exclude=True)
+    """Reference to the Visualizer that produced this result. Not serializable."""
+
     # Immutable model; allow arbitrary plot types (e.g., matplotlib objects)
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
+
+    def edit(self, request: str, *, stream: bool = False) -> "VisualisationResult":
+        """Edit this visualization with a natural language request.
+
+        Syntactic sugar for the `Visualizer.edit` method.
+        """
+        if self.visualizer is None:
+            # Forbid using `.edit` after deserialization
+            raise RuntimeError("Visualizer is not set")
+        return self.visualizer.edit(request, self, stream=stream)
 
     def _repr_mimebundle_(self, include: Any = None, exclude: Any = None) -> Any:
         """Return MIME bundle for IPython notebooks."""
@@ -85,6 +98,11 @@ class Visualizer(ABC):
     """
 
     @abstractmethod
-    def visualize(self, request: str | None, data: ExecutionResult, *, stream: bool = True) -> VisualisationResult:
+    def visualize(self, request: str | None, data: ExecutionResult, *, stream: bool = False) -> VisualisationResult:
         """Produce a visualization for the given data and optional user request."""
+        pass
+
+    @abstractmethod
+    def edit(self, request: str, visualization: VisualisationResult, *, stream: bool = False) -> VisualisationResult:
+        """Refine a prior visualization with a natural language request."""
         pass
