@@ -1,4 +1,3 @@
-import dataclasses
 import io
 import json
 import logging
@@ -81,8 +80,7 @@ class VegaChatVisualizer(Visualizer):
         # Use the possibly transformed dataframe tied to the generated spec
         model_out = state["messages"][-1]
         text = model_out.message.text()
-        meta = dataclasses.asdict(model_out)
-        meta["messages"] = state["messages"]
+        meta = {"messages": state["messages"]}  # Full history. Also used for edit follow ups.
         spec = model_out.spec
         spec_json = json.dumps(spec, indent=2) if spec is not None else None
         if spec is None or not model_out.is_drawable or model_out.is_empty_chart:
