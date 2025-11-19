@@ -129,7 +129,9 @@ class Pipe:
         Args:
             rows_limit: Optional override for the number of rows to materialize in lazy mode.
         """
-        return self._materialize_data(rows_limit if rows_limit else self._data_materialized_rows).df
+        df = self._materialize_data(rows_limit if rows_limit else self._data_materialized_rows).df
+        # Copy the dataframe to avoid state mutation from outside
+        return df.copy() if df is not None else None
 
     def plot(
         self, request: str | None = None, *, rows_limit: int | None = None, stream: bool | None = None
