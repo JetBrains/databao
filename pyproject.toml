@@ -26,7 +26,6 @@ dependencies = [
     "matplotlib>=3.10.0",
     "edaplot-vl~=0.1.2",
     "diskcache>=5.6.3",
-    "sqlglot>=27.29.0",
 ]
 
 [project.optional-dependencies]
