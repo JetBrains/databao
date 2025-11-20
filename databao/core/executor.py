@@ -59,11 +59,19 @@ class ExecutionResult(BaseModel):
         return "\n\n".join(text_parts)
 
     def _dataframe_to_html(self, df: DataFrame) -> str:
-        # Workaround due to a bug in PyCharm notebooks, where using _repr_html_
-        # would prevent other <details> sections from being shown.
+        # Workaround due to a bug in PyCharm notebooks (https://youtrack.jetbrains.com/issue/PY-85679),
+        # where using _repr_html_ would prevent other <details> sections from being shown.
         df_html = df.to_html(notebook=False, max_rows=10)
         df_html = re.sub(r'\s*class="dataframe"', "", df_html)
         return df_html
+
+    def _postprocess_html(self, code: str) -> str:
+        # Workaround due to a bug in PyCharm notebooks (https://youtrack.jetbrains.com/issue/PY-85679).
+        # If the string "dataframe" appears anywhere in the HTML along with <table>,
+        # then the whole output will be broken (a table with "0 rows x -1 cols").
+        # The substring "dataframe" can be outside or inside <table>,
+        # and it crashes even with strings like "dataframeeee".
+        return code.replace("dataframe", "DataFrame")
 
     def _to_html(self, *, plot_mimebundle: dict[str, Any] | None = None) -> str:
         import html
@@ -103,7 +111,8 @@ class ExecutionResult(BaseModel):
             for k, v in html_parts.items()
         }
 
-        return "\n\n".join(html_parts.values())
+        html_code = "\n\n".join(html_parts.values())
+        return self._postprocess_html(html_code)
 
     def _repr_mimebundle_(
         self, include: Any = None, exclude: Any = None, *, plot_mimebundle: dict[str, Any] | None = None
