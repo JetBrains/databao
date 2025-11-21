@@ -29,7 +29,8 @@ def _validate_llm_config(config: LLMConfig) -> None:
 
 
 @pytest.mark.parametrize("path", example_llm_config_paths, ids=[path.name for path in example_llm_config_paths])
-def test_example_llm_configs(path: Path) -> None:
+def test_example_llm_configs(path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "test_key")
     config = LLMConfig.from_yaml(path)
     _validate_llm_config(config)
 
@@ -39,7 +40,8 @@ def test_example_llm_configs(path: Path) -> None:
     LLMConfigDirectory.list_all(),
     ids=[c.name for c in LLMConfigDirectory.list_all()],
 )
-def test_llm_config_directory(config: LLMConfig) -> None:
+def test_llm_config_directory(config: LLMConfig, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "test_key")
     _validate_llm_config(config)
 
 

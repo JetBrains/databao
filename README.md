@@ -112,6 +112,10 @@ uv sync
 uv sync --extra examples
 ```
 
+We recommend using the same version of uv as the one used in GitHub Actions:
+```bash
+uv self update 0.9.5
+```
 
 Using Makefile targets:
 
@@ -145,16 +149,3 @@ Run only tests that do NOT require API keys:
 ```bash
 uv run pytest -v -m "not apikey"
 ```
-
-### Project structure
-```
-databao/
-  api.py                 # public entry: new_agent(...)
-  core/                  # Agent, Thread, Executor, Visualizer abstractions
-  agents/                # Lighthouse (default) and React-DuckDB agents
-  duckdb/                # DuckDB integration and tools
-  visualizers/           # Vega-Lite chat visualizer and utilities
-examples/                # notebooks, demo script, configs
-tests/                   # pytest suite
-```
-
