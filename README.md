@@ -112,6 +112,10 @@ uv sync
 uv sync --extra examples
 ```
 
+We recommend using the same version of uv as the one used in CI:
+```bash
+uv self update 0.9.5
+```
 
 Using Makefile targets:
 
