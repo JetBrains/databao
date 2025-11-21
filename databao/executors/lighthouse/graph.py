@@ -40,7 +40,7 @@ def get_query_ids_mapping(messages: list[BaseMessage]) -> dict[str, ToolMessage]
 
 
 class ExecuteSubmit:
-    """Simple graph with two tools: run_sql_query and submit_query_id.
+    """Simple graph with two tools: run_sql_query and submit_result.
     All context must be in the SystemMessage."""
 
     MAX_TOOL_ROWS = 12
@@ -69,7 +69,7 @@ class ExecuteSubmit:
         if last_ai_message is None:
             raise RuntimeError("No AI message found in message log")
         if len(last_ai_message.tool_calls) == 0:
-            # Sometimes models don't call the submit_query_id tool, but we still want to return some dataframe.
+            # Sometimes models don't call the submit_result tool, but we still want to return some dataframe.
             sql = state.get("sql", "")
             df = state.get("df")  # Latest df result (usually from run_sql_query)
             visualization_prompt = state.get("visualization_prompt")
@@ -85,9 +85,9 @@ class ExecuteSubmit:
             )
         elif len(last_ai_message.tool_calls) > 1:
             raise RuntimeError("Expected exactly one tool call in AI message")
-        elif last_ai_message.tool_calls[0]["name"] != "submit_query_id":
+        elif last_ai_message.tool_calls[0]["name"] != "submit_result":
             raise RuntimeError(
-                f"Expected submit_query_id tool call in AI message, got {last_ai_message.tool_calls[0]['name']}"
+                f"Expected submit_result tool call in AI message, got {last_ai_message.tool_calls[0]['name']}"
             )
         else:
             sql = state.get("sql", "")
@@ -130,7 +130,7 @@ class ExecuteSubmit:
                 return {"error": exception_to_string(e)}
 
         @tool(parse_docstring=True)
-        def submit_query_id(
+        def submit_result(
             query_id: str,
             result_description: str,
             visualization_prompt: str,
@@ -149,7 +149,7 @@ class ExecuteSubmit:
             """
             return f"Query {query_id} submitted successfully. Your response is now visible to the user."
 
-        tools = [run_sql_query, submit_query_id]
+        tools = [run_sql_query, submit_result]
         return tools
 
     def compile(self, model_config: LLMConfig) -> CompiledStateGraph[Any]:
@@ -170,11 +170,11 @@ class ExecuteSubmit:
 
             tool_calls = last_message.tool_calls
 
-            is_ready_for_user = any(tc["name"] == "submit_query_id" for tc in tool_calls)
+            is_ready_for_user = any(tc["name"] == "submit_result" for tc in tool_calls)
             if is_ready_for_user:
                 if len(tool_calls) > 1:
                     tool_messages = [
-                        ToolMessage("submit_query_id must be the only tool call.", tool_call_id=tool_call["id"])
+                        ToolMessage("submit_result must be the only tool call.", tool_call_id=tool_call["id"])
                         for tool_call in tool_calls
                     ]
                     return {"messages": tool_messages, "ready_for_user": False}
@@ -244,14 +244,14 @@ class ExecuteSubmit:
                             tool_call_id=tool_call_id,
                             artifact=result,
                         )
-                elif name == "submit_query_id":
+                elif name == "submit_result":
                     content = str(result)
                     query_id = tool_call["args"]["query_id"]
                     visualization_prompt = tool_call["args"].get("visualization_prompt", "")
                     sql = state["query_ids"][query_id].artifact["sql"]
                     df = state["query_ids"][query_id].artifact["df"]
                 tool_messages.append(ToolMessage(content=content, tool_call_id=tool_call_id, artifact=result))
-                if name == "submit_query_id":
+                if name == "submit_result":
                     return {
                         "messages": tool_messages,
                         "sql": sql,
@@ -276,7 +276,7 @@ class ExecuteSubmit:
             return "end"
 
         def should_finish(state: AgentState) -> Literal["llm_node", "end"]:
-            # Check if we just executed submit_query_id - if so, end the conversation
+            # Check if we just executed submit_result - if so, end the conversation
             if state.get("ready_for_user", False):
                 return "end"
             return "llm_node"
