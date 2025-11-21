@@ -82,7 +82,7 @@ def clean_tool_history(messages: list[BaseMessage], token_limit: int) -> list[Ba
                 # Enrich `dfs` dict with calculation results
                 dfs[call_id]["df"] = curr_message.artifact.get("csv")
                 dfs[call_id]["query_id"] = curr_message.artifact.get("query_id")
-            elif messages[i - 1].tool_calls[0]["name"] == "submit_query_id":  # type: ignore
+            elif messages[i - 1].tool_calls[0]["name"] == "submit_result":  # type: ignore
                 result.append(_truncate_block(dfs, buffer))
                 buffer = []
 
