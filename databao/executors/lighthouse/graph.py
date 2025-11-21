@@ -154,7 +154,7 @@ class ExecuteSubmit:
 
     def compile(self, model_config: LLMConfig) -> CompiledStateGraph[Any]:
         tools = self.make_tools()
-        llm_model = model_config.chat_model
+        llm_model = model_config.new_chat_model()
 
         model_with_tools = self._model_bind_tools(llm_model, tools)
 
@@ -306,7 +306,7 @@ class ExecuteSubmit:
         model: Runnable[list[BaseMessage], Any] | None = None,
     ) -> list[BaseMessage]:
         if model is None:
-            model = config.chat_model
+            model = config.new_chat_model()
         messages = ExecuteSubmit._apply_system_prompt_caching(config, messages)
         response: AIMessage = ExecuteSubmit._call_model(model, messages)
         return [*messages, response]

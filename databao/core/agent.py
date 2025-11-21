@@ -36,7 +36,7 @@ class Agent:
         auto_output_modality: bool = True,
     ):
         self.__name = name
-        self.__llm = llm.chat_model
+        self.__llm = llm.new_chat_model()
         self.__llm_config = llm
 
         self.__dbs: dict[str, Any] = {}

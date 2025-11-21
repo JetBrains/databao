@@ -19,7 +19,7 @@ def _validate_llm_config(config: LLMConfig) -> None:
         config.model_kwargs["validate_model_on_init"] = False
 
     try:
-        assert isinstance(config.chat_model, BaseChatModel)
+        assert isinstance(config.new_chat_model(), BaseChatModel)
     except ConnectionError as e:
         if "ollama" in str(e):
             # ollama needs to be running locally

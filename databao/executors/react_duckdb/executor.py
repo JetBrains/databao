@@ -27,7 +27,7 @@ class ReactDuckDBExecutor(GraphExecutor):
 
     def _create_graph(self, data_connection: Any, llm_config: LLMConfig) -> CompiledStateGraph[Any]:
         """Create and compile the ReAct DuckDB agent graph."""
-        return make_react_duckdb_agent(data_connection, llm_config.chat_model)
+        return make_react_duckdb_agent(data_connection, llm_config.new_chat_model())
 
     def register_db(self, name: str, connection: Any) -> None:
         """Register DB in the DuckDB connection."""

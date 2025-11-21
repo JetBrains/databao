@@ -1,5 +1,4 @@
 import os
-from functools import cached_property
 from pathlib import Path
 from typing import Any, Literal
 
@@ -58,8 +57,7 @@ class LLMConfig(BaseModel):
         else:
             return self.timeout
 
-    @cached_property
-    def chat_model(self) -> BaseChatModel:
+    def new_chat_model(self) -> BaseChatModel:
         """Create a chat model from this config using init_chat_model for provider detection."""
         provider, name = _parse_model_provider(self.name)
         if provider == "openai" or self.api_base_url is not None:
