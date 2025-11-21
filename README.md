@@ -112,7 +112,7 @@ uv sync
 uv sync --extra examples
 ```
 
-We recommend using the same version of uv as the one used in CI:
+We recommend using the same version of uv as the one used in GitHub Actions:
 ```bash
 uv self update 0.9.5
 ```
