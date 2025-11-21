@@ -149,16 +149,3 @@ Run only tests that do NOT require API keys:
 ```bash
 uv run pytest -v -m "not apikey"
 ```
-
-### Project structure
-```
-databao/
-  api.py                 # public entry: new_agent(...)
-  core/                  # Agent, Pipe, Executor, Visualizer abstractions
-  agents/                # Lighthouse (default) and React-DuckDB agents
-  duckdb/                # DuckDB integration and tools
-  visualizers/           # Vega-Lite chat visualizer and utilities
-examples/                # notebooks, demo script, configs
-tests/                   # pytest suite
-```
-
