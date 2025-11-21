@@ -1,4 +1,4 @@
-from langchain_core.messages import AIMessage, BaseMessage, ToolCall, ToolMessage
+from langchain_core.messages import AIMessage, BaseMessage, ToolCall, ToolMessage, HumanMessage
 from langchain_core.messages.utils import count_tokens_approximately
 
 
@@ -53,6 +53,8 @@ def clean_tool_history(messages: list[BaseMessage], token_limit: int) -> list[Ba
     """
     if count_tokens_approximately(messages) < token_limit:
         return messages
+
+    assert isinstance(messages[-1], HumanMessage)
 
     dfs: dict[str, dict[str, str]] = {}
     buffer = []
