@@ -12,11 +12,11 @@ if TYPE_CHECKING:
     from databao.core.visualizer import VisualisationResult
 
 
-class Pipe:
+class Thread:
     """A single conversational thread within an agent.
 
-    - Maintains its own message history (isolated from other pipes).
-    - Materializes data and visualizations eagerly or lazily and caches results per pipe.
+    - Maintains its own message history (isolated from other threads).
+    - Materializes data and visualizations eagerly or lazily and caches results per thread.
     - Exposes helpers to get the latest dataframe/text/plot/code.
     """
 
@@ -53,7 +53,6 @@ class Pipe:
         self._visualization_result: VisualisationResult | None = None
         self._visualization_request: str | None = None
 
-        # N.B. Pipes/Threads are currently append-only and cannot be "forked".
         self._opas_processed_count = 0
         self._opas: list[Opa] = []
         self._meta: dict[str, Any] = {}
@@ -119,7 +118,7 @@ class Pipe:
         return self._materialize_data(self._data_materialized_rows).code
 
     def meta(self) -> dict[str, Any]:
-        """Aggregated metadata from executor/visualizer for this pipe."""
+        """Aggregated metadata from executor/visualizer for this thread."""
         self._materialize_data(self._data_materialized_rows)
         return self._meta
 
@@ -146,9 +145,9 @@ class Pipe:
         return self._materialize_visualization(request, rows_limit if rows_limit else self._data_materialized_rows)
 
     def ask(self, query: str, *, rows_limit: int | None = None, stream: bool | None = None) -> Self:
-        """Append a new user query to this pipe.
+        """Append a new user query to this thread.
 
-        Returns self to allow chaining (e.g., pipe.ask("...")).
+        Returns self to allow chaining (e.g., thread.ask("...")).
 
         Setting rows_limit has no effect in lazy mode.
         """

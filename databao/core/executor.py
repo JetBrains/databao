@@ -23,7 +23,7 @@ class OutputModalityHints(BaseModel):
     # Currently, the only modality that makes sense to request outside the Executor is visualization.
     # If Executor was responsible for plotting as well (instead of Visualizer), then we could fully control and
     # customize rendering in ExecutionResult._repr_mimebundle_.
-    # But now we need hints to tell Pipe how to handle plotting.
+    # But now we need hints to tell Thread how to handle plotting.
 
     should_visualize: bool = False
     """Whether the execution results can be visualized."""

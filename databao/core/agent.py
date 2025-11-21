@@ -7,7 +7,7 @@ from pandas import DataFrame
 from sqlalchemy import Connection, Engine
 
 from databao.configs.llm import LLMConfig
-from databao.core.pipe import Pipe
+from databao.core.thread import Thread
 
 if TYPE_CHECKING:
     from databao.core.cache import Cache
@@ -50,7 +50,7 @@ class Agent:
         self.__visualizer = visualizer
         self.__cache = cache
 
-        # Pipe/thread defaults
+        # Thread defaults
         self.__rows_limit = rows_limit
         self.__lazy_threads = lazy_threads
         self.__auto_output_modality = auto_output_modality
@@ -134,11 +134,11 @@ class Agent:
         stream_plot: bool | None = None,
         lazy: bool | None = None,
         auto_output_modality: bool | None = None,
-    ) -> Pipe:
+    ) -> Thread:
         """Start a new thread in this agent."""
         if not self.__dbs and not self.__dfs:
             raise ValueError("No databases or dataframes registered in this agent.")
-        return Pipe(
+        return Thread(
             self,
             rows_limit=self.__rows_limit,
             stream_ask=stream_ask if stream_ask is not None else self.__stream_ask,

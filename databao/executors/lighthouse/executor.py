@@ -13,6 +13,7 @@ from databao.core.executor import OutputModalityHints
 from databao.duckdb.utils import describe_duckdb_schema, get_db_path, register_sqlalchemy
 from databao.executors.base import GraphExecutor
 from databao.executors.lighthouse.graph import ExecuteSubmit
+from databao.executors.lighthouse.history_cleaning import clean_tool_history
 from databao.executors.lighthouse.utils import get_today_date_str, read_prompt_template
 
 
@@ -41,9 +42,7 @@ class LighthouseExecutor(GraphExecutor):
         context = context.strip()
 
         prompt = self._prompt_template.render(
-            date=get_today_date_str(),
-            db_schema=db_schema,
-            context=context,
+            date=get_today_date_str(), db_schema=db_schema, context=context, tool_limit=self._graph_recursion_limit // 2
         )
 
         return prompt.strip()
@@ -89,14 +88,15 @@ class LighthouseExecutor(GraphExecutor):
         messages = self._process_opa(agent, opa, cache_scope)
 
         # Prepend system message if not present
-        messages_with_system = messages
-        if not messages_with_system or messages_with_system[0].type != "system":
-            messages_with_system = [
+        all_messages_with_system = messages
+        if not all_messages_with_system or all_messages_with_system[0].type != "system":
+            all_messages_with_system = [
                 SystemMessage(self.render_system_prompt(self._duckdb_connection, agent)),
-                *messages_with_system,
+                *all_messages_with_system,
             ]
+        cleaned_messages = clean_tool_history(all_messages_with_system, agent.llm_config.max_tokens_before_cleaning)
 
-        init_state = self._graph.init_state(messages_with_system, limit_max_rows=rows_limit)
+        init_state = self._graph.init_state(cleaned_messages, limit_max_rows=rows_limit)
         invoke_config = RunnableConfig(recursion_limit=self._graph_recursion_limit)
         last_state = self._invoke_graph_sync(compiled_graph, init_state, config=invoke_config, stream=stream)
         execution_result = self._graph.get_result(last_state)
@@ -104,8 +104,12 @@ class LighthouseExecutor(GraphExecutor):
         # Update message history (excluding system message which we add dynamically)
         final_messages = last_state.get("messages", [])
         if final_messages:
-            messages_without_system = [msg for msg in final_messages if msg.type != "system"]
-            self._update_message_history(agent, cache_scope, messages_without_system)
+            new_messages = final_messages[len(cleaned_messages) :]
+            all_messages = all_messages_with_system + new_messages
+            all_messages_without_system = [msg for msg in all_messages if msg.type != "system"]
+            if execution_result.meta.get("messages"):
+                execution_result.meta["messages"] = all_messages
+            self._update_message_history(agent, cache_scope, all_messages_without_system)
 
         # Set modality hints
         execution_result.meta[OutputModalityHints.META_KEY] = self._make_output_modality_hints(execution_result)

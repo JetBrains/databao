@@ -23,12 +23,16 @@ class LLMConfig(BaseModel):
 
     temperature: float = 0.0
     max_tokens: int = 8192
+    """Maximum number of tokens to generate."""
     reasoning_effort: str = "medium"
     """Reasoning effort is used for OpenAI reasoning models only. 
     Warning: reasoning can use a lot of tokens! OpenAI recommends at least 25000 tokens"""
     cache_system_prompt: bool = True
     """Cache system prompt with prompt caching. Only used for Anthropic models."""
     # TODO multi-turn prompt caching
+
+    max_tokens_before_cleaning: int = 10000
+    """Number of tokens to start history cleaning. Each Executor has it's own cleaning strategy."""
 
     timeout: int | None | Literal["auto"] = "auto"
     """Timeout in seconds for LLM calls. If None, use the LLM provider's defaults. 

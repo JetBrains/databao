@@ -8,7 +8,7 @@ except importlib.metadata.PackageNotFoundError:
 
 from databao.api import new_agent
 from databao.configs.llm import LLMConfig
-from databao.core import Agent, ExecutionResult, Executor, Opa, Pipe, VisualisationResult, Visualizer
+from databao.core import Agent, ExecutionResult, Executor, Opa, Thread, VisualisationResult, Visualizer
 
 __all__ = [
     "Agent",
@@ -16,7 +16,7 @@ __all__ = [
     "Executor",
     "LLMConfig",
     "Opa",
-    "Pipe",
+    "Thread",
     "VisualisationResult",
     "Visualizer",
     "__version__",
