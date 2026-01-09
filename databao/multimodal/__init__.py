@@ -51,7 +51,7 @@ def open_html_content(spec: dict[str, Any], spec_df: pd.DataFrame, df_html: str,
     html_bytes = html.encode("utf-8")
 
     class OneShotRequestHandler(BaseHTTPRequestHandler):
-        def do_GET(self):
+        def do_GET(self) -> None:
             try:
                 self.send_response(200)
                 self.send_header("Content-type", "text/html; charset=utf-8")
@@ -65,7 +65,7 @@ def open_html_content(spec: dict[str, Any], spec_df: pd.DataFrame, df_html: str,
                 # Client disconnected, that's fine
                 pass
 
-        def log_message(self, format, *args):
+        def log_message(self, format: str, *args: Any) -> None:
             pass
 
     server = HTTPServer(("127.0.0.1", 0), OneShotRequestHandler)
