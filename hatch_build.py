@@ -12,7 +12,13 @@ class CustomBuildHook(BuildHookInterface):
     """Build hook to compile the frontend during package build."""
 
     def initialize(self, version: str, build_data: dict) -> None:
+        """Build the frontend multimodal before packaging.
+
+        This hook ensures that the template.html file is built from the
+        React frontend before the package is created.
+        """
         root = Path(self.root)
+        template_path = root / "databao" / "multimodal" / "template.html"
         client_dir = root / "client" / "multimodal"
 
         if not client_dir.exists():
@@ -49,7 +55,12 @@ class CustomBuildHook(BuildHookInterface):
             if result.stderr:
                 print(result.stderr, file=sys.stderr)
 
-            print("Frontend built successfully to client/out", file=sys.stderr)
+            index_path = root / "databao" / "multimodal" / "index.html"
+            if index_path.exists():
+                index_path.rename(template_path)
+                print(f"Frontend built successfully: {template_path}", file=sys.stderr)
+            else:
+                print(f"Warning: Built index.html not found at {index_path}", file=sys.stderr)
 
         except subprocess.CalledProcessError as e:
             print(f"Error building frontend: {e}", file=sys.stderr)

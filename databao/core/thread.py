@@ -73,7 +73,6 @@ class Thread:
                     opa,
                     cache=self._agent.cache.scoped(self._cache_scope),
                     llm_config=self._agent.llm_config,
-                    agent_config=self._agent.agent_config,
                     sources=self._agent.sources,
                     rows_limit=rows_limit,
                     stream=stream,
@@ -155,14 +154,28 @@ class Thread:
         and opens it in the default web browser.
 
         Returns:
-            The URL that was opened in the browser.
+            The HTML content as a string.
 
         Raises:
             ValueError: If visualization generation fails.
         """
+        from databao.visualizers.vega_chat import VegaChatResult
+
+        result = self.plot()
+
+        if not isinstance(result, VegaChatResult):
+            raise ValueError(f"html() requires VegaChatVisualizer, got {type(result).__name__}")
+
+        if result.spec is None or result.spec_df is None:
+            raise ValueError("Failed to generate visualization")
+
         from databao.multimodal import open_html_content
 
-        return open_html_content(self)
+        df = self.df()
+        df_html = df.to_html() if df is not None else "<i>No data</i>"
+        spec_description = self.text()
+
+        return open_html_content(result.spec, result.spec_df, df_html, spec_description)
 
     def ask(self, query: str, *, rows_limit: int | None = None, stream: bool | None = None) -> Self:
         """Append a new user query to this thread.

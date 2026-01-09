@@ -9,13 +9,11 @@ export function VegaChart({ spec }: VegaChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const containerEl = containerRef.current;
-
     const embedChart = async () => {
-      if (!containerEl || !spec) return;
+      if (!containerRef.current || !spec) return;
 
       try {
-        await embed(containerEl, spec, {
+        await embed(containerRef.current, spec, {
           actions: {
             export: true,
             source: false,
@@ -32,8 +30,8 @@ export function VegaChart({ spec }: VegaChartProps) {
     embedChart();
 
     return () => {
-      if (containerEl) {
-        containerEl.innerHTML = "";
+      if (containerRef.current) {
+        containerRef.current.innerHTML = "";
       }
     };
   }, [spec]);
