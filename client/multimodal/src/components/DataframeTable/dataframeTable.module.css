@@ -2,12 +2,12 @@
     & table {
         border-collapse: collapse;
         border-spacing: 0;
-        border: 1px solid color(display-p3 0.85 0.852 0.876);
+        border: 1px solid var(--gray-6);
     }
 
     & td,
     & th {
-        border: 1px solid color(display-p3 0.85 0.852 0.876);
+        border: 1px solid var(--gray-6);
         text-align: right;
     }
 
@@ -18,7 +18,7 @@
     & th {
         min-width: 150px;
         white-space: nowrap;
-        background: color(display-p3 0.94 0.941 0.953);
+        background: var(--gray-3);
     }
 
     & td,
