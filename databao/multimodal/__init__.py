@@ -6,14 +6,13 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any
 
-import pandas as pd
-from edaplot.data_utils import spec_add_data
+from edaplot.spec_utils import SpecType
 
-TEMPLATE_PATH = Path(__file__).parent / "template.html"
+TEMPLATE_PATH = Path(__file__).parent.parent.parent / "client" / "out" / "index.html"
 DATA_PLACEHOLDER = "window.__DATA__ = null;"
 
 
-def open_html_content(spec: dict[str, Any], spec_df: pd.DataFrame, df_html: str, description: str) -> str:
+def open_html_content(spec: SpecType, df_html: str, description: str) -> str:
     """Create an HTML file with the embedded Vega spec and open it in the browser.
 
     This function starts a temporary HTTP server, opens the HTML content in the browser,
@@ -40,9 +39,7 @@ def open_html_content(spec: dict[str, Any], spec_df: pd.DataFrame, df_html: str,
             "If you installed from pip, please report this as a bug."
         )
 
-    full_spec = spec_add_data(spec.copy(), spec_df)
-
-    data_object = {"spec": full_spec, "text": description, "dataframeHtmlContent": df_html}
+    data_object = {"spec": spec, "text": description, "dataframeHtmlContent": df_html}
     data_json = json.dumps(data_object)
 
     template = TEMPLATE_PATH.read_text(encoding="utf-8")
@@ -62,7 +59,6 @@ def open_html_content(spec: dict[str, Any], spec_df: pd.DataFrame, df_html: str,
                 for i in range(0, len(html_bytes), buffer_size):
                     self.wfile.write(html_bytes[i : i + buffer_size])
             except (BrokenPipeError, ConnectionResetError):
-                # Client disconnected, that's fine
                 pass
 
         def log_message(self, format: str, *args: Any) -> None:

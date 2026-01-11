@@ -6,7 +6,6 @@ test:
 
 build-client:
 	cd client/multimodal && pnpm install && pnpm run build
-	mv databao/multimodal/index.html databao/multimodal/template.html
 
 dev-client:
 	cd client/multimodal && pnpm run dev

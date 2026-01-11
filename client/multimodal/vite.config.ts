@@ -11,7 +11,7 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: "../../databao/multimodal",
+    outDir: "../out",
     emptyOutDir: false,
   },
 });
