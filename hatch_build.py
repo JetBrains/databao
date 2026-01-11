@@ -12,11 +12,6 @@ class CustomBuildHook(BuildHookInterface):
     """Build hook to compile the frontend during package build."""
 
     def initialize(self, version: str, build_data: dict) -> None:
-        """Build the frontend multimodal before packaging.
-
-        This hook ensures that the template.html file is built from the
-        React frontend before the package is created.
-        """
         root = Path(self.root)
         client_dir = root / "client" / "multimodal"
 

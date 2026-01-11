@@ -155,7 +155,7 @@ class Thread:
         and opens it in the default web browser.
 
         Returns:
-            The HTML content as a string.
+            The URL that was opened in the browser.
 
         Raises:
             ValueError: If visualization generation fails.
