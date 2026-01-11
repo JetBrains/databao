@@ -174,10 +174,10 @@ class Thread:
 
         df = self.df()
         df_html = df.to_html() if df is not None else "<i>No data</i>"
-        spec_description = self.text()
+        visualizaton_text = self.text()
         spec_with_data = spec_add_data(plot.spec.copy(), plot.spec_df)
 
-        return open_html_content(spec_with_data, df_html, spec_description)
+        return open_html_content(spec_with_data, df_html, visualizaton_text)
 
     def ask(self, query: str, *, rows_limit: int | None = None, stream: bool | None = None) -> Self:
         """Append a new user query to this thread.
