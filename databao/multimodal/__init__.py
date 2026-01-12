@@ -19,10 +19,9 @@ def open_html_content(spec: SpecType, df_html: str, description: str) -> str:
     and closes the server after serving the single request.
 
     Args:
-        spec: A Vega-Lite specification dictionary.
-        spec_df: The DataFrame containing the data for the chart.
+        spec: A Vega-Lite specification.
         df_html: HTML representation of the DataFrame.
-        description: Description to display alongside the chart.
+        description: Description to display.
 
     Returns:
         The URL that was opened in the browser.
