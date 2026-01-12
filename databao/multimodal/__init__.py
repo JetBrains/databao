@@ -28,14 +28,13 @@ def open_html_content(spec: SpecType, df_html: str, description: str) -> str:
         The URL that was opened in the browser.
 
     Raises:
-        FileNotFoundError: If the template.html file is not found.
+        FileNotFoundError: If the template file is not found.
     """
 
     if not TEMPLATE_PATH.exists():
         raise FileNotFoundError(
             f"Template file not found at {TEMPLATE_PATH}. "
             "This usually means the frontend wasn't built during installation. "
-            "If you're developing locally, run 'make build-client'. "
             "If you installed from pip, please report this as a bug."
         )
 
@@ -67,7 +66,7 @@ def open_html_content(spec: SpecType, df_html: str, description: str) -> str:
     server = HTTPServer(("127.0.0.1", 0), OneShotRequestHandler)
     url = f"http://127.0.0.1:{server.server_port}/{_generate_short_id()}"
 
-    server.timeout = 30
+    server.timeout = 60
     webbrowser.open(url, new=2, autoraise=True)
     server.handle_request()
     server.server_close()
