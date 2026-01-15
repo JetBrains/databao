@@ -11,6 +11,7 @@ from databao.core.opa import Opa
 if TYPE_CHECKING:
     from databao.core.agent import Agent
     from databao.core.visualizer import VisualisationResult
+    from databao.multimodal import MultimodalWidget
 
 
 class Thread:
@@ -178,6 +179,19 @@ class Thread:
         spec_with_data = spec_add_data(plot.spec.copy(), plot.spec_df)
 
         return open_html_content(spec_with_data, df_html, visualizaton_text)
+
+    def jupiter(self) -> "MultimodalWidget":
+        """Generate jupiter widget.
+
+        Returns:
+            MultimodalWidget
+
+        Raises:
+            ValueError: If visualization generation fails.
+        """
+        from databao.multimodal import create_jupiter_widget
+
+        return create_jupiter_widget(self)
 
     def ask(self, query: str, *, rows_limit: int | None = None, stream: bool | None = None) -> Self:
         """Append a new user query to this thread.

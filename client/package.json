@@ -1,0 +1,47 @@
+{
+  "name": "client",
+  "private": true,
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "cd ./playground && pnpm run dev",
+    "build": "nx run-many -t build:pckg",
+    "test": "nx run-many -t test:pckg",
+    "clean": "make clean",
+    "lint": "nx run-many -t lint",
+    "lint:check": "nx run-many -t lint:check",
+    "format": "prettier --write ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "engines": {
+    "node": "24.5.0",
+    "pnpm": "10.14.0"
+  },
+  "packageManager": "pnpm@10.14.0+sha512-rSenlkG0nD5IGhaoBbqnGBegS74Go40X5g4urug/ahRsamiBJfV5LkjdW6MOfaUqXNpMOZK5zPMz+c4iOvhHSA==",
+  "devDependencies": {
+    "@eslint/js": "9.31.0",
+    "@nx/js": "21.5.3",
+    "eslint": "9.31.0",
+    "eslint-config-prettier": "9.1.0",
+    "eslint-import-resolver-typescript": "4.4.0",
+    "eslint-plugin-import": "2.31.0",
+    "eslint-plugin-perfectionist": "4.15.0",
+    "eslint-plugin-react": "7.37.5",
+    "eslint-plugin-react-hooks": "5.2.0",
+    "eslint-plugin-react-refresh": "0.4.20",
+    "globals": "16.3.0",
+    "nx": "21.5.3",
+    "prettier": "3.6.2",
+    "prettier-plugin-css-order": "2.1.2",
+    "typescript": "5.8.3",
+    "typescript-eslint": "8.38.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}

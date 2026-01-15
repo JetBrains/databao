@@ -13,7 +13,7 @@ class CustomBuildHook(BuildHookInterface):
 
     def initialize(self, version: str, build_data: dict) -> None:
         root = Path(self.root)
-        client_dir = root / "client" / "multimodal"
+        client_dir = root / "client"
 
         if not client_dir.exists():
             print("Warning: client/ directory not found. Skipping frontend build.", file=sys.stderr)

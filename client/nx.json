@@ -1,0 +1,40 @@
+{
+  "$schema": "./node_modules/nx/schemas/nx-schema.json",
+  "tui": {
+    "enabled": false
+  },
+  "packageManager": "pnpm",
+  "targetDefaults": {
+    "build:pckg": {
+      "dependsOn": ["^build:pckg"],
+      "cache": true,
+      "outputs": ["{projectRoot}/dist"]
+    },
+    "test:pckg": {
+      "dependsOn": ["^build:pckg"],
+      "cache": true,
+      "outputs": ["{projectRoot}/dist"]
+    },
+    "dev:pckg": {
+      "dependsOn": ["^dev:pckg"],
+      "cache": true,
+      "outputs": ["{projectRoot}/dist"]
+    },
+    "clean:pckg": {
+      "dependsOn": ["^clean:pckg"],
+      "cache": false
+    }
+  },
+  "namedInputs": {
+    "default": ["{projectRoot}/**/*"],
+    "production": [
+      "default",
+      "!{projectRoot}/**/?(*.)+(spec|test).[jt]s?(x)?(.snap)",
+      "!{projectRoot}/tsconfig.spec.json",
+      "!{projectRoot}/jest.config.[jt]s",
+      "!{projectRoot}/.eslintrc.json",
+      "!{projectRoot}/src/test-setup.[jt]s",
+      "!{projectRoot}/test-setup.[jt]s"
+    ]
+  }
+}

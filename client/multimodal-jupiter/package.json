@@ -1,0 +1,29 @@
+{
+  "name": "@databao/multimodal-jupiter",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "nx build:pckg @databao/multimodal-jupiter",
+    "build:pckg": "tsc && vite build"
+  },
+  "dependencies": {
+    "@anywidget/react": "0.2.0",
+    "@databao/multitabs": "workspace:*",
+    "@radix-ui/themes": "3.2.1",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@anywidget/types": "0.2.0",
+    "@anywidget/vite": "^0.2.2",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "vite": "catalog:",
+    "vite-plugin-checker": "catalog:",
+    "vite-plugin-lib-inject-css": "catalog:"
+  }
+}

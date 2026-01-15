@@ -1,0 +1,5 @@
+.root {
+  display: flex;
+  max-height: 800px;
+  min-height: 800px;
+}
