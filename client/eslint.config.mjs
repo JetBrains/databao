@@ -53,7 +53,6 @@ export default tseslint.config(
         },
       ],
       "@typescript-eslint/switch-exhaustiveness-check": "error",
-      "no-console": "warn",
     },
     settings: {
       react: {

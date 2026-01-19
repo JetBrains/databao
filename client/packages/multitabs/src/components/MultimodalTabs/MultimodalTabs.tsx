@@ -20,7 +20,7 @@ export function MultimodalTabs(props: MultimodalTabsProps) {
 
   return (
     <Tabs.Root
-      defaultValue="CHART"
+      defaultValue={props.tabs[0]?.type}
       className={styles.root}
       onValueChange={handleChangeTab}
     >
