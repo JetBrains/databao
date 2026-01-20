@@ -1,14 +1,9 @@
+import { Branded } from "@/utilities";
+
 import { AllActions } from "./actions";
 
 export type Action = AllActions[keyof AllActions];
-export type MessageId = string;
-
-export type WidgetStatus =
-  | "initializing"
-  | "initialized"
-  | "computating"
-  | "computated"
-  | "failed";
+export type MessageId = Branded<string, "MessageId">;
 
 export type MessageRequest = {
   type: "databao_request";

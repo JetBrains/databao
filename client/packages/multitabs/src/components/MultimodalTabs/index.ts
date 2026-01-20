@@ -1,1 +1,0 @@
-export { MultimodalTabs } from "./MultimodalTabs";

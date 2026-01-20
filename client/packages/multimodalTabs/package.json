@@ -1,5 +1,5 @@
 {
-  "name": "@databao/multitabs",
+  "name": "@databao/multimodal-tabs",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -16,12 +16,11 @@
     "dist"
   ],
   "scripts": {
-    "build": "nx build:pckg @databao/multitabs",
+    "build": "nx build:pckg @databao/multimodal-tabs",
     "build:pckg": "tsc && NODE_ENV=production vite build",
     "dev:pckg": "NODE_ENV=development vite build"
   },
   "dependencies": {
-    "@radix-ui/themes": "3.2.1",
     "vega": "6.2.0",
     "vega-embed": "7.1.0",
     "vega-lite": "6.4.1"
@@ -37,6 +36,7 @@
     "vite-plugin-dts": "catalog:"
   },
   "peerDependencies": {
+    "@radix-ui/themes": "3.2.1",
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
   }

@@ -1,5 +1,5 @@
 import { useModel, useModelState } from "@anywidget/react";
-import { DataframeTable, MultimodalTabs, VegaChart } from "@databao/multitabs";
+import { DataframeTable, Tabs, VegaChart } from "@databao/multimodal-tabs";
 import { Text, Theme } from "@radix-ui/themes";
 import { useCallback, useEffect, useRef } from "react";
 
@@ -7,11 +7,12 @@ import styles from "./app.module.css";
 import { SelectModalityAction } from "./communication/actions";
 import { initCommunication } from "./communication/communication";
 import { StatusRenderer } from "./components/StatusRenderer";
-import { MULTIMODAL_TABS, MultimodalTabType, Status } from "./types";
-
-function isMultimodalTabType(tab: string): tab is MultimodalTabType {
-  return tab in MULTIMODAL_TABS;
-}
+import {
+  isMultimodalTabType,
+  MULTIMODAL_TABS,
+  MultimodalTabType,
+  Status,
+} from "./types";
 
 function App() {
   const model = useModel();
@@ -111,7 +112,7 @@ function App() {
   return (
     <Theme asChild>
       <div className={styles.root}>
-        <MultimodalTabs tabs={tabs} onChangeTab={handleChangeTab} />
+        <Tabs tabs={tabs} onChangeTab={handleChangeTab} />
       </div>
     </Theme>
   );

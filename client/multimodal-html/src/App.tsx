@@ -1,9 +1,9 @@
 import {
   DataframeTable,
-  MultimodalTab,
-  MultimodalTabs,
+  TabModel,
+  Tabs,
   VegaChart,
-} from "@databao/multitabs";
+} from "@databao/multimodal-tabs";
 import { Text } from "@radix-ui/themes";
 
 import styles from "./App.module.css";
@@ -36,7 +36,7 @@ function App() {
     return <Text color="gray">No data available</Text>;
   };
 
-  const tabs: MultimodalTab[] = [
+  const tabs: TabModel[] = [
     {
       type: "CHART",
       title: "Chart",
@@ -56,7 +56,7 @@ function App() {
 
   return (
     <div className={styles.appContainer}>
-      <MultimodalTabs tabs={tabs} />
+      <Tabs tabs={tabs} />
     </div>
   );
 }

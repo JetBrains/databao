@@ -9,8 +9,8 @@
     "build:pckg": "tsc && vite build"
   },
   "dependencies": {
-    "@databao/multitabs": "workspace:*",
-    "@radix-ui/themes": "3.2.1",
+    "@databao/multimodal-tabs": "workspace:*",
+    "@radix-ui/themes": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:"
   },
@@ -20,7 +20,7 @@
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "vite": "catalog:",
-    "vite-plugin-html": "^3.2.2",
+    "vite-plugin-html": "3.2.2",
     "vite-plugin-singlefile": "2.0.2"
   }
 }

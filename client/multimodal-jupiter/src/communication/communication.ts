@@ -1,6 +1,6 @@
 import { AnyModel } from "@anywidget/types";
 
-import { Action, MessageRequest, MessageResponse } from "./types";
+import { Action, MessageId, MessageRequest, MessageResponse } from "./types";
 
 type ResponseEvent = {
   success: boolean;
@@ -80,6 +80,6 @@ function createRawMessage(
 
 export function generateId() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
-    ? crypto.randomUUID()
-    : `id-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+    ? (crypto.randomUUID() as MessageId)
+    : (`id-${Date.now()}-${Math.random().toString(36).slice(2, 11)}` as MessageId);
 }

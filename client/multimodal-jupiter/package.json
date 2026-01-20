@@ -10,14 +10,14 @@
   },
   "dependencies": {
     "@anywidget/react": "0.2.0",
-    "@databao/multitabs": "workspace:*",
-    "@radix-ui/themes": "3.2.1",
+    "@databao/multimodal-tabs": "workspace:*",
+    "@radix-ui/themes": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:"
   },
   "devDependencies": {
     "@anywidget/types": "0.2.0",
-    "@anywidget/vite": "^0.2.2",
+    "@anywidget/vite": "0.2.2",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",

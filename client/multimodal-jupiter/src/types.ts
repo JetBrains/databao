@@ -6,3 +6,7 @@ export const MULTIMODAL_TABS = {
 
 export type MultimodalTabType = keyof typeof MULTIMODAL_TABS;
 export type Status = "initial" | "computating" | "computated" | "failed";
+
+export function isMultimodalTabType(tab: string): tab is MultimodalTabType {
+  return tab in MULTIMODAL_TABS;
+}
