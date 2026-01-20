@@ -73,7 +73,7 @@ class MultimodalWidget(anywidget.AnyWidget):
 
         df = thread.df()
         if df is not None:
-            self.dataframe_html_content = df.to_html()
+            self.dataframe_html_content = self._dataframe_to_html(df)
             self.dataframe_html_content_status = "computated"
 
         self.on_msg(self._on_client_message)
@@ -81,6 +81,21 @@ class MultimodalWidget(anywidget.AnyWidget):
         self._action_handlers: dict[FrontendAction, Callable[[Any], None]] = {
             FrontendAction.SELECT_MODALITY: self._handle_change_tab,
         }
+
+    def _dataframe_to_html(self, df: "Any") -> str:
+        import pandas as pd
+
+        if len(df) > 20:
+            first_10 = df.head(10)
+            last_10 = df.tail(10)
+
+            separator_data = {col: "..." for col in df.columns}
+            separator_df = pd.DataFrame([separator_data], index=["..."])
+
+            truncated_df = pd.concat([first_10, separator_df, last_10])
+            return truncated_df.to_html()
+        else:
+            return df.to_html()
 
     def _handle_change_tab(self, payload: str) -> None:
         if payload == "CHART":
@@ -114,7 +129,7 @@ class MultimodalWidget(anywidget.AnyWidget):
                 raise ValueError("Failed to generate data")
 
             self.dataframe_html_content_status = "computated"
-            self.dataframe_html_content = df.to_html()
+            self.dataframe_html_content = self._dataframe_to_html(df)
 
         elif payload == "DESCRIPTION":
             if self.text_status != "initial":

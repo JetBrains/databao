@@ -5,6 +5,7 @@ from edaplot.data_utils import spec_add_data
 from pandas import DataFrame
 from typing_extensions import Self
 
+from databao.core.env import in_jupyter_kernel
 from databao.core.executor import ExecutionResult, OutputModalityHints
 from databao.core.opa import Opa
 
@@ -149,18 +150,25 @@ class Thread:
         self._stream_plot = stream
         return self._materialize_visualization(request, rows_limit if rows_limit else self._data_materialized_rows)
 
-    def html(self) -> str:
-        """Generate HTML and open it in the browser.
+    def html(self) -> "str | MultimodalWidget":
+        """Render the thread as HTML.
 
-        This method creates a standalone HTML file with the Vega-Lite chart, dataframe, and text
-        and opens it in the default web browser.
+        Behavior:
+        - In Jupyter notebooks (IPython kernel): return a `MultimodalWidget` so it renders in the output cell.
+        - In terminal / scripts: generate standalone HTML and open it in the default web browser.
 
         Returns:
-            The URL that was opened in the browser.
+            - `MultimodalWidget` in Jupyter
+            - The URL that was opened in the browser otherwise
 
         Raises:
             ValueError: If visualization generation fails.
         """
+        if in_jupyter_kernel():
+            from databao.multimodal import create_jupiter_widget
+
+            return create_jupiter_widget(self)
+
         from databao.visualizers.vega_chat import VegaChatResult
 
         plot = self.plot()
@@ -179,19 +187,6 @@ class Thread:
         spec_with_data = spec_add_data(plot.spec.copy(), plot.spec_df)
 
         return open_html_content(spec_with_data, df_html, visualizaton_text)
-
-    def jupiter(self) -> "MultimodalWidget":
-        """Generate jupiter widget.
-
-        Returns:
-            MultimodalWidget
-
-        Raises:
-            ValueError: If visualization generation fails.
-        """
-        from databao.multimodal import create_jupiter_widget
-
-        return create_jupiter_widget(self)
 
     def ask(self, query: str, *, rows_limit: int | None = None, stream: bool | None = None) -> Self:
         """Append a new user query to this thread.

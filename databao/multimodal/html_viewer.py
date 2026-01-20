@@ -8,7 +8,7 @@ from typing import Any
 
 from edaplot.spec_utils import SpecType
 
-TEMPLATE_PATH = Path(__file__).parent.parent.parent / "client" / "out" / "index.html"
+TEMPLATE_PATH = Path(__file__).parent.parent.parent / "client" / "out" / "multimodal-html" / "index.html"
 DATA_PLACEHOLDER = "window.__DATA__ = null;"
 
 

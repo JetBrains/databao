@@ -5,6 +5,7 @@ import {
   VegaChart,
 } from "@databao/multimodal-tabs";
 import { Text } from "@radix-ui/themes";
+import { Theme } from "@radix-ui/themes/dist/cjs/index.js";
 
 import styles from "./App.module.css";
 
@@ -55,9 +56,11 @@ function App() {
   ];
 
   return (
-    <div className={styles.appContainer}>
-      <Tabs tabs={tabs} />
-    </div>
+    <Theme asChild>
+      <div className={styles.appContainer}>
+        <Tabs tabs={tabs} />
+      </div>
+    </Theme>
   );
 }
 
