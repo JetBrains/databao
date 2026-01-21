@@ -23,7 +23,7 @@ DATABAO_REQUEST_MESSAGE_TYPE = "databao_request"
 DATABAO_RESPONSE_MESSAGE_TYPE = "databao_response"
 
 
-class FrontendAction(Enum):
+class ClientAction(Enum):
     SELECT_MODALITY = "SELECT_MODALITY"
 
 
@@ -78,8 +78,8 @@ class MultimodalWidget(anywidget.AnyWidget):
 
         self.on_msg(self._on_client_message)
 
-        self._action_handlers: dict[FrontendAction, Callable[[Any], None]] = {
-            FrontendAction.SELECT_MODALITY: self._handle_change_tab,
+        self._action_handlers: dict[ClientAction, Callable[[Any], None]] = {
+            ClientAction.SELECT_MODALITY: self._handle_change_tab,
         }
 
     def _dataframe_to_html(self, df: "Any") -> str:
@@ -186,7 +186,7 @@ class MultimodalWidget(anywidget.AnyWidget):
         success = False
 
         try:
-            action_type = FrontendAction(action_type_str)
+            action_type = ClientAction(action_type_str)
             raw_payload = action.get("payload")
             action_payload = json.loads(raw_payload) if isinstance(raw_payload, str) and raw_payload else {}
 
