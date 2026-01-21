@@ -1,7 +1,6 @@
 declare global {
   interface Window {
-    __DATA__: {
-      spec: object;
+    __DATA__?: {
       text: string;
       dataframeHtmlContent: string;
     };
