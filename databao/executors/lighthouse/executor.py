@@ -12,6 +12,7 @@ from databao.configs.agent import AgentConfig
 from databao.core import Cache, ExecutionResult, Opa
 from databao.core.data_source import DBDataSource, DFDataSource, Sources
 from databao.core.executor import OutputModalityHints
+from databao.databases import DBConnectionConfig, register_in_duckdb
 from databao.duckdb.utils import describe_duckdb_schema, get_db_path, register_sqlalchemy
 from databao.executors.base import GraphExecutor
 from databao.executors.lighthouse.graph import ExecuteSubmit
@@ -72,6 +73,8 @@ class LighthouseExecutor(GraphExecutor):
                 raise RuntimeError("Memory-based DuckDB is not supported.")
         elif isinstance(connection, Engine):
             register_sqlalchemy(self._duckdb_connection, connection, source.name)
+        elif isinstance(connection, DBConnectionConfig):
+            register_in_duckdb(self._duckdb_connection, connection, source.name)
         else:
             raise ValueError("Only DuckDB or SQLAlchemy connections are supported.")
 

@@ -11,6 +11,7 @@ from databao.configs.llm import LLMConfig
 from databao.core import Cache, ExecutionResult, Opa
 from databao.core.data_source import DBDataSource, DFDataSource, Sources
 from databao.core.executor import OutputModalityHints
+from databao.databases import DBConnectionConfig, register_in_duckdb
 from databao.duckdb import register_sqlalchemy
 from databao.duckdb.react_tools import AgentResponse, execute_duckdb_sql, make_react_duckdb_agent
 from databao.duckdb.utils import get_db_path
@@ -45,6 +46,8 @@ class ReactDuckDBExecutor(GraphExecutor):
                 raise RuntimeError("Memory-based DuckDB is not supported.")
         elif isinstance(connection, Engine):
             register_sqlalchemy(self._duckdb_connection, connection, source.name)
+        elif isinstance(connection, DBConnectionConfig):
+            register_in_duckdb(self._duckdb_connection, connection, source.name)
         else:
             raise ValueError("Only DuckDB or SQLAlchemy connections are supported.")
 
