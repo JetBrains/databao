@@ -4,133 +4,136 @@ import {
   Tabs,
   VegaChart,
 } from "@databao/multimodal-tabs";
-import { App } from "@modelcontextprotocol/ext-apps";
 import { Text, Theme } from "@radix-ui/themes";
 import { useEffect, useState } from "react";
 
 import styles from "./App.module.css";
-
-interface DatabaoMCPData {
-  text?: string;
-  dataframeHtmlContent?: string;
-  spec?: object;
-}
-
-interface MCPContent {
-  type: string;
-  text?: string;
-  [key: string]: unknown;
-}
-
-interface MCPToolResult {
-  content?: MCPContent[];
-  [key: string]: unknown;
-}
+import { StatusRenderer } from "./components/StatusRenderer";
+import { useMCPApp } from "./hooks/useMcpApp";
+import { useSpecModel } from "./hooks/useSpecModel";
+import { DatabaoMCPData, MCPToolResult, MultimodalTabType } from "./types";
 
 function DatabaoApp() {
   const [data, setData] = useState<DatabaoMCPData | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [parseError, setParseError] = useState<string | null>(null);
+
+  const {
+    app: MCPApp,
+    error: connectionError,
+    status: connectionStatus,
+  } = useMCPApp();
+
+  const { spec, status: specStatus, onLoadSpec } = useSpecModel();
 
   useEffect(() => {
-    const initApp = async () => {
-      try {
-        const app = new App({
-          name: "Databao Visualizer",
-          version: "1.0.0",
-        });
-
-        app.ontoolresult = (result: MCPToolResult) => {
-          const content = result.content?.find((c) => c.type === "text");
-          if (content?.text) {
-            try {
-              const vizData = JSON.parse(content.text) as DatabaoMCPData;
-              setData(vizData);
-            } catch (err) {
-              setError("Failed to parse visualization data: " + err);
-            }
-          }
-        };
-
-        await app.connect();
-      } catch (err) {
-        setError("Failed to initialize MCP App: " + String(err));
+    MCPApp.ontoolresult = (result: MCPToolResult) => {
+      const content = result.content?.find((c) => c.type === "text");
+      if (content?.text) {
+        try {
+          const vizData = JSON.parse(content.text) as DatabaoMCPData;
+          setData(vizData);
+        } catch (err) {
+          setParseError("Failed to parse visualization data: " + err);
+        }
       }
     };
+  }, [MCPApp]);
 
-    initApp();
-  }, []);
-
-  const renderChart = (spec: object | null) => {
-    if (!spec) {
-      return <Text color="gray">No chart available</Text>;
+  const handleTabChange = (tabType: string) => {
+    if (tabType === "CHART") {
+      onLoadSpec(MCPApp, data?.thread_id);
     }
-    return <VegaChart spec={spec} />;
   };
 
-  const renderDescription = (text?: string) => {
-    if (!text) {
-      return <Text color="gray">No description available</Text>;
-    }
-    return <Text color="gray">{text}</Text>;
-  };
+  const error = connectionError || parseError;
 
-  const renderTable = (htmlContent?: string) => {
-    if (!htmlContent) {
-      return <Text color="gray">No data available</Text>;
-    }
-    return <DataframeTable htmlContent={htmlContent} />;
-  };
+  const renderChart = (spec: object | null) => (
+    <StatusRenderer
+      status={specStatus}
+      value={spec}
+      renderValue={(value) => <VegaChart spec={value} />}
+      failed={<Text color="gray">Failed to get data</Text>}
+      empty={<Text color="gray">No chart available</Text>}
+    />
+  );
 
-  if (!data) {
+  const renderDescription = (text: string | null) => (
+    <StatusRenderer
+      status="LOADED"
+      value={text}
+      renderValue={(value) => <Text color="gray">{value}</Text>}
+      failed={<Text color="gray">Failed to get data</Text>}
+      empty={<Text color="gray">No description available</Text>}
+    />
+  );
+
+  const renderTable = (dataframeHtmlContent: string | null) => (
+    <StatusRenderer
+      status="LOADED"
+      value={dataframeHtmlContent}
+      renderValue={(value) => <DataframeTable htmlContent={value} />}
+      failed={<Text color="gray">Failed to get data</Text>}
+      empty={<Text color="gray">No data available</Text>}
+    />
+  );
+
+  const renderSystemMessage = (message: string, color: "gray" | "red") => {
     return (
       <Theme>
         <div className={styles.appContainer}>
           <div style={{ padding: "40px", textAlign: "center" }}>
-            {error ? (
-              <Text color="red" size="3">
-                {error}
-              </Text>
-            ) : (
-              <Text color="gray" size="3">
-                Waiting for data...
-              </Text>
-            )}
+            <Text color={color} size="3">
+              {message}
+            </Text>
           </div>
         </div>
       </Theme>
     );
+  };
+
+  if (connectionStatus === "LOADING") {
+    return renderSystemMessage("Initializing...", "gray");
   }
 
-  const tabs: TabModel[] = [];
+  if (connectionStatus === "FAILED") {
+    return renderSystemMessage(`Failed to connect: ${error}`, "red");
+  }
 
-  if (data.dataframeHtmlContent) {
-    tabs.push({
+  if (!data) {
+    return renderSystemMessage("Failed to get data", "red");
+  }
+
+  const defaultTabs: Record<MultimodalTabType, TabModel> = {
+    DATAFRAME: {
       type: "DATAFRAME",
       title: "Data",
-      content: () => renderTable(data.dataframeHtmlContent),
-    });
-  }
-
-  if (data.spec) {
-    tabs.push({
+      content: () => renderTable(data.dataframeHtmlContent || null),
+    },
+    CHART: {
       type: "CHART",
       title: "Chart",
-      content: () => renderChart(data.spec ?? null),
-    });
-  }
-
-  if (data.text) {
-    tabs.push({
+      content: () => renderChart(spec),
+    },
+    DESCRIPTION: {
       type: "DESCRIPTION",
       title: "Description",
-      content: () => renderDescription(data.text),
-    });
+      content: () => renderDescription(data.text || null),
+    },
+  };
+
+  const availableModalities = data.availableModalities || [];
+  const tabs = availableModalities
+    .map((modality) => defaultTabs[modality])
+    .filter((tab) => tab !== undefined);
+
+  if (tabs.length === 0) {
+    return renderSystemMessage("No data available", "gray");
   }
 
   return (
     <Theme>
       <div className={styles.appContainer}>
-        <Tabs tabs={tabs} />
+        <Tabs tabs={tabs} onChangeTab={handleTabChange} />
       </div>
     </Theme>
   );

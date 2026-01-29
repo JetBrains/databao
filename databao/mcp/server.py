@@ -2,7 +2,9 @@
 
 import os
 import sys
+import uuid
 from pathlib import Path
+from typing import Any
 
 import uvicorn
 from mcp import types
@@ -17,52 +19,85 @@ HTML_PATH = Path(__file__).parent.parent.parent / "client" / "out" / "multimodal
 
 mcp = FastMCP("Databao Visualizer", stateless_http=True)
 
+# In-memory cache for threads (thread_id -> thread)
+# Cache lives for the duration of the MCP session
+_thread_cache: dict[str, Any] = {}
 
-@mcp.tool(meta={"ui": {"resourceUri": VIEW_URI, "ui/resourceUri": VIEW_URI}})
-def visualize_data(query: str, data: list[dict]) -> list[types.TextContent]:
-    """Create interactive data visualizations with charts and tables.
+
+def _store_thread(thread: Any) -> str:
+    """Store thread in cache and return unique ID."""
+    thread_id = str(uuid.uuid4())
+    _thread_cache[thread_id] = thread
+    return thread_id
+
+
+def _get_thread(thread_id: str) -> Any | None:
+    """Retrieve thread from cache, or None if not found."""
+    return _thread_cache.get(thread_id)
+
+
+@mcp.tool(meta={"ui": {"resourceUri": VIEW_URI}})
+def analyze_data(
+    query: str,
+    data: list[dict] | None = None,
+    database_url: str | None = None,
+    context: str | None = None,
+) -> list[types.TextContent]:
+    """Analyze data using natural language queries and generate visualizations.
+
+    This tool uses the Databao AI agent to understand your question, analyze data,
+    and automatically create appropriate visualizations. The agent can write SQL,
+    perform calculations, and generate charts based on your natural language request.
 
     CRITICAL REQUIREMENTS:
-    1. MUST provide 'query' parameter - describes what type of chart to create
-    2. MUST provide 'data' parameter - array of data objects (cannot be empty)
+    1. MUST provide 'query' parameter - the user's natural language question
+    2. MUST provide EITHER 'data' OR 'database_url' (but not both)
 
-    This tool does NOT access databases or files. You MUST provide data directly.
-
-    Common patterns:
-    - User provides data → extract and pass it in 'data' parameter
-    - User wants calculation visualized → calculate first, then visualize results
-    - User asks without data → generate sample data or ask user for it
+    HOW IT WORKS:
+    - You pass the user's natural language query directly (no need to pre-process)
+    - The Databao agent analyzes the data and determines the best approach
+    - Agent generates SQL queries (if using database) or pandas operations
+    - Agent creates appropriate visualizations automatically
+    - Returns text insights, data tables, and interactive charts
 
     Args:
-        query: Natural language description of the visualization.
-               Be specific about:
-               - Chart type: bar, line, scatter, pie, area, etc.
-               - X-axis field name
-               - Y-axis field name
-               - Any grouping or aggregation
+        query: The user's natural language question about the data.
+               Pass the question EXACTLY as the user asked it.
 
-               Good examples:
-               ✓ 'Create a bar chart with name on x-axis and value on y-axis'
-               ✓ 'Line chart showing sales over time (month on x, sales on y)'
-               ✓ 'Scatter plot: age vs salary'
+               Examples:
+               ✓ "Show me sales by region"
+               ✓ "What are the top 10 products by revenue?"
+               ✓ "How has the user count changed over time?"
+               ✓ "Compare performance across different categories"
 
-               Avoid vague queries:
-               ✗ 'Show a chart'
-               ✗ 'Visualize the data'
+               The agent will understand the question and create appropriate
+               SQL queries, calculations, and visualizations automatically.
 
-        data: REQUIRED - Array of data objects (dictionaries).
+        data: Optional - Array of data objects (dictionaries) to analyze.
+              Use this when you have the data directly available.
 
-              Format: Each object is one data point with named fields.
-              [{field1: value1, field2: value2, ...}, {field1: value1, field2: value2, ...}]
+              Format: [{field1: value1, field2: value2, ...}, ...]
 
               Examples:
-              ✓ [{'category': 'A', 'amount': 10}, {'category': 'B', 'amount': 20}]
+              ✓ [{'category': 'A', 'sales': 100}, {'category': 'B', 'sales': 200}]
               ✓ [{'date': '2024-01', 'revenue': 1000, 'costs': 800}]
 
-              Cannot be empty or null - must contain at least one object.
+        database_url: Optional - Database connection string (SQLAlchemy format).
+                      Use this when data is in a database.
+
+                      Examples:
+                      ✓ "postgresql://user:pass@host:port/dbname"
+                      ✓ "sqlite:///path/to/database.db"
+                      ✓ "mysql://user:pass@host:port/dbname"
+
+        context: Optional - Additional context about the data to help the agent
+                 understand it better (e.g., "Sales data from Q4 2024").
 
     Returns:
-        Text content with visualization data encoded as JSON
+        Text content with visualization data encoded as JSON, including:
+        - text: Natural language insights from the analysis
+        - dataframeHtmlContent: HTML table with the data
+        - spec: Vega-Lite specification for interactive chart
     """
     import concurrent.futures
     import json
@@ -70,20 +105,38 @@ def visualize_data(query: str, data: list[dict]) -> list[types.TextContent]:
     import traceback
 
     try:
+        if not data and not database_url:
+            raise ValueError("Must provide either 'data' or 'database_url' parameter")
+
+        if data and database_url:
+            raise ValueError("Cannot provide both 'data' and 'database_url' - choose one")
+
         # Suppress stdout during execution to avoid polluting MCP stdio protocol
         def execute_with_suppressed_output():
             import pandas as pd
+            from sqlalchemy import create_engine
 
             from databao import new_agent
 
-            df = pd.DataFrame(data)
             temp_agent = new_agent()
 
-            # Generate context from first few rows
-            context_rows = df.head(5).to_dict(orient="records")
-            context = f"Sample data: {context_rows}"
+            # Add data source to agent
+            if data:
+                df = pd.DataFrame(data)
 
-            temp_agent.add_df(df, name="data", context=context)
+                # Generate context from first few rows if not provided
+                if not context:
+                    context_rows = df.head(5).to_dict(orient="records")
+                    data_context = f"Sample data: {context_rows}"
+                else:
+                    data_context = context
+
+                temp_agent.add_df(df, name="data", context=data_context)
+
+            elif database_url:
+                engine = create_engine(database_url)
+                temp_agent.add_db(engine, context=context)
+
             thread = temp_agent.thread()
 
             # Redirect stdout to stderr so MCP protocol isn't polluted
@@ -101,27 +154,25 @@ def visualize_data(query: str, data: list[dict]) -> list[types.TextContent]:
             future = executor.submit(execute_with_suppressed_output)
             thread = future.result()
 
-        from edaplot.data_utils import spec_add_data
-
-        from databao.visualizers.vega_chat import VegaChatResult
-
+        thread_id = _store_thread(thread)
         viz_data = {}
-
-        text = thread.text()
-        if text:
-            viz_data["text"] = text
+        available_modalities = []
 
         df = thread.df()
         if df is not None:
             viz_data["dataframeHtmlContent"] = _dataframe_to_html(df)
+            available_modalities.append("DATAFRAME")
 
-        try:
-            plot = thread.plot()
-            if isinstance(plot, VegaChatResult) and plot.spec and plot.spec_df is not None:
-                spec_with_data = spec_add_data(plot.spec.copy(), plot.spec_df)
-                viz_data["spec"] = spec_with_data
-        except Exception:
-            pass
+        text = thread.text()
+        if text:
+            viz_data["text"] = text
+            available_modalities.append("DESCRIPTION")
+
+        # Chart is always available (will be loaded lazily)
+        available_modalities.append("CHART")
+
+        viz_data["thread_id"] = thread_id
+        viz_data["availableModalities"] = available_modalities
 
         json_data = json.dumps(viz_data)
         return [types.TextContent(type="text", text=json_data)]
@@ -130,6 +181,58 @@ def visualize_data(query: str, data: list[dict]) -> list[types.TextContent]:
         error_msg = str(e)
         stack_trace = traceback.format_exc()
         error_data = {"error": error_msg, "text": f"Error: {error_msg}", "traceback": stack_trace}
+        return [types.TextContent(type="text", text=json.dumps(error_data))]
+
+
+@mcp.tool()
+def generate_spec(thread_id: str) -> list[types.TextContent]:
+    """Generate Vega-Lite chart specification from a cached analysis thread.
+
+    This tool is called lazily when the user clicks on the Chart tab to view
+    the visualization. It retrieves the analysis thread from cache and generates
+    the chart specification.
+
+    Args:
+        thread_id: Unique identifier for the cached analysis thread
+                   (returned by analyze_data tool)
+
+    Returns:
+        Text content with Vega-Lite spec encoded as JSON
+
+    Raises:
+        ValueError: If thread_id is not found or has expired
+    """
+    import json
+    import traceback
+
+    try:
+        thread = _get_thread(thread_id)
+        if thread is None:
+            raise ValueError(f"Thread not found or expired: {thread_id}")
+
+        from edaplot.data_utils import spec_add_data
+
+        from databao.visualizers.vega_chat import VegaChatResult
+
+        result = {}
+
+        try:
+            plot = thread.plot()
+            if isinstance(plot, VegaChatResult) and plot.spec and plot.spec_df is not None:
+                spec_with_data = spec_add_data(plot.spec.copy(), plot.spec_df)
+                result["spec"] = spec_with_data
+            else:
+                result["error"] = "No chart available for this analysis"
+        except Exception as e:
+            result["error"] = f"Failed to generate chart: {e!s}"
+
+        json_data = json.dumps(result)
+        return [types.TextContent(type="text", text=json_data)]
+
+    except Exception as e:
+        error_msg = str(e)
+        stack_trace = traceback.format_exc()
+        error_data = {"error": error_msg, "traceback": stack_trace}
         return [types.TextContent(type="text", text=json.dumps(error_data))]
 
 
