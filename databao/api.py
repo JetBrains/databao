@@ -1,4 +1,5 @@
 from databao.caches.in_mem_cache import InMemCache
+from databao.configs.agent import AgentConfig, DEFAULT_AGENT_CONFIG
 from databao.configs.llm import LLMConfig, LLMConfigDirectory
 from databao.core import Agent, Cache, Executor, Visualizer
 from databao.executors.lighthouse.executor import LighthouseExecutor
@@ -8,6 +9,7 @@ from databao.visualizers.vega_chat import VegaChatVisualizer
 def new_agent(
     name: str | None = None,
     llm_config: LLMConfig | None = None,
+    agent_config: AgentConfig | None = None,
     data_executor: Executor | None = None,
     visualizer: Visualizer | None = None,
     cache: Cache | None = None,
@@ -21,8 +23,10 @@ def new_agent(
     Agent can't be modified after it's created. Only new data sources can be added.
     """
     llm_config = llm_config if llm_config else LLMConfigDirectory.DEFAULT
+    agent_config = agent_config if agent_config else DEFAULT_AGENT_CONFIG
     return Agent(
         llm_config,
+        agent_config,
         name=name or "default_agent",
         data_executor=data_executor or LighthouseExecutor(),
         visualizer=visualizer or VegaChatVisualizer(llm_config),

@@ -6,6 +6,7 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
 from sqlalchemy import Connection, Engine
 
+from databao.configs.agent import AgentConfig
 from databao.configs.llm import LLMConfig
 from databao.core import Cache, ExecutionResult, Opa
 from databao.core.data_source import DBDataSource, DFDataSource, Sources
@@ -55,6 +56,7 @@ class ReactDuckDBExecutor(GraphExecutor):
         opas: list[Opa],
         cache: Cache,
         llm_config: LLMConfig,
+        agent_config: AgentConfig,
         sources: Sources,
         *,
         rows_limit: int = 100,
@@ -68,7 +70,7 @@ class ReactDuckDBExecutor(GraphExecutor):
 
         # Execute the graph
         init_state = {"messages": messages}
-        invoke_config = RunnableConfig(recursion_limit=llm_config.agent_recursion_limit)
+        invoke_config = RunnableConfig(recursion_limit=agent_config.recursion_limit)
         last_state = self._invoke_graph_sync(compiled_graph, init_state, config=invoke_config, stream=stream)
         answer: AgentResponse = last_state["structured_response"]
         logger.info("Generated query: %s", answer.sql)

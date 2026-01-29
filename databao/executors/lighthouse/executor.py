@@ -8,6 +8,7 @@ from langgraph.graph.state import CompiledStateGraph
 from sqlalchemy import Connection, Engine
 
 from databao.configs import LLMConfig
+from databao.configs.agent import AgentConfig
 from databao.core import Cache, ExecutionResult, Opa
 from databao.core.data_source import DBDataSource, DFDataSource, Sources
 from databao.core.executor import OutputModalityHints
@@ -77,9 +78,9 @@ class LighthouseExecutor(GraphExecutor):
     def register_df(self, source: DFDataSource) -> None:
         self._duckdb_connection.register(source.name, source.df)
 
-    def _get_compiled_graph(self, llm_config: LLMConfig) -> CompiledStateGraph[Any]:
+    def _get_compiled_graph(self, llm_config: LLMConfig, agent_config: AgentConfig) -> CompiledStateGraph[Any]:
         """Get compiled graph."""
-        compiled_graph = self._compiled_graph or self._graph.compile(llm_config)
+        compiled_graph = self._compiled_graph or self._graph.compile(llm_config, agent_config)
         self._compiled_graph = compiled_graph
 
         return compiled_graph
@@ -101,12 +102,13 @@ class LighthouseExecutor(GraphExecutor):
         opas: list[Opa],
         cache: Cache,
         llm_config: LLMConfig,
+        agent_config: AgentConfig,
         sources: Sources,
         *,
         rows_limit: int = 100,
         stream: bool = True,
     ) -> ExecutionResult:
-        compiled_graph = self._get_compiled_graph(llm_config)
+        compiled_graph = self._get_compiled_graph(llm_config, agent_config)
         messages: list[BaseMessage] = self._process_opas(opas, cache)
 
         # Prepend system message if not present
@@ -114,14 +116,14 @@ class LighthouseExecutor(GraphExecutor):
         if not all_messages_with_system or all_messages_with_system[0].type != "system":
             all_messages_with_system = [
                 SystemMessage(
-                    self.render_system_prompt(self._duckdb_connection, sources, llm_config.agent_recursion_limit)
+                    self.render_system_prompt(self._duckdb_connection, sources, agent_config.recursion_limit)
                 ),
                 *all_messages_with_system,
             ]
         cleaned_messages = clean_tool_history(all_messages_with_system, llm_config.max_tokens_before_cleaning)
 
         init_state = self._graph.init_state(cleaned_messages, limit_max_rows=rows_limit)
-        invoke_config = RunnableConfig(recursion_limit=llm_config.agent_recursion_limit)
+        invoke_config = RunnableConfig(recursion_limit=agent_config.recursion_limit)
         last_state = self._invoke_graph_sync(compiled_graph, init_state, config=invoke_config, stream=stream)
         execution_result = self._graph.get_result(last_state)
 

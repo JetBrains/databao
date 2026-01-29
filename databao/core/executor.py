@@ -157,6 +157,7 @@ class Executor(ABC):
         opas: list["Opa"],
         cache: "Cache",
         llm_config: "LLMConfig",
+        agent_config: "AgentConfig",
         sources: Sources,
         *,
         rows_limit: int = 100,
@@ -168,6 +169,7 @@ class Executor(ABC):
             opas: List of user intents/queries to process.
             cache: Cache provided by Agent to persist State.
             llm_config: Config of LLM to be used during execution.
+            agent_config: Config of agent to be used during execution.
             sources: Data sources registered with the agent.
             rows_limit: Preferred row limit for data materialization (may be ignored by executors).
             stream: Stream LLM output to stdout.
