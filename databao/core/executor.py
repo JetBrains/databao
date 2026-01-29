@@ -10,6 +10,7 @@ from databao.core.data_source import DBDataSource, DFDataSource, Sources
 
 if TYPE_CHECKING:
     from databao import LLMConfig
+    from databao.configs.agent import AgentConfig
     from databao.core.cache import Cache
     from databao.core.opa import Opa
 

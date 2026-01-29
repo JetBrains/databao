@@ -1,5 +1,5 @@
 from databao.caches.in_mem_cache import InMemCache
-from databao.configs.agent import AgentConfig, DEFAULT_AGENT_CONFIG
+from databao.configs.agent import DEFAULT_AGENT_CONFIG, AgentConfig
 from databao.configs.llm import LLMConfig, LLMConfigDirectory
 from databao.core import Agent, Cache, Executor, Visualizer
 from databao.executors.lighthouse.executor import LighthouseExecutor
