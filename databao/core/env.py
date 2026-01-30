@@ -9,9 +9,11 @@ def in_jupyter_kernel() -> bool:
       this returns False.
     """
     try:
-        from IPython import get_ipython  # type: ignore
+        from typing import Any
 
-        ip = get_ipython()
+        from IPython import get_ipython
+
+        ip: Any = get_ipython()
         if ip is None:
             return False
 

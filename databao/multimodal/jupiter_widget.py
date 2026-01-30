@@ -93,9 +93,9 @@ class MultimodalWidget(anywidget.AnyWidget):
             separator_df = pd.DataFrame([separator_data], index=["..."])
 
             truncated_df = pd.concat([first_10, separator_df, last_10])
-            return truncated_df.to_html()
+            return str(truncated_df.to_html())
         else:
-            return df.to_html()
+            return str(df.to_html())
 
     def _handle_change_tab(self, payload: str) -> None:
         if payload == "CHART":
