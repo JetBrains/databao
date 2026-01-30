@@ -4,6 +4,7 @@ import contextlib
 import json
 import queue
 import threading
+import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
@@ -143,6 +144,7 @@ class MultimodalHTTPRequestHandler(BaseHTTPRequestHandler):
                 )
                 if not alive:
                     return
+                time.sleep(0.1)
 
             try:
                 result = result_queue.get_nowait()
