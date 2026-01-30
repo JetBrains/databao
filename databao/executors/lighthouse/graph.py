@@ -290,6 +290,7 @@ class ExecuteSubmit:
         graph.add_edge(START, "llm_node")
         graph.add_conditional_edges("llm_node", should_continue, {"tool_executor": "tool_executor", "end": END})
         graph.add_conditional_edges("tool_executor", should_finish, {"llm_node": "llm_node", "end": END})
+        # TODO: (@gas) add here dbt agent as a subgraph, with conditional node
         return graph.compile()
 
     @staticmethod
