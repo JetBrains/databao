@@ -43,7 +43,7 @@ ui = [
     "click>=8.0.0",
     "pyyaml>=6.0",
     "uuid6>=2024.7.10",
-    "databao-context-engine @ git+ssh://git@github.com/JetBrains/databao-context-engine.git@main",
+    "databao-context-engine>=0.1.4dev",
 ]
 
 [build-system]

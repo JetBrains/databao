@@ -144,11 +144,11 @@ def create_all_connections(project_path: Path) -> list[ConnectionInfo]:
     connections: list[ConnectionInfo] = []
 
     try:
-        # Import DCE modules
+        # Import DCE modules (paths changed in DCE 0.1.4)
+        from databao_context_engine.datasources.datasource_discovery import discover_datasources, prepare_source
+        from databao_context_engine.datasources.types import PreparedConfig
         from databao_context_engine.pluginlib.plugin_utils import _validate_datasource_config_file
         from databao_context_engine.plugins.plugin_loader import load_plugins
-        from databao_context_engine.project.datasource_discovery import discover_datasources, prepare_source
-        from databao_context_engine.project.types import PreparedConfig
 
         # Discover all datasources using DCE
         datasources = discover_datasources(project_path)
