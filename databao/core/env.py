@@ -9,11 +9,10 @@ def in_jupyter_kernel() -> bool:
       this returns False.
     """
     try:
-        from typing import Any
+        # IPython doesn't provide type stubs, so we need to ignore type checking here
+        from IPython.core.getipython import get_ipython
 
-        from IPython import get_ipython
-
-        ip: Any = get_ipython()
+        ip = get_ipython()  # type: ignore[no-untyped-call]
         if ip is None:
             return False
 
