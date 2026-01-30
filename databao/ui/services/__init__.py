@@ -1,6 +1,6 @@
 """Services for the Databao Streamlit app."""
 
-from streamlit_app.services.chat_persistence import (
+from databao.ui.services.chat_persistence import (
     delete_all_chats,
     delete_chat,
     load_all_chats,
@@ -8,24 +8,24 @@ from streamlit_app.services.chat_persistence import (
     save_chat,
     save_current_chat,
 )
-from streamlit_app.services.chat_title import (
+from databao.ui.services.chat_title import (
     check_title_completion,
     trigger_title_generation,
 )
-from streamlit_app.services.query_executor import (
+from databao.ui.services.query_executor import (
     QueryResult,
     cancel_query,
     check_query_completion,
     is_query_running,
     start_query_execution,
 )
-from streamlit_app.services.settings_persistence import (
+from databao.ui.services.settings_persistence import (
     delete_settings,
     get_or_create_settings,
     load_settings,
     save_settings,
 )
-from streamlit_app.services.storage import (
+from databao.ui.services.storage import (
     get_cache_dir,
     get_chat_dir,
     get_chats_dir,

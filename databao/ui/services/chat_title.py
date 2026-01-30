@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 if TYPE_CHECKING:
     from databao.core.agent import Agent
 
-    from streamlit_app.models.chat_session import ChatSession
+    from databao.ui.models.chat_session import ChatSession
 
 logger = logging.getLogger(__name__)
 

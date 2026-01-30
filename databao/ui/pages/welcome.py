@@ -5,7 +5,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from streamlit_app.app import _create_new_chat
+from databao.ui.app import _create_new_chat
 
 
 def render_welcome_page() -> None:

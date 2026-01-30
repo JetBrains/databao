@@ -6,12 +6,12 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 # Import ChatMessage from components to avoid duplication
-from streamlit_app.components.chat import ChatMessage
+from databao.ui.components.chat import ChatMessage
 
 if TYPE_CHECKING:
     from databao.core.thread import Thread
 
-    from streamlit_app.streaming import StreamingWriter
+    from databao.ui.streaming import StreamingWriter
 
 # Re-export ChatMessage for consumers of this module
 __all__ = ["ChatMessage", "ChatSession"]

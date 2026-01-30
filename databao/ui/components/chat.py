@@ -6,21 +6,21 @@ from typing import TYPE_CHECKING, Any
 
 import streamlit as st
 
-from streamlit_app.components.results import render_execution_result
-from streamlit_app.services import (
+from databao.ui.components.results import render_execution_result
+from databao.ui.services import (
     check_query_completion,
     is_query_running,
     save_current_chat,
     start_query_execution,
 )
-from streamlit_app.suggestions import (
+from databao.ui.suggestions import (
     check_suggestions_completion,
     is_suggestions_loading,
     start_suggestions_generation,
 )
 
 if TYPE_CHECKING:
-    from streamlit_app.models.chat_session import ChatSession
+    from databao.ui.models.chat_session import ChatSession
 
 
 @dataclass

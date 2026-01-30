@@ -8,13 +8,13 @@ import streamlit as st
 from databao.core.agent import Agent
 from databao.core.thread import Thread
 from databao.dce import DCEProject, DCEProjectStatus
-from streamlit_app.app import _clear_all_chat_threads
-from streamlit_app.components.chat import render_chat_interface
-from streamlit_app.components.sidebar import render_sidebar_chat_content
-from streamlit_app.components.status import AppStatus, set_status
-from streamlit_app.models.chat_session import ChatSession
-from streamlit_app.services.chat_persistence import save_chat
-from streamlit_app.services.chat_title import check_title_completion, trigger_title_generation
+from databao.ui.app import _clear_all_chat_threads
+from databao.ui.components.chat import render_chat_interface
+from databao.ui.components.sidebar import render_sidebar_chat_content
+from databao.ui.components.status import AppStatus, set_status
+from databao.ui.models.chat_session import ChatSession
+from databao.ui.services.chat_persistence import save_chat
+from databao.ui.services.chat_title import check_title_completion, trigger_title_generation
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +150,7 @@ def _get_or_create_thread_for_chat(chat: ChatSession, agent: Agent) -> bool:
 
     Returns True if thread is available, False on error.
     """
-    from streamlit_app.streaming import StreamingWriter
+    from databao.ui.streaming import StreamingWriter
 
     # Ensure writer exists (it's not persisted, so may be None on reload)
     if chat.writer is None:

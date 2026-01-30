@@ -4,13 +4,13 @@ from typing import TYPE_CHECKING, Any
 
 import streamlit as st
 
-from streamlit_app.services.chat_persistence import save_current_chat
+from databao.ui.services.chat_persistence import save_current_chat
 
 if TYPE_CHECKING:
     from databao.core.executor import ExecutionResult
     from databao.core.thread import Thread
 
-    from streamlit_app.models.chat_session import ChatSession
+    from databao.ui.models.chat_session import ChatSession
 
 
 def _extract_visualization_data(thread: "Thread") -> dict[str, Any] | None:
@@ -239,7 +239,7 @@ def _render_and_handle_action_buttons(
 
     Called from within the fragment, so button clicks can trigger fragment-scoped reruns.
     """
-    from streamlit_app.services import is_query_running
+    from databao.ui.services import is_query_running
 
     thread = chat.thread
     if thread is None:

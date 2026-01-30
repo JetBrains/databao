@@ -9,10 +9,10 @@ import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from streamlit_app.services.storage import get_cache_dir, get_chat_dir, get_chats_dir
+from databao.ui.services.storage import get_cache_dir, get_chat_dir, get_chats_dir
 
 if TYPE_CHECKING:
-    from streamlit_app.models.chat_session import ChatSession
+    from databao.ui.models.chat_session import ChatSession
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +106,7 @@ def load_chat(chat_id: str, base_path: Path | None = None) -> ChatSession | None
     Returns:
         ChatSession if found, None otherwise
     """
-    from streamlit_app.models.chat_session import ChatSession
+    from databao.ui.models.chat_session import ChatSession
 
     chats_dir = get_chats_dir(base_path)
     chat_dir = chats_dir / chat_id

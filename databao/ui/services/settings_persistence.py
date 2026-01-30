@@ -3,8 +3,8 @@
 import logging
 from pathlib import Path
 
-from streamlit_app.models.settings import Settings
-from streamlit_app.services.storage import (
+from databao.ui.models.settings import Settings
+from databao.ui.services.storage import (
     find_existing_storage,
     get_settings_path,
     get_storage_base_path,

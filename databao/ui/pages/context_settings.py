@@ -6,9 +6,9 @@ import streamlit as st
 
 from databao.dce import DCEProject, DCEProjectStatus, find_best_project
 from databao.dce.project import validate_project
-from streamlit_app.app import _clear_all_chat_threads
-from streamlit_app.components.sidebar import get_db_icon
-from streamlit_app.components.status import AppStatus, set_status
+from databao.ui.app import _clear_all_chat_threads
+from databao.ui.components.sidebar import get_db_icon
+from databao.ui.components.status import AppStatus, set_status
 
 
 def render_context_settings_page() -> None:

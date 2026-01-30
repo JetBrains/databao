@@ -38,16 +38,13 @@ examples = [
     "notebook>=7.4.7",
     "python-dotenv>=1.1.1",
 ]
-streamlit = [
+ui = [
     "streamlit>=1.53.0",
     "click>=8.0.0",
     "pyyaml>=6.0",
     "uuid6>=2024.7.10",
     "databao-context-engine @ git+ssh://git@github.com/JetBrains/databao-context-engine.git@main",
 ]
-
-[project.scripts]
-databao = "databao.cli:main"
 
 [build-system]
 requires = ["hatchling", "uv-dynamic-versioning"]

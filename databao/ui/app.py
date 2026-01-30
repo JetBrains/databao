@@ -16,9 +16,9 @@ from databao.dce import (
     create_all_connections,
     get_all_context,
 )
-from streamlit_app.components.status import AppStatus, set_status, status_context
-from streamlit_app.models.chat_session import ChatSession
-from streamlit_app.services.storage import get_cache_dir
+from databao.ui.components.status import AppStatus, set_status, status_context
+from databao.ui.models.chat_session import ChatSession
+from databao.ui.services.storage import get_cache_dir
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +36,8 @@ st.set_page_config(
 
 def _load_persisted_state() -> None:
     """Load settings and chats from disk on startup."""
-    from streamlit_app.services.chat_persistence import load_all_chats
-    from streamlit_app.services.settings_persistence import get_or_create_settings
+    from databao.ui.services.chat_persistence import load_all_chats
+    from databao.ui.services.settings_persistence import get_or_create_settings
 
     # Load or create settings
     if "app_settings" not in st.session_state:
@@ -62,8 +62,8 @@ def _load_persisted_state() -> None:
 
 def _save_settings_if_changed() -> None:
     """Save settings to disk if they've changed."""
-    from streamlit_app.models.settings import Settings
-    from streamlit_app.services.settings_persistence import save_settings
+    from databao.ui.models.settings import Settings
+    from databao.ui.services.settings_persistence import save_settings
 
     settings: Settings | None = st.session_state.get("app_settings")
     if settings is None:
@@ -235,7 +235,7 @@ def _create_new_chat() -> None:
     """Create a new chat and navigate to it."""
     from uuid6 import uuid6
 
-    from streamlit_app.services.chat_persistence import save_chat
+    from databao.ui.services.chat_persistence import save_chat
 
     # Save current chat before creating new one
     prev_chat_id = st.session_state.get("current_chat_id")
@@ -262,11 +262,11 @@ def _create_new_chat() -> None:
 
 def build_navigation() -> None:
     """Build the multipage navigation structure."""
-    from streamlit_app.pages.agent_settings import render_agent_settings_page
-    from streamlit_app.pages.chat import render_chat_page
-    from streamlit_app.pages.context_settings import render_context_settings_page
-    from streamlit_app.pages.general_settings import render_general_settings_page
-    from streamlit_app.pages.welcome import render_welcome_page
+    from databao.ui.pages.agent_settings import render_agent_settings_page
+    from databao.ui.pages.chat import render_chat_page
+    from databao.ui.pages.context_settings import render_context_settings_page
+    from databao.ui.pages.general_settings import render_general_settings_page
+    from databao.ui.pages.welcome import render_welcome_page
 
     # Check if we need to navigate to a newly created chat
     navigate_to_chat: str | None = st.session_state.get("_navigate_to_chat")
@@ -418,7 +418,7 @@ def _render_global_sidebar() -> None:
 
     This is purely for UI rendering - initialization is handled by _initialize_app().
     """
-    from streamlit_app.components.sidebar import render_sidebar_header
+    from databao.ui.components.sidebar import render_sidebar_header
 
     with st.sidebar:
         render_sidebar_header()

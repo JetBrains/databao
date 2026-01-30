@@ -15,8 +15,8 @@ from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ct
 if TYPE_CHECKING:
     from databao.core.thread import Thread
 
-    from streamlit_app.models.chat_session import ChatSession
-    from streamlit_app.streaming import StreamingWriter
+    from databao.ui.models.chat_session import ChatSession
+    from databao.ui.streaming import StreamingWriter
 
 logger = logging.getLogger(__name__)
 

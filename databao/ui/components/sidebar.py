@@ -3,15 +3,15 @@
 import streamlit as st
 
 from databao.dce import DCEProject, DCEProjectStatus
-from streamlit_app.app import _clear_all_chat_threads
-from streamlit_app.components.status import AppStatus, render_status_fragment, set_status
-from streamlit_app.suggestions import reset_suggestions_state
+from databao.ui.app import _clear_all_chat_threads
+from databao.ui.components.status import AppStatus, render_status_fragment, set_status
+from databao.ui.suggestions import reset_suggestions_state
 
 
 @st.dialog("Delete Chat")
 def _confirm_delete_chat(chat_id: str, chat_title: str) -> None:
     """Dialog to confirm deleting the current chat."""
-    from streamlit_app.services.chat_persistence import delete_chat
+    from databao.ui.services.chat_persistence import delete_chat
 
     st.warning(f"⚠️ Delete chat: **{chat_title}**?")
     st.markdown("This will permanently remove the chat and its history.")
@@ -207,7 +207,7 @@ def render_sidebar_chat_content(project: DCEProject | None) -> None:
     This is called only on chat pages to show project info, sources, and executor.
     Must be called within st.sidebar context.
     """
-    from streamlit_app.models.chat_session import ChatSession
+    from databao.ui.models.chat_session import ChatSession
 
     # Project info (includes Reload button)
     render_project_info(project)

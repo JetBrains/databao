@@ -2,10 +2,10 @@
 
 import streamlit as st
 
-from streamlit_app.app import _clear_all_chat_threads
-from streamlit_app.services.chat_persistence import delete_all_chats
-from streamlit_app.services.settings_persistence import delete_settings
-from streamlit_app.services.storage import get_cache_dir, get_chats_dir, get_storage_base_path
+from databao.ui.app import _clear_all_chat_threads
+from databao.ui.services.chat_persistence import delete_all_chats
+from databao.ui.services.settings_persistence import delete_settings
+from databao.ui.services.storage import get_cache_dir, get_chats_dir, get_storage_base_path
 
 
 @st.dialog("Clear All Chats")
