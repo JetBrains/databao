@@ -11,29 +11,51 @@ from mcp import types
 from mcp.server.fastmcp import FastMCP
 from starlette.middleware.cors import CORSMiddleware
 
+from databao.mcp.thread_storage import SQLiteThreadStorage, ThreadState, ThreadStorage
+
 VIEW_URI = "ui://databao/visualizer.html"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "3001"))
 
 HTML_PATH = Path(__file__).parent.parent.parent / "client" / "out" / "multimodal-mcp-ui" / "index.html"
 
+STORAGE_DIR = Path(os.environ.get("DATABAO_STORAGE_DIR", Path.home() / ".local" / "share" / "databao"))
+DB_PATH = STORAGE_DIR / "mcp_threads.db"
+
 mcp = FastMCP("Databao Visualizer", stateless_http=True)
 
-# In-memory cache for threads (thread_id -> thread)
-# Cache lives for the duration of the MCP session
-_thread_cache: dict[str, Any] = {}
+_thread_storage: ThreadStorage = SQLiteThreadStorage(DB_PATH)
 
 
-def _store_thread(thread: Any) -> str:
-    """Store thread in cache and return unique ID."""
-    thread_id = str(uuid.uuid4())
-    _thread_cache[thread_id] = thread
-    return thread_id
+def _store_thread_state(
+    thread_id: str,
+    thread: Any,
+    query: str,
+    data: list[dict] | None,
+    database_url: str | None,
+    context: str | None,
+) -> None:
+    """Store minimal thread state for later plot generation."""
+    df = thread.df()
+    df_json = df.to_json(orient="split", date_format="iso") if df is not None else None
+
+    state = ThreadState(
+        thread_id=thread_id,
+        df_json=df_json,
+        text=thread.text(),
+        code=thread.code(),
+        original_query=query,
+        data=data,
+        database_url=database_url,
+        context=context,
+    )
+
+    _thread_storage.store(state)
 
 
-def _get_thread(thread_id: str) -> Any | None:
-    """Retrieve thread from cache, or None if not found."""
-    return _thread_cache.get(thread_id)
+def _get_thread_state(thread_id: str) -> ThreadState | None:
+    """Retrieve thread state using storage abstraction."""
+    return _thread_storage.get(thread_id)
 
 
 @mcp.tool(meta={"ui": {"resourceUri": VIEW_URI}})
@@ -101,8 +123,6 @@ def analyze_data(
     """
     import concurrent.futures
     import json
-    import sys
-    import traceback
 
     try:
         if not data and not database_url:
@@ -154,7 +174,10 @@ def analyze_data(
             future = executor.submit(execute_with_suppressed_output)
             thread = future.result()
 
-        thread_id = _store_thread(thread)
+        # Generate unique thread ID and store serializable state
+        thread_id = str(uuid.uuid4())
+        _store_thread_state(thread_id, thread, query, data, database_url, context)
+
         viz_data = {}
         available_modalities = []
 
@@ -179,8 +202,7 @@ def analyze_data(
 
     except Exception as e:
         error_msg = str(e)
-        stack_trace = traceback.format_exc()
-        error_data = {"error": error_msg, "text": f"Error: {error_msg}", "traceback": stack_trace}
+        error_data = {"error": error_msg, "text": f"Error: {error_msg}"}
         return [types.TextContent(type="text", text=json.dumps(error_data))]
 
 
@@ -189,8 +211,8 @@ def generate_spec(thread_id: str) -> list[types.TextContent]:
     """Generate Vega-Lite chart specification from a cached analysis thread.
 
     This tool is called lazily when the user clicks on the Chart tab to view
-    the visualization. It retrieves the analysis thread from cache and generates
-    the chart specification.
+    the visualization. It retrieves the analysis thread state from cache,
+    recreates the agent with the data, and generates the chart specification.
 
     Args:
         thread_id: Unique identifier for the cached analysis thread
@@ -203,26 +225,77 @@ def generate_spec(thread_id: str) -> list[types.TextContent]:
         ValueError: If thread_id is not found or has expired
     """
     import json
-    import traceback
 
     try:
-        thread = _get_thread(thread_id)
-        if thread is None:
-            raise ValueError(f"Thread not found or expired: {thread_id}")
+        saved_thread_state = _get_thread_state(thread_id)
 
+        if saved_thread_state is None:
+            raise ValueError(f"Thread state not found or expired: {thread_id}")
+
+        import pandas as pd
         from edaplot.data_utils import spec_add_data
+        from sqlalchemy import create_engine
 
+        from databao import new_agent
+        from databao.core.executor import ExecutionResult
         from databao.visualizers.vega_chat import VegaChatResult
 
         result = {}
 
         try:
-            plot = thread.plot()
-            if isinstance(plot, VegaChatResult) and plot.spec and plot.spec_df is not None:
-                spec_with_data = spec_add_data(plot.spec.copy(), plot.spec_df)
+            # Check if spec is already cached
+            if saved_thread_state.spec_json:
+                result["spec"] = json.loads(saved_thread_state.spec_json)
+                json_data = json.dumps(result)
+                return [types.TextContent(type="text", text=json_data)]
+
+            # Spec not cached - need to generate it
+            # Recreate agent with the original data source
+            agent = new_agent()
+
+            if saved_thread_state.data:
+                source_df = pd.DataFrame(saved_thread_state.data)
+                if not saved_thread_state.context:
+                    context_rows = source_df.head(5).to_dict(orient="records")
+                    data_context = f"Sample data: {context_rows}"
+                else:
+                    data_context = saved_thread_state.context
+                agent.add_df(source_df, name="data", context=data_context)
+            elif saved_thread_state.database_url:
+                engine = create_engine(saved_thread_state.database_url)
+                agent.add_db(engine, context=saved_thread_state.context)
+            else:
+                raise ValueError("No data source found in thread state")
+
+            if saved_thread_state.df_json is None:
+                result["error"] = "No data available for visualization"
+                return [types.TextContent(type="text", text=json.dumps(result))]
+
+            result_df = pd.read_json(saved_thread_state.df_json, orient="split")
+
+            execution_result = ExecutionResult(
+                text=saved_thread_state.text,
+                code=saved_thread_state.code,
+                df=result_df,
+                meta={},
+            )
+
+            viz_result = agent.visualizer.visualize(
+                request=None,
+                data=execution_result,
+                stream=False,
+            )
+
+            if isinstance(viz_result, VegaChatResult) and viz_result.spec and viz_result.spec_df is not None:
+                spec_with_data = spec_add_data(viz_result.spec.copy(), viz_result.spec_df)
                 result["spec"] = spec_with_data
+
+                saved_thread_state.spec_json = json.dumps(spec_with_data)
+                saved_thread_state.spec_df_json = viz_result.spec_df.to_json(orient="split", date_format="iso")
+                _thread_storage.store(saved_thread_state)
             else:
                 result["error"] = "No chart available for this analysis"
+
         except Exception as e:
             result["error"] = f"Failed to generate chart: {e!s}"
 
@@ -231,8 +304,7 @@ def generate_spec(thread_id: str) -> list[types.TextContent]:
 
     except Exception as e:
         error_msg = str(e)
-        stack_trace = traceback.format_exc()
-        error_data = {"error": error_msg, "traceback": stack_trace}
+        error_data = {"error": error_msg}
         return [types.TextContent(type="text", text=json.dumps(error_data))]
 
 
@@ -267,7 +339,6 @@ def main() -> None:
     if "--stdio" in sys.argv or len(sys.argv) == 1:
         mcp.run(transport="stdio")
     else:
-        # HTTP mode for testing with basic-host - with CORS
         app = mcp.streamable_http_app()
         app.add_middleware(
             CORSMiddleware,
