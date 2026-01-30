@@ -184,9 +184,8 @@ def create_all_connections(project_path: Path) -> list[ConnectionInfo]:
                     # (DCE's introspector uses read_write mode which can conflict with other processes)
                     import duckdb
 
-                    # Handle both old (database) and new (database_path) field names for DCE compatibility
                     conn = parsed_config.connection
-                    db_path = str(getattr(conn, "database_path", None) or getattr(conn, "database", ""))
+                    db_path = str(conn.database)
                     # Resolve relative paths from the project root (not the config file location)
                     if not Path(db_path).is_absolute():
                         db_path = str((project_path / db_path).resolve())
