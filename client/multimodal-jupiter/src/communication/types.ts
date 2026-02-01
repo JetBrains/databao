@@ -6,7 +6,6 @@ export type Action = AllActions[keyof AllActions];
 export type MessageId = Branded<string, "MessageId">;
 
 export type MessageRequest = {
-  type: "databao_request";
   messageId: MessageId;
   action: {
     type: Action["type"];
@@ -15,7 +14,6 @@ export type MessageRequest = {
 };
 
 export type MessageResponse = {
-  type: "databao_response";
   messageId: MessageId;
   success: boolean;
   error: string;

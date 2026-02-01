@@ -19,9 +19,6 @@ if TYPE_CHECKING:
 WIDGET_ESM_PATH = Path(__file__).parent.parent.parent / "client" / "out" / "multimodal-jupiter" / "index.js"
 WIDGET_CSS_PATH = Path(__file__).parent.parent.parent / "client" / "out" / "multimodal-jupiter" / "style.css"
 
-DATABAO_REQUEST_MESSAGE_TYPE = "databao_request"
-DATABAO_RESPONSE_MESSAGE_TYPE = "databao_response"
-
 
 class ClientAction(Enum):
     SELECT_MODALITY = "SELECT_MODALITY"
@@ -142,7 +139,6 @@ class MultimodalWidget(anywidget.AnyWidget):
 
     def _respond_with_message(self, message_id: str, success: bool, error: str, action_type_str: str) -> None:
         response = {
-            "type": DATABAO_RESPONSE_MESSAGE_TYPE,
             "messageId": message_id,
             "success": success,
             "error": error,
@@ -169,10 +165,6 @@ class MultimodalWidget(anywidget.AnyWidget):
         message_id = content.get("messageId")
         if not message_id:
             self._respond_with_message("", False, "Missing messageId", "")
-            return
-
-        if content.get("type") != DATABAO_REQUEST_MESSAGE_TYPE:
-            self._respond_with_message(message_id, False, "Unknown message event", "")
             return
 
         action = content.get("action", {})

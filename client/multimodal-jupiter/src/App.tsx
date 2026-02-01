@@ -110,7 +110,7 @@ function App() {
     .filter((tab) => isMultimodalTabType(tab.type));
 
   return (
-    <Theme asChild>
+    <Theme style={{ minHeight: "300px", maxHeight: "700px" }} asChild>
       <div className={styles.root}>
         <Tabs tabs={tabs} onChangeTab={handleChangeTab} />
       </div>

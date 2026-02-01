@@ -51,9 +51,6 @@ export function initCommunication(model: AnyModel) {
   };
 
   model.on("msg:custom", (msg: MessageResponse) => {
-    if (msg.type !== "databao_response") {
-      return;
-    }
     onAcceptMessage(msg);
   });
 
@@ -69,7 +66,6 @@ function createRawMessage(
   const messageId = generateId();
 
   return {
-    type: "databao_request",
     messageId,
     action: {
       type: action,
