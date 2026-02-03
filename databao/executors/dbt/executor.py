@@ -13,7 +13,7 @@ from databao.configs import LLMConfig
 from databao.core import Cache, ExecutionResult, Opa
 from databao.core.data_source import DBDataSource, DFDataSource, Sources
 from databao.core.executor import OutputModalityHints
-from databao.dbtv2.config import DbtConfig
+from databao.dbt.config import DbtConfig
 from databao.duckdb.types import DbConnFactory
 from databao.duckdb.utils import get_db_path, register_sqlalchemy
 from databao.executors.base import GraphExecutor
@@ -23,17 +23,17 @@ from databao.executors.lighthouse.history_cleaning import clean_tool_history
 
 class DbtProjectExecutor(GraphExecutor):
     """
-    A Lighthouse-style executor that runs the dbtv2 project graph (DbtProjectGraph),
-    but uses the *same* dbtv2 system prompt rendering approach as the dbtv2 LangChain agent:
+    A Lighthouse-style executor that runs the dbt project graph (DbtProjectGraph),
+    but uses the *same* dbt system prompt rendering approach as the dbt LangChain agent:
     - assemble_dbt_project_summary(project_dir)
-    - render databao.dbtv2/system_prompt.jinja with dbt_overview + dbt_directory
+    - render databao.dbt/system_prompt.jinja with dbt_overview + dbt_directory
     """
 
     _DBT_TASK_INSTRUCTION = """\
     ## Your Objectives (in priority order):
 
-    ### 1. FIX the dbtv2 project if broken
-    Before doing anything else, ensure the dbtv2 project builds successfully:
+    ### 1. FIX the dbt project if broken
+    Before doing anything else, ensure the dbt project builds successfully:
     - Run `run_dbt` to check current state
     - If there are errors, diagnose and fix them (missing refs, syntax errors, schema mismatches)
     - Do NOT proceed to answer the user's question until `run_dbt` returns 0 errors
@@ -41,7 +41,7 @@ class DbtProjectExecutor(GraphExecutor):
     ### 2. ANSWER the user's question
     Use `run_sql` to explore data and compute the answer.
 
-    ### 3. CAPTURE reusable work as dbtv2 models
+    ### 3. CAPTURE reusable work as dbt models
     After answering, evaluate whether your work should be persisted:
 
     **CREATE a new model when:**
@@ -98,7 +98,7 @@ class DbtProjectExecutor(GraphExecutor):
         return env.get_template(template_name)
 
     def render_system_prompt(self) -> str:
-        from databao.dbtv2.agent import assemble_dbt_project_summary
+        from databao.dbt.agent import assemble_dbt_project_summary
 
         project_dir = self._dbt_config.project_dir.resolve()
         dbt_overview = assemble_dbt_project_summary(project_dir)

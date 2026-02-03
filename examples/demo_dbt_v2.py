@@ -4,11 +4,11 @@ from pathlib import Path
 import duckdb
 import databao
 from databao import LLMConfig
-from databao.dbtv2 import DbtConfig
+from databao.dbt import DbtConfig
 
 logging.basicConfig(level=logging.DEBUG)
 
-# partially completed dbtv2 proj (copy from the original Spider2-dbtv2 dataset)
+# partially completed dbt proj (copy from the original Spider2-dbt dataset)
 DB_PATH = "/Users/andrei.gasparian/Documents/spider-2.0/databao-agent/examples/shopify001/shopify.duckdb"
 DBT_SOURCE_PROJ_PATH = "/Users/andrei.gasparian/Documents/spider-2.0/databao-agent/examples/shopify001"
 
@@ -17,7 +17,7 @@ conn = duckdb.connect(DB_PATH)
 llm_config = LLMConfig(name="gpt-5", temperature=0)
 
 agent = databao.new_agent(
-    name="demo-dbtv2",
+    name="demo-dbt",
     llm_config=llm_config,
     dbt_config=DbtConfig(project_dir=Path(DBT_SOURCE_PROJ_PATH)),
 )

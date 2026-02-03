@@ -3,7 +3,7 @@ import databao
 from databao import LLMConfig
 
 # original
-# DB_PATH = "/Users/andrei.gasparian/Documents/spider-2.0/Spider2/spider2-dbtv2/examples/shopify002/shopify.duckdb"
+# DB_PATH = "/Users/andrei.gasparian/Documents/spider-2.0/Spider2/spider2-dbt/examples/shopify002/shopify.duckdb"
 # golden
 DB_PATH = "/Users/andrei.gasparian/Documents/spider-2.0/Spider2/spider2-dbt/evaluation_suite/gold/shopify002/shopify.duckdb"
 

@@ -166,11 +166,11 @@ def init_run_sql(db_conn: Any):
 @record_tool_call("dbt_compile")
 def dbt_compile(project_dir: str, timeout: int = 300) -> str:
     """
-    Compile a dbtv2 project (no database mutation) and return a compact structured result.
+    Compile a dbt project (no database mutation) and return a compact structured result.
     """
     try:
         proc = subprocess.run(
-            ["dbtv2", "compile"],
+            ["dbt", "compile"],
             cwd=project_dir,
             capture_output=True,
             text=True,
@@ -194,17 +194,17 @@ def dbt_compile(project_dir: str, timeout: int = 300) -> str:
 @record_tool_call("dbt_deps")
 def dbt_deps(project_dir: str) -> str:
     """
-    Run a dbtv2 deps command to update dependencies of the dbtv2 project when failing to run run_compile tool.
+    Run a dbt deps command to update dependencies of the dbt project when failing to run run_compile tool.
 
     Args:
-        project_dir: The directory of the dbtv2 project
+        project_dir: The directory of the dbt project
 
     Returns:
-        A string containing the output of the dbtv2 deps command
+        A string containing the output of the dbt deps command
     """
     try:
         proc = subprocess.run(
-            ["dbtv2", "deps"],
+            ["dbt", "deps"],
             cwd=project_dir,
             capture_output=True,
             text=True,
@@ -309,7 +309,7 @@ def init_run_database_explore(db_conn: Any):
         the current data as a starting point.
 
         Args:
-            project_dir: The directory of the dbtv2 project
+            project_dir: The directory of the dbt project
 
         Returns:
             A markdown representation of the schema of the provided database.
@@ -361,7 +361,7 @@ def grep_tool(table_name: str) -> str:
 
 
 def assemble_dbt_project_summary(project_dir: Path, max_file_chars: int | None = 8000) -> str:
-    """Deterministically gather important dbtv2 project files into a single string.
+    """Deterministically gather important dbt project files into a single string.
 
     The function looks for `dbt_project.yml`, model schema YAMLs under `models/`,
     SQL model files under `models/`, macros, and seeds. Files are read in a
@@ -421,7 +421,7 @@ def assemble_dbt_project_summary(project_dir: Path, max_file_chars: int | None =
     if not parts:
         return f"DBT project directory present at {project_dir} but no matching files found under models/, macros/, or seeds/."
     header = (
-        f"Assembled dbtv2 project files from {project_dir}:\n"
+        f"Assembled dbt project files from {project_dir}:\n"
         f"Found {len(files)} files with content. "
         f"Listed {len(other_files)} other files by size.\n"
     )
@@ -505,7 +505,7 @@ def build_agent(
 
 def read_prompt_template(relative_path: Path) -> jinja2.Template:
     env = jinja2.Environment(
-        loader=jinja2.PackageLoader("databao.dbtv2", ""),
+        loader=jinja2.PackageLoader("databao.dbt", ""),
         trim_blocks=True,  # better whitespace handling
         lstrip_blocks=True,
     )
@@ -554,8 +554,8 @@ class DbtAgent:
                     "content": (
                         "You are given a chat transcript of analyst work as CHAT_TRANSCRIPT.\n"
                         "1) Summarize it into analyst results: insights + extracted SQL + intended outputs.\n"
-                        "2) Convert that into the minimal reusable set of dbtv2 models (and docs for new models).\n"
-                        "Allowed dbtv2 commands: deps/compile only (no dbtv2 run yet - it's kinda 'dry runs' instead).\n\n"
+                        "2) Convert that into the minimal reusable set of dbt models (and docs for new models).\n"
+                        "Allowed dbt commands: deps/compile only (no dbt run yet - it's kinda 'dry runs' instead).\n\n"
                         "CHAT_TRANSCRIPT (json):\n"
                         "```json\n"
                         f"{transcript_json}\n"

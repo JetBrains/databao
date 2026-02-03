@@ -68,9 +68,9 @@ def _json_dumps(data: Any) -> str:
 
 class DbtProjectGraph:
     """
-    Minimal, reusable tool-using graph for dbtv2 project editing + dbtv2 run.
+    Minimal, reusable tool-using graph for dbt project editing + dbt run.
 
-    Tool names/signatures are aligned with databao/executors/dbtv2/system_prompt.jinja.
+    Tool names/signatures are aligned with databao/executors/dbt/system_prompt.jinja.
     """
 
     def __init__(self, *, db_conn_factory: DbConnFactory | None = None) -> None:
@@ -107,7 +107,7 @@ class DbtProjectGraph:
             Explore the provided database before any transformations.
 
             Args:
-                project_dir: The directory of the dbtv2 project (provided for compatibility; the graph has its own context)
+                project_dir: The directory of the dbt project (provided for compatibility; the graph has its own context)
 
             Returns:
                 A markdown representation of the schema of the provided database.
@@ -159,7 +159,7 @@ class DbtProjectGraph:
         @tool(parse_docstring=True)
         def run_dbt(project_dir: str | None, timeout: int | None, graph_state: Annotated[DbtAgentState, InjectedState]) -> str:
             """
-            Run a dbtv2 project to update the state of the database and return a compact structured result.
+            Run a dbt project to update the state of the database and return a compact structured result.
 
             Args:
                 project_dir: Optional override; if omitted uses the graph context project_dir
@@ -174,7 +174,7 @@ class DbtProjectGraph:
 
             try:
                 proc = subprocess.run(
-                    ["dbtv2", "run"],
+                    ["dbt", "run"],
                     cwd=project_dir_str,
                     capture_output=True,
                     text=True,
@@ -196,7 +196,7 @@ class DbtProjectGraph:
         @tool(parse_docstring=True)
         def dbt_deps(project_dir: str | None, graph_state: Annotated[DbtAgentState, InjectedState]) -> str:
             """
-            Run a dbtv2 deps command to update dependencies of the dbtv2 project.
+            Run a dbt deps command to update dependencies of the dbt project.
 
             Args:
                 project_dir: Optional override; if omitted uses the graph context project_dir
@@ -209,7 +209,7 @@ class DbtProjectGraph:
 
             try:
                 proc = subprocess.run(
-                    ["dbtv2", "deps"],
+                    ["dbt", "deps"],
                     cwd=project_dir_str,
                     capture_output=True,
                     text=True,
@@ -232,7 +232,7 @@ class DbtProjectGraph:
             Read a file (text).
 
             Args:
-                path: absolute path OR relative to the dbtv2 project directory
+                path: absolute path OR relative to the dbt project directory
 
             Returns:
                 A string containing the file content (truncated if too large)
@@ -255,7 +255,7 @@ class DbtProjectGraph:
             Write file.
 
             Args:
-                path: The path to write. Prefer absolute paths; relative paths are resolved from dbtv2 project root.
+                path: The path to write. Prefer absolute paths; relative paths are resolved from dbt project root.
                 content: The content to write
 
             Returns:

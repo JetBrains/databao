@@ -8,7 +8,7 @@ from typing import Literal
 @dataclass(frozen=True)
 class DbtConfig:
     """
-    Configuration for optional dbtv2 functionality.
+    Configuration for optional dbt functionality.
 
     This is intentionally minimal for now. We'll extend it when implementing planning/validation/apply.
     """
