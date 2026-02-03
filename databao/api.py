@@ -1,6 +1,7 @@
 from databao.caches.in_mem_cache import InMemCache
 from databao.configs.llm import LLMConfig, LLMConfigDirectory
 from databao.core import Agent, Cache, Executor, Visualizer
+from databao.dbt.config import DbtConfig
 from databao.executors.lighthouse.executor import LighthouseExecutor
 from databao.visualizers.vega_chat import VegaChatVisualizer
 
@@ -16,6 +17,7 @@ def new_agent(
     stream_plot: bool = False,
     lazy_threads: bool = False,
     auto_output_modality: bool = True,
+    dbt_config: DbtConfig | None = None,
 ) -> Agent:
     """This is an entry point for users to create a new agent.
     Agent can't be modified after it's created. Only new data sources can be added.
@@ -32,4 +34,5 @@ def new_agent(
         stream_plot=stream_plot,
         lazy_threads=lazy_threads,
         auto_output_modality=auto_output_modality,
+        dbt_config=dbt_config,
     )

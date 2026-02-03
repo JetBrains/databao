@@ -8,6 +8,7 @@ from sqlalchemy import Connection, Engine
 
 from databao.core.data_source import DBDataSource, DFDataSource, Sources
 from databao.core.thread import Thread
+from databao.dbt.config import DbtConfig
 
 if TYPE_CHECKING:
     from databao.configs.llm import LLMConfig
@@ -35,6 +36,7 @@ class Agent:
         stream_plot: bool = False,
         lazy_threads: bool = False,
         auto_output_modality: bool = True,
+        dbt_config: DbtConfig | None = None,
     ):
         self.__name = name
         self.__llm = llm.new_chat_model()
@@ -46,12 +48,19 @@ class Agent:
         self.__visualizer = visualizer
         self.__cache = cache
 
+        self.__dbt_config = dbt_config
+
         # Thread defaults
         self.__rows_limit = rows_limit
         self.__lazy_threads = lazy_threads
         self.__auto_output_modality = auto_output_modality
         self.__stream_ask = stream_ask
         self.__stream_plot = stream_plot
+
+    @property
+    def dbt_config(self) -> DbtConfig | None:
+        """Optional dbt configuration for this agent."""
+        return self.__dbt_config
 
     def _parse_context_arg(self, context: str | Path | None) -> str | None:
         if context is None:

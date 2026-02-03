@@ -1,3 +1,6 @@
+import logging
+logging.basicConfig(level=logging.DEBUG)
+
 import duckdb
 import databao
 from databao import LLMConfig
@@ -5,10 +8,7 @@ from databao import LLMConfig
 from dbt_agent.langchain_agent import LangchainAgent
 
 
-# # dbt completed
-# DB_PATH = "/Users/andrei.gasparian/Documents/spider-2.0/out/shopify001/shopify.duckdb"
-
-# partially complete dbt
+# partially completed dbt proj (copy from the original Spider2-dbt dataset)
 DB_PATH = "/Users/andrei.gasparian/Documents/spider-2.0/Spider2/spider2-dbt/examples/shopify001/shopify.duckdb"
 DBT_PROJ_PATH = "/Users/andrei.gasparian/Documents/databao-agent/examples/shopify001"
 
@@ -27,18 +27,27 @@ print("--------")
 print()
 print(thread.text())
 
-# its a future node system message - summarize before passing to the dbt agent
+"""
+use-case: 
+  - user can ask agent so generated metric could be better fit to the real life
+  - maybe user fixes could be additionally trigger "memorize" or some other new method so dbt agent could use it
+  - them summarize the hwole thing (history + user hints)
+  - then dbt agent kicks in, uses that summary + memorized hints (?)
+  - add ability to materialize dbt models separately: .confirm()? or .materialize()?
+  
+technical:
+  - 
+"""
+
+# TODO: (@gas) could summary be replaced with thread.text() + thread.code()?
 thread.ask("summarize you solution into the brief description of what's has been done supplying it with the final set of sql queries, needed to reproduce the result in the future")
 print()
 print("--------")
 print()
 print(thread.text())
 
+
 task_prompt = "Given the following summary, add missing data models:\n" + thread.text()
-
-
-import logging
-logging.basicConfig(level=logging.DEBUG)
 
 dbt_agent = LangchainAgent(
     name="langchain_dbt_agent",

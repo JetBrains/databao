@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, ParamSpec, TypeVar
 
 import jinja2
+import pandas as pd
 from langchain.agents import create_agent
 from langchain.tools import ToolRuntime
 from langchain_core.messages import messages_to_dict
@@ -19,8 +20,6 @@ from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 from langgraph.graph.state import CompiledStateGraph
 from langsmith import trace
-
-from dbt_agent.utils import db_introspect
 
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
@@ -30,6 +29,60 @@ _TOOL_CALLS_LOG: list[dict] = []
 
 Param = ParamSpec("Param")
 RetType = TypeVar("RetType")
+
+
+def db_introspect(db_conn: Any) -> pd.DataFrame:
+    """
+    Introspect a DuckDB database and return columns metadata.
+
+    Returns pandas.DataFrame with:
+            schema, table, column_name, data_type, is_nullable, column_default,
+            column_index (1-based), is_primary_key (bool).
+    """
+    cols_query = """
+    WITH cols AS (
+        SELECT
+            table_schema AS schema,
+            table_name AS table,
+            column_name,
+            data_type,
+            is_nullable,
+            column_default,
+            ordinal_position AS column_index
+        FROM information_schema.columns
+        WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
+    ),
+    pks AS (
+        SELECT
+            tc.table_schema AS schema,
+            tc.table_name AS table,
+            kcu.column_name,
+            TRUE AS is_primary_key
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage kcu
+          ON tc.constraint_name = kcu.constraint_name
+         AND tc.table_schema = kcu.table_schema
+         AND tc.table_name = kcu.table_name
+        WHERE tc.constraint_type = 'PRIMARY KEY'
+    )
+    SELECT
+        c.table,
+        c.column_name,
+        c.data_type,
+        c.is_nullable,
+        c.column_default,
+        c.column_index,
+        COALESCE(p.is_primary_key, FALSE) AS is_primary_key
+    FROM cols c
+    LEFT JOIN pks p
+      ON c.schema = p.schema
+     AND c.table = p.table
+     AND c.column_name = p.column_name
+    ORDER BY c.schema, c.table, c.column_index;
+    """
+
+    df = db_conn.execute(cols_query).df()
+    return df
 
 
 @dataclass
@@ -79,11 +132,6 @@ def record_tool_call(tool_name: str) -> Callable[[Callable[Param, RetType]], Cal
     return decorator
 
 
-# -------------------------
-# Tool implementations
-# -------------------------
-
-
 def init_run_sql(db_conn: Any):
     @tool
     @record_tool_call("run_sql")
@@ -115,14 +163,14 @@ def init_run_sql(db_conn: Any):
 
 
 @tool
-@record_tool_call("run_dbt")
-def run_dbt(project_dir: str, timeout: int = 300) -> str:
+@record_tool_call("dbt_compile")
+def dbt_compile(project_dir: str, timeout: int = 300) -> str:
     """
-    Run a dbt project to update the state of the database and return a compact structured result.
+    Compile a dbt project (no database mutation) and return a compact structured result.
     """
     try:
         proc = subprocess.run(
-            ["dbt", "run"],
+            ["dbt", "compile"],
             cwd=project_dir,
             capture_output=True,
             text=True,
@@ -143,64 +191,10 @@ def run_dbt(project_dir: str, timeout: int = 300) -> str:
 
 
 @tool
-@record_tool_call("run_dbt_with_summary")
-def run_dbt_with_summary(project_dir: str, timeout: int = 300) -> str:
-    """
-    Run a dbt project to update the state of the database and return a compact structured result.
-    """
-    try:
-        proc = subprocess.run(
-            ["dbt", "run"],
-            cwd=project_dir,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            check=False,
-        )
-    except subprocess.TimeoutExpired:
-        return json.dumps({"timeout": True})
-    except Exception as e:
-        return json.dumps({"error": str(e)})
-
-    full_stdout = proc.stdout or ""
-    full_stderr = proc.stderr or ""
-
-    llm_summary = ""
-    try:
-        system_message = (
-            "You are a data scientist specializing in databases, SQL, DuckDB, and dbt. "
-            "You are given the stdout and stderr of a `dbt run` command. "
-            "Your task is to summarize the results of the dbt run command. "
-            "Provide a short summary of completed tests (if any) "
-            "and list the most important errors with short explanations. "
-            "Initially, the dbt project was missing some `.sql` files only. "
-            "Provided output is the result of running `dbt run` after adding the missing `.sql` files. "
-            "Briefly suggest improvements on adding more models to the dbt project or fixing specific ones if necessary. "
-            "Prefer adding new models over modifying YML files as they are expected to be complete."
-        )
-        user_message = f"Summarize the dbt run results below. \n\nSTDOUT:\n{full_stdout}\n\nSTDERR:\n{full_stderr}"
-        llm = ChatOpenAI(model="gpt-5", temperature=0.0, reasoning={"effort": "high"}, verbosity="low")
-        # Call the LLM with a plain string prompt; return only the text summary.
-        try:
-            messages = [("system", system_message), ("human", user_message)]
-            llm_summary = llm.invoke(messages).text
-        except Exception as inner_exc:
-            llm_summary = f"Summarization failed: {inner_exc}"
-    except Exception as e:
-        llm_summary = f"Setup failed: {e}"
-
-    output = {
-        "returncode": proc.returncode,
-        "summary": llm_summary,
-    }
-    return json.dumps(output, default=str)
-
-
-@tool
 @record_tool_call("dbt_deps")
 def dbt_deps(project_dir: str) -> str:
     """
-    Run a dbt deps command to update dependencies of the dbt project when failing to run run_dbt tool.
+    Run a dbt deps command to update dependencies of the dbt project when failing to run run_compile tool.
 
     Args:
         project_dir: The directory of the dbt project
@@ -304,35 +298,6 @@ def edit_tool(path: str, original: str, replacement: str) -> str:
         return f"ERROR: edit failed: {e}"
 
 
-# def multiedit_tool(payload: str) -> str:
-#     """
-#     Apply multiple edits to a file.
-#     Payload format (simple):
-#       path\n\n<edit1 pattern>::::<edit1 replacement>\n<edit2 pattern>::::<edit2 replacement>\n...
-#     Lines after blank line are 'pattern::::replacement'.
-#     """
-#     try:
-#         if "\n\n" not in payload:
-#             return "ERROR: expected payload format: path\\n\\npattern::::replacement..."
-#         path, edits_block = payload.split("\n\n", 1)
-#         if not os.path.exists(path):
-#             return f"ERROR: file {path} not found"
-#         with open(path, "r", encoding="utf-8") as f:
-#             text = f.read()
-#         total_changes = 0
-#         for line in edits_block.strip().splitlines():
-#             if "::::" not in line:
-#                 continue
-#             pattern, replacement = line.split("::::", 1)
-#             text, n = re.subn(pattern, replacement, text)
-#             total_changes += n
-#         with open(path, "w", encoding="utf-8") as f:
-#             f.write(text)
-#         return f"MULTIEDIT {path}: {total_changes} total replacements"
-#     except Exception as e:
-#         return f"ERROR: multiedit failed: {e}"
-
-
 def init_run_database_explore(db_conn: Any):
     @tool
     @record_tool_call("run_database_explore")
@@ -393,11 +358,6 @@ def grep_tool(table_name: str) -> str:
         return f"ERROR: regex error: {re_err}"
     except Exception as e:
         return f"ERROR: grep failed: {e}"
-
-
-# -------------------------
-# Agent construction
-# -------------------------
 
 
 def assemble_dbt_project_summary(project_dir: Path, max_file_chars: int | None = 8000) -> str:
@@ -471,17 +431,11 @@ def assemble_dbt_project_summary(project_dir: Path, max_file_chars: int | None =
 def build_agent(
     model: str,
     temperature: float = 0.0,
-    name: str = "langchain_agent",
+    name: str = "dbt_agent",
     db_conn: Any = None,
 ) -> CompiledStateGraph:
     """
     Construct a LangChain agent using the provided model.
-
-    Args:
-        model: The LLM model name to use (required). Examples: "gpt-5", "claude-3-opus-20240229", "together_ai/Qwen/Qwen2.5-72B-Instruct-Turbo"
-        allow_bash: Whether to allow bash commands
-        temperature: Temperature for the model
-        name: Name of the agent
     """
     # Log which model is being used for verification
     logging.info(f"Using LLM model: {model}")
@@ -536,7 +490,7 @@ def build_agent(
 
     tools = [
         init_run_sql(db_conn),
-        run_dbt,
+        dbt_compile,
         dbt_deps,
         read_tool,
         write_tool,
@@ -551,7 +505,7 @@ def build_agent(
 
 def read_prompt_template(relative_path: Path) -> jinja2.Template:
     env = jinja2.Environment(
-        loader=jinja2.PackageLoader("dbt_agent", ""),
+        loader=jinja2.PackageLoader("databao.dbt", ""),
         trim_blocks=True,  # better whitespace handling
         lstrip_blocks=True,
     )
@@ -559,12 +513,12 @@ def read_prompt_template(relative_path: Path) -> jinja2.Template:
     return template
 
 
-class LangchainAgent:
+class DbtAgent:
     def __init__(
         self,
         project_dir: Path | str,
         temperature: float = 0.0,
-        name: str = "langchain_agent",
+        name: str = "databao_dbt_project_agent",
         system_prompt_name: str = "system_prompt.jinja",
         model: str | None = None,
         db_conn: Any = None,
@@ -584,23 +538,32 @@ class LangchainAgent:
         system_prompt = template.render(dbt_overview=dbt_overview, dbt_directory=self.project_dir.absolute())
         return system_prompt
 
-    def run(self, prompt: str | dict[str, Any]) -> dict[str, Any]:
+    def run(self, ctx: list) -> dict[str, Any]:
         # reset in-memory tool call log for this invocation
         _TOOL_CALLS_LOG.clear()
 
-        if isinstance(prompt, dict):
-            start_state = prompt
-        else:
-            start_state = {
-                "messages": [
-                    {"role": "system", "content": self.system_prompt},
-                    {
-                        "role": "user",
-                        "content": "Complete the dbt project. Make sure that the project builds successfully! "
-                        "And then answer the following question.\n\n" + prompt,
-                    },
-                ]
-            }
+        transcript_json = json.dumps(ctx, ensure_ascii=False, indent=2, default=str)
+        if len(transcript_json) > 120_000:
+            transcript_json = transcript_json[:120_000]
+
+        start_state = {
+            "messages": [
+                {"role": "system", "content": self.system_prompt},
+                {
+                    "role": "user",
+                    "content": (
+                        "You are given a chat transcript of analyst work as CHAT_TRANSCRIPT.\n"
+                        "1) Summarize it into analyst results: insights + extracted SQL + intended outputs.\n"
+                        "2) Convert that into the minimal reusable set of dbt models (and docs for new models).\n"
+                        "Allowed dbt commands: deps/compile only (no dbt run yet - it's kinda 'dry runs' instead).\n\n"
+                        "CHAT_TRANSCRIPT (json):\n"
+                        "```json\n"
+                        f"{transcript_json}\n"
+                        "```\n"
+                    ),
+                },
+            ]
+        }
 
         with trace(name=self.name):
             result = self.agent.invoke(
