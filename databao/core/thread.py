@@ -115,7 +115,7 @@ class Thread:
             return
 
         # Let the Visualizer recommend a plot based on the df if no prompt is provided (None)
-        self.plot(hints.visualization_prompt)
+        self.plot(f"Last question - {self._opas[-1][-1].query}\nPlot instruction - {hints.visualization_prompt}")
 
     def text(self) -> str:
         """Return the latest textual answer from the executor/LLM."""
@@ -149,6 +149,8 @@ class Thread:
             request: Optional natural-language plotting request.
             rows_limit: Optional row limit for data materialization in lazy mode.
         """
+        if request is None:
+            request = self._opas[-1][-1].query if self._opas else None
         self._stream_plot = stream
         return self._materialize_visualization(request, rows_limit if rows_limit else self._data_materialized_rows)
 
