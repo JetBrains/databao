@@ -8,7 +8,7 @@ from sqlalchemy import Connection, Engine
 
 from databao.core.data_source import DBDataSource, DFDataSource, Sources
 from databao.core.thread import Thread
-from databao.dbt.config import DbtConfig
+from databao.dbtv2.config import DbtConfig
 from databao.duckdb.types import DbConnFactory
 
 if TYPE_CHECKING:
@@ -60,7 +60,7 @@ class Agent:
 
     @property
     def dbt_config(self) -> DbtConfig | None:
-        """Optional dbt configuration for this agent."""
+        """Optional dbtv2 configuration for this agent."""
         return self.__dbt_config
 
     def _parse_context_arg(self, context: str | Path | None) -> str | None:

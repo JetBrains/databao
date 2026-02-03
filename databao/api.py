@@ -1,7 +1,7 @@
 from databao.caches.in_mem_cache import InMemCache
 from databao.configs.llm import LLMConfig, LLMConfigDirectory
 from databao.core import Agent, Cache, Executor, Visualizer
-from databao.dbt.config import DbtConfig
+from databao.dbtv2.config import DbtConfig
 from databao.executors.lighthouse.executor import LighthouseExecutor
 from databao.visualizers.vega_chat import VegaChatVisualizer
 

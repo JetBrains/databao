@@ -7,9 +7,9 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from databao.dbt.config import DbtConfig
-from databao.dbt.agent import DbtAgent
-from databao.dbt.errors import DbtPlanNotReadyError, DbtApplyNotAllowedError
+from databao.dbtv2.config import DbtConfig
+from databao.dbtv2.agent import DbtAgent
+from databao.dbtv2.errors import DbtPlanNotReadyError, DbtApplyNotAllowedError
 
 
 def _sha256_file(path: Path) -> str:
@@ -32,8 +32,8 @@ def _snapshot_tree(root: Path) -> dict[Path, str]:
 def _resolve_dbt_project_root(path: Path) -> Path:
     """
     Accept either:
-      - a dbt project root (contains dbt_project.yml), or
-      - a container dir that contains exactly one dbt project root among its direct children.
+      - a dbtv2 project root (contains dbt_project.yml), or
+      - a container dir that contains exactly one dbtv2 project root among its direct children.
     """
     path = path.resolve()
 
@@ -45,8 +45,8 @@ def _resolve_dbt_project_root(path: Path) -> Path:
         return candidates[0]
 
     raise RuntimeError(
-        f"DbtConfig.project_dir must point to a dbt project root (dbt_project.yml), "
-        f"or a directory containing exactly one dbt project. Got: {path}"
+        f"DbtConfig.project_dir must point to a dbtv2 project root (dbt_project.yml), "
+        f"or a directory containing exactly one dbtv2 project. Got: {path}"
     )
 
 
@@ -117,7 +117,7 @@ class DbtPlan:
 
         if not (staged / "dbt_project.yml").exists():
             raise RuntimeError(
-                f"Staging directory {staged} does not look like a dbt project root (missing dbt_project.yml)."
+                f"Staging directory {staged} does not look like a dbtv2 project root (missing dbt_project.yml)."
             )
 
         self._staged_project_dir = staged
@@ -133,7 +133,7 @@ class DbtPlan:
 
     def run(self, *, model: str | None = None, db_conn: Any = None) -> "DbtPlan":
         """
-        Run the dbt project agent against the sandbox and populate change lists.
+        Run the dbtv2 project agent against the sandbox and populate change lists.
         (SLOW)
         """
         if self._staged_project_dir is None or self._before_snapshot is None:
@@ -166,7 +166,7 @@ class DbtPlan:
 
     def commit(self, *, allow_deletes: bool = False) -> dict[str, Any]:
         """
-        Copy changes from sandbox back to the source dbt project.
+        Copy changes from sandbox back to the source dbtv2 project.
 
         By default, deletions are NOT applied for safety.
         """
@@ -201,7 +201,7 @@ class DbtPlan:
 
     def apply(self, *, timeout_seconds: int | None = None) -> dict[str, Any]:
         """
-        Apply the sandboxed dbt project to the warehouse.
+        Apply the sandboxed dbtv2 project to the warehouse.
 
         This runs from the sandbox directory to keep the source project clean.
         """
@@ -215,7 +215,7 @@ class DbtPlan:
         timeout = timeout_seconds if timeout_seconds is not None else self._dbt_config.dbt_timeout_seconds
 
         proc = subprocess.run(
-            ["dbt", "run"],
+            ["dbtv2", "run"],
             cwd=str(self._staged_project_dir),
             capture_output=True,
             text=True,

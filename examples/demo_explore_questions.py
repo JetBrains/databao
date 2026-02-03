@@ -2,7 +2,10 @@ import duckdb
 import databao
 from databao import LLMConfig
 
-DB_PATH = "/Users/andrei.gasparian/Documents/spider-2.0/Spider2/spider2-dbt/examples/shopify001/shopify.duckdb"
+# original
+# DB_PATH = "/Users/andrei.gasparian/Documents/spider-2.0/Spider2/spider2-dbtv2/examples/shopify002/shopify.duckdb"
+# golden
+DB_PATH = "/Users/andrei.gasparian/Documents/spider-2.0/Spider2/spider2-dbt/evaluation_suite/gold/shopify002/shopify.duckdb"
 
 conn = duckdb.connect(DB_PATH)
 

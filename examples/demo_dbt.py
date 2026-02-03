@@ -5,17 +5,17 @@ import duckdb
 import databao
 from databao import LLMConfig
 
-from dbt_agent.langchain_agent import LangchainAgent
+from dbt_agent_tmp.langchain_agent import LangchainAgent
 
 
-# partially completed dbt proj (copy from the original Spider2-dbt dataset)
+# partially completed dbtv2 proj (copy from the original Spider2-dbtv2 dataset)
 DB_PATH = "/Users/andrei.gasparian/Documents/spider-2.0/Spider2/spider2-dbt/examples/shopify001/shopify.duckdb"
 DBT_PROJ_PATH = "/Users/andrei.gasparian/Documents/databao-agent/examples/shopify001"
 
 conn = duckdb.connect(DB_PATH)
 
 llm_config = LLMConfig(name="gpt-5", temperature=0)
-agent = databao.new_agent(name="demo-dbt", llm_config=llm_config)
+agent = databao.new_agent(name="demo-dbtv2", llm_config=llm_config)
 
 agent.add_db(conn)
 thread = agent.thread()
@@ -30,10 +30,10 @@ print(thread.text())
 """
 use-case: 
   - user can ask agent so generated metric could be better fit to the real life
-  - maybe user fixes could be additionally trigger "memorize" or some other new method so dbt agent could use it
+  - maybe user fixes could be additionally trigger "memorize" or some other new method so dbtv2 agent could use it
   - them summarize the hwole thing (history + user hints)
-  - then dbt agent kicks in, uses that summary + memorized hints (?)
-  - add ability to materialize dbt models separately: .confirm()? or .materialize()?
+  - then dbtv2 agent kicks in, uses that summary + memorized hints (?)
+  - add ability to materialize dbtv2 models separately: .confirm()? or .materialize()?
   
 technical:
   - 

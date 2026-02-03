@@ -13,7 +13,7 @@ from databao.configs import LLMConfig
 from databao.core import Cache, ExecutionResult, Opa
 from databao.core.data_source import DBDataSource, DFDataSource, Sources
 from databao.core.executor import OutputModalityHints
-from databao.dbt.config import DbtConfig
+from databao.dbtv2.config import DbtConfig
 from databao.duckdb.types import DbConnFactory
 from databao.duckdb.utils import get_db_path, register_sqlalchemy
 from databao.executors.base import GraphExecutor
@@ -23,17 +23,50 @@ from databao.executors.lighthouse.history_cleaning import clean_tool_history
 
 class DbtProjectExecutor(GraphExecutor):
     """
-    A Lighthouse-style executor that runs the dbt project graph (DbtProjectGraph),
-    but uses the *same* dbt system prompt rendering approach as the dbt LangChain agent:
+    A Lighthouse-style executor that runs the dbtv2 project graph (DbtProjectGraph),
+    but uses the *same* dbtv2 system prompt rendering approach as the dbtv2 LangChain agent:
     - assemble_dbt_project_summary(project_dir)
-    - render databao.dbt/system_prompt.jinja with dbt_overview + dbt_directory
+    - render databao.dbtv2/system_prompt.jinja with dbt_overview + dbt_directory
     """
 
-    _DBT_TASK_INSTRUCTION = (
-        "Complete the dbt project. Make sure that the project builds successfully! And then answer the user's question.\n\n"
-        "If completing the project is needed to answer correctly, do it (e.g., when the requested metric/transformation "
-        "looks reusable and should live in dbt). Otherwise, answer directly without adding models.\n"
-    )
+    _DBT_TASK_INSTRUCTION = """\
+    ## Your Objectives (in priority order):
+
+    ### 1. FIX the dbtv2 project if broken
+    Before doing anything else, ensure the dbtv2 project builds successfully:
+    - Run `run_dbt` to check current state
+    - If there are errors, diagnose and fix them (missing refs, syntax errors, schema mismatches)
+    - Do NOT proceed to answer the user's question until `run_dbt` returns 0 errors
+
+    ### 2. ANSWER the user's question
+    Use `run_sql` to explore data and compute the answer.
+
+    ### 3. CAPTURE reusable work as dbtv2 models
+    After answering, evaluate whether your work should be persisted:
+
+    **CREATE a new model when:**
+    - You calculated a metric the user or others might need again (e.g., "repeat purchase rate", "customer LTV")
+    - You built a useful intermediate transformation (e.g., sessionized events, order-customer joins)
+    - The logic encodes business rules that shouldn't be reimplemented
+
+    **SKIP model creation when:**
+    - The query is a one-off exploration (e.g., "show me 5 rows from X")
+    - The transformation already exists in the project
+    - The metric is trivial and unlikely to be reused
+
+    **When creating models:**
+    - Place them in the appropriate folder (`staging/`, `intermediate/`, `marts/`)
+    - Use proper naming conventions (`stg_`, `int_`, `fct_`, `dim_`)
+    - Add a brief description comment at the top
+    - Run `run_dbt` to verify the new model builds
+    - Confirm the model produces correct results with `run_sql`
+
+    ### 4. VALIDATE before completing
+    Your response is not complete until:
+    - [ ] `run_dbt` passes with 0 errors
+    - [ ] Your answer to the user is verified with actual query results
+    - [ ] Any new models you created are building correctly
+    """
 
     def __init__(self, *, dbt_config: DbtConfig) -> None:
         super().__init__()
@@ -65,7 +98,7 @@ class DbtProjectExecutor(GraphExecutor):
         return env.get_template(template_name)
 
     def render_system_prompt(self) -> str:
-        from databao.dbt.agent import assemble_dbt_project_summary
+        from databao.dbtv2.agent import assemble_dbt_project_summary
 
         project_dir = self._dbt_config.project_dir.resolve()
         dbt_overview = assemble_dbt_project_summary(project_dir)

@@ -1,15 +1,15 @@
 class DbtError(RuntimeError):
-    """Base error for databao dbt integration."""
+    """Base error for databao dbtv2 integration."""
 
 
 class DbtNotEnabledError(DbtError):
-    """Raised when dbt functionality is called but dbt_config is not set on the Agent."""
+    """Raised when dbtv2 functionality is called but dbt_config is not set on the Agent."""
 
 class DbtError(RuntimeError):
-    """Base error for databao dbt integration."""
+    """Base error for databao dbtv2 integration."""
 
 class DbtNotEnabledError(DbtError):
-    """Raised when dbt functionality is called but dbt_config is not set on the Agent."""
+    """Raised when dbtv2 functionality is called but dbt_config is not set on the Agent."""
 
 class DbtPlanNotReadyError(DbtError):
     """Raised when a plan action requires a sandbox/run results that are not available yet."""

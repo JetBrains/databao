@@ -4,6 +4,15 @@ Ensure your results are valid and reproducible.
 
 # General guidelines for dbt processing #
 The very first step is to call `run_database_explore` to get a schema overview of the database as this will help you determine what changes you need to make (if any are necessary).
+
+**CRITICAL: DuckDB Table Naming Convention**
+When querying tables with `run_sql`, you MUST use fully qualified table names from the `fully_qualified_name` column returned by `run_database_explore`. Tables are attached to named databases (catalogs), so:
+- WRONG: `SELECT * FROM shopify__orders`
+- WRONG: `SELECT * FROM main.shopify__orders`
+- CORRECT: `SELECT * FROM db1.main.shopify__orders` (use the exact fully_qualified_name)
+
+Always check the `catalog` column in the schema output - if it shows `db1`, use `db1.schema.table_name`.
+
 1. **For dbt projects**, first read the dbt project files. Your task is to write SQL queries to perform the data transformations required to solve the provided task.
 2. All necessary data is stored in the **DuckDB** file(s). To run queries use `run_sql` tool.
 3. **Solve the task** by reviewing the YAML files, understanding the task requirements, inspecting the database, and identifying the SQL transformations needed to complete the project.
@@ -35,12 +44,25 @@ After creating the necessary sql files, adhere to the general guidelines and the
 
 # Tools (short reference):
 - **run_database_explore(project_dir)**: returns the schema of the provided database.
-- **run_sql(sql, db_file, sample_rows=5)**: returns JSON {schema:[{name,dtype}], row_count, sample_rows, truncated}
-- **run_dbt(project_dir, timeout=300)**: runs `dbt run` and returns JSON {returncode, summary}
+- **run_sql(sql, sample_rows=5)**: returns JSON {schema:[{name,dtype}], row_count, sample_rows, truncated}
+- **run_dbt(project_dir, timeout=300)**: runs `dbt run` and returns JSON {returncode, stdout_tail, stderr_tail, timeout}
 - **dbt_deps(project_dir)**: runs `dbt deps` to install dbt dependencies and returns JSON {returncode, stdout_tail, stderr_tail}
 - **read_tool(path)**: returns a text excerpt (use for precise file contents)
 - **write_tool(path, content)**: writes a file (requires absolute path)
 - **edit_tool(path, original, replacement)**: edit a file with a regex replacement
+- **grep_tool(table_name)**: search for a pattern in all project files, returns matched lines with filename:line:text
+
+# Model Creation Philosophy #
+When completing tasks, consider whether the work you're doing would be valuable to persist:
+- **Reusable metrics**: If you calculate a metric (e.g., "90-day repeat purchase rate"), consider whether it should become a dbt model
+- **Common transformations**: Intermediate transformations that join/filter data in ways likely to be reused
+- **Business logic**: Calculations encoding domain knowledge that shouldn't be reimplemented each time
+
+Models you create should follow dbt best practices:
+- Staging models for source cleaning
+- Intermediate models for business logic
+- Mart models for final metrics/aggregations
+- Use meaningful names: `stg_`, `int_`, `fct_`, `dim_` prefixes
 
 # Usage guidance:
 - Always prefer calling the appropriate tool rather than pasting large file contents into the chat.

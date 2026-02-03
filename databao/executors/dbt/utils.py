@@ -9,12 +9,13 @@ def db_introspect(db_conn: Any) -> pd.DataFrame:
 
     Returns:
         pandas.DataFrame with:
-            schema, table, column_name, data_type, is_nullable, column_default,
-            column_index (1-based), is_primary_key (bool).
+            catalog, schema, table, column_name, data_type, is_nullable, column_default,
+            column_index (1-based), is_primary_key (bool), fully_qualified_name.
     """
     cols_query = """
     WITH cols AS (
         SELECT
+            table_catalog AS catalog,
             table_schema AS schema,
             table_name AS table,
             column_name,
@@ -27,6 +28,7 @@ def db_introspect(db_conn: Any) -> pd.DataFrame:
     ),
     pks AS (
         SELECT
+            tc.table_catalog AS catalog,
             tc.table_schema AS schema,
             tc.table_name AS table,
             kcu.column_name,
@@ -34,12 +36,16 @@ def db_introspect(db_conn: Any) -> pd.DataFrame:
         FROM information_schema.table_constraints tc
         JOIN information_schema.key_column_usage kcu
           ON tc.constraint_name = kcu.constraint_name
+         AND tc.table_catalog = kcu.table_catalog
          AND tc.table_schema = kcu.table_schema
          AND tc.table_name = kcu.table_name
         WHERE tc.constraint_type = 'PRIMARY KEY'
     )
     SELECT
+        c.catalog,
+        c.schema,
         c.table,
+        c.catalog || '.' || c.schema || '.' || c.table AS fully_qualified_name,
         c.column_name,
         c.data_type,
         c.is_nullable,
@@ -48,10 +54,11 @@ def db_introspect(db_conn: Any) -> pd.DataFrame:
         COALESCE(p.is_primary_key, FALSE) AS is_primary_key
     FROM cols c
     LEFT JOIN pks p
-      ON c.schema = p.schema
+      ON c.catalog = p.catalog
+     AND c.schema = p.schema
      AND c.table = p.table
      AND c.column_name = p.column_name
-    ORDER BY c.schema, c.table, c.column_index;
+    ORDER BY c.catalog, c.schema, c.table, c.column_index;
     """
 
     df = db_conn.execute(cols_query).df()

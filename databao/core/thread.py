@@ -6,8 +6,8 @@ from typing_extensions import Self
 
 from databao.core.executor import ExecutionResult, OutputModalityHints
 from databao.core.opa import Opa
-from databao.dbt.errors import DbtNotEnabledError
-from databao.dbt.plan import DbtPlan
+from databao.dbtv2.errors import DbtNotEnabledError
+from databao.dbtv2.plan import DbtPlan
 
 if TYPE_CHECKING:
     from databao.core.agent import Agent
@@ -129,13 +129,13 @@ class Thread:
 
     def dbt_plan(self) -> DbtPlan:
         """
-        Create a *lazy* dbt plan based on the current thread context.
-        This is designed to be fast: it does NOT run the dbt agent.
+        Create a *lazy* dbtv2 plan based on the current thread context.
+        This is designed to be fast: it does NOT run the dbtv2 agent.
         """
         dbt_config = self._agent.dbt_config
         if dbt_config is None:
             raise DbtNotEnabledError(
-                "dbt is not enabled for this agent. "
+                "dbtv2 is not enabled for this agent. "
                 "Pass dbt_config=DbtConfig(project_dir=Path('...')) to databao.new_agent(...)."
             )
 

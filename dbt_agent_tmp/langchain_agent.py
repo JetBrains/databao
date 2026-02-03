@@ -20,7 +20,7 @@ from langchain_openai import ChatOpenAI
 from langgraph.graph.state import CompiledStateGraph
 from langsmith import trace
 
-from dbt_agent.utils import db_introspect
+from dbt_agent_tmp.utils import db_introspect
 
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
@@ -118,11 +118,11 @@ def init_run_sql(db_conn: Any):
 @record_tool_call("run_dbt")
 def run_dbt(project_dir: str, timeout: int = 300) -> str:
     """
-    Run a dbt project to update the state of the database and return a compact structured result.
+    Run a dbtv2 project to update the state of the database and return a compact structured result.
     """
     try:
         proc = subprocess.run(
-            ["dbt", "run"],
+            ["dbtv2", "run"],
             cwd=project_dir,
             capture_output=True,
             text=True,
@@ -146,11 +146,11 @@ def run_dbt(project_dir: str, timeout: int = 300) -> str:
 @record_tool_call("run_dbt_with_summary")
 def run_dbt_with_summary(project_dir: str, timeout: int = 300) -> str:
     """
-    Run a dbt project to update the state of the database and return a compact structured result.
+    Run a dbtv2 project to update the state of the database and return a compact structured result.
     """
     try:
         proc = subprocess.run(
-            ["dbt", "run"],
+            ["dbtv2", "run"],
             cwd=project_dir,
             capture_output=True,
             text=True,
@@ -168,17 +168,17 @@ def run_dbt_with_summary(project_dir: str, timeout: int = 300) -> str:
     llm_summary = ""
     try:
         system_message = (
-            "You are a data scientist specializing in databases, SQL, DuckDB, and dbt. "
-            "You are given the stdout and stderr of a `dbt run` command. "
-            "Your task is to summarize the results of the dbt run command. "
+            "You are a data scientist specializing in databases, SQL, DuckDB, and dbtv2. "
+            "You are given the stdout and stderr of a `dbtv2 run` command. "
+            "Your task is to summarize the results of the dbtv2 run command. "
             "Provide a short summary of completed tests (if any) "
             "and list the most important errors with short explanations. "
-            "Initially, the dbt project was missing some `.sql` files only. "
-            "Provided output is the result of running `dbt run` after adding the missing `.sql` files. "
-            "Briefly suggest improvements on adding more models to the dbt project or fixing specific ones if necessary. "
+            "Initially, the dbtv2 project was missing some `.sql` files only. "
+            "Provided output is the result of running `dbtv2 run` after adding the missing `.sql` files. "
+            "Briefly suggest improvements on adding more models to the dbtv2 project or fixing specific ones if necessary. "
             "Prefer adding new models over modifying YML files as they are expected to be complete."
         )
-        user_message = f"Summarize the dbt run results below. \n\nSTDOUT:\n{full_stdout}\n\nSTDERR:\n{full_stderr}"
+        user_message = f"Summarize the dbtv2 run results below. \n\nSTDOUT:\n{full_stdout}\n\nSTDERR:\n{full_stderr}"
         llm = ChatOpenAI(model="gpt-5", temperature=0.0, reasoning={"effort": "high"}, verbosity="low")
         # Call the LLM with a plain string prompt; return only the text summary.
         try:
@@ -200,17 +200,17 @@ def run_dbt_with_summary(project_dir: str, timeout: int = 300) -> str:
 @record_tool_call("dbt_deps")
 def dbt_deps(project_dir: str) -> str:
     """
-    Run a dbt deps command to update dependencies of the dbt project when failing to run run_dbt tool.
+    Run a dbtv2 deps command to update dependencies of the dbtv2 project when failing to run run_dbt tool.
 
     Args:
-        project_dir: The directory of the dbt project
+        project_dir: The directory of the dbtv2 project
 
     Returns:
-        A string containing the output of the dbt deps command
+        A string containing the output of the dbtv2 deps command
     """
     try:
         proc = subprocess.run(
-            ["dbt", "deps"],
+            ["dbtv2", "deps"],
             cwd=project_dir,
             capture_output=True,
             text=True,
@@ -344,7 +344,7 @@ def init_run_database_explore(db_conn: Any):
         the current data as a starting point.
 
         Args:
-            project_dir: The directory of the dbt project
+            project_dir: The directory of the dbtv2 project
 
         Returns:
             A markdown representation of the schema of the provided database.
@@ -401,7 +401,7 @@ def grep_tool(table_name: str) -> str:
 
 
 def assemble_dbt_project_summary(project_dir: Path, max_file_chars: int | None = 8000) -> str:
-    """Deterministically gather important dbt project files into a single string.
+    """Deterministically gather important dbtv2 project files into a single string.
 
     The function looks for `dbt_project.yml`, model schema YAMLs under `models/`,
     SQL model files under `models/`, macros, and seeds. Files are read in a
@@ -461,7 +461,7 @@ def assemble_dbt_project_summary(project_dir: Path, max_file_chars: int | None =
     if not parts:
         return f"DBT project directory present at {project_dir} but no matching files found under models/, macros/, or seeds/."
     header = (
-        f"Assembled dbt project files from {project_dir}:\n"
+        f"Assembled dbtv2 project files from {project_dir}:\n"
         f"Found {len(files)} files with content. "
         f"Listed {len(other_files)} other files by size.\n"
     )
@@ -551,7 +551,7 @@ def build_agent(
 
 def read_prompt_template(relative_path: Path) -> jinja2.Template:
     env = jinja2.Environment(
-        loader=jinja2.PackageLoader("dbt_agent", ""),
+        loader=jinja2.PackageLoader("dbt_agent_tmp", ""),
         trim_blocks=True,  # better whitespace handling
         lstrip_blocks=True,
     )
@@ -596,7 +596,7 @@ class LangchainAgent:
                     {"role": "system", "content": self.system_prompt},
                     {
                         "role": "user",
-                        "content": "Complete the dbt project. Make sure that the project builds successfully! "
+                        "content": "Complete the dbtv2 project. Make sure that the project builds successfully! "
                         "And then answer the following question.\n\n" + prompt,
                     },
                 ]
