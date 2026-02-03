@@ -93,7 +93,11 @@ class Thread:
             stream = self._stream_plot if self._stream_plot is not None else self._default_stream_plot
             self._visualization_result = self._agent.visualizer.visualize(request, data, stream=stream)
             self._visualization_request = request
-            self._meta.update(self._visualization_result.meta)
+            for key, value in self._visualization_result.meta.items():
+                # We don't want to override existing metadata keys
+                self._meta.setdefault(key, value)
+            if "messages" in self._visualization_result.meta:
+                self._meta["plot_messages"] = [m.message for m in self._visualization_result.meta["messages"]]
             self._meta["plot_code"] = self._visualization_result.code  # maybe worth to expand as a property later
         if self._visualization_result is None:
             raise RuntimeError("_visualization_result is None after materialization")
