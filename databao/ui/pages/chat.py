@@ -141,7 +141,7 @@ def _get_current_project() -> DCEProject | None:
     Project loading and auto-detection is handled by app.py.
     This just retrieves the project for chat page use.
     """
-    project = st.session_state.get("dce_project")
+    project = st.session_state.get("databao_project")
     return cast(DCEProject, project) if project is not None else None
 
 
@@ -264,7 +264,7 @@ def _render_no_build_state(project: DCEProject) -> None:
     )
 
     if st.button("🔄 Check Again"):
-        st.session_state.dce_project = None
+        st.session_state.databao_project = None
         st.rerun()
 
 

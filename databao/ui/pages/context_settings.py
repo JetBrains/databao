@@ -1,11 +1,8 @@
 """Context Settings page - DCE project configuration."""
 
-from pathlib import Path
-
 import streamlit as st
 
-from databao.dce import DCEProject, DCEProjectStatus, find_best_project
-from databao.dce.project import validate_project
+from databao.dce import DCEProject, DCEProjectStatus
 from databao.ui.app import _clear_all_chat_threads
 from databao.ui.components.sidebar import get_db_icon
 from databao.ui.components.status import AppStatus, set_status
@@ -21,77 +18,22 @@ def render_context_settings_page() -> None:
     # Current project section
     st.subheader("📊 DCE Project")
 
-    project: DCEProject | None = st.session_state.get("dce_project")
+    project: DCEProject | None = st.session_state.get("databao_project")
+    reload_clicked = False
 
     if project is not None:
-        _render_project_info(project)
+        reload_clicked = _render_project_info(project)
     else:
         st.info("No DCE project detected. Configure one below.")
 
-    st.markdown("---")
-
-    # Project path selector
-    st.subheader("🔧 Configure Project Path")
-
-    # Use stored path if available, otherwise fall back to project path
-    stored_path = st.session_state.get("dce_project_path")
-    current_path = stored_path or (str(project.path) if project else "")
-    custom_path = st.text_input(
-        "Project path",
-        value=current_path,
-        placeholder="/path/to/your/nemory-project",
-        help="Enter the path to a directory containing nemory.ini",
-    )
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        detect_clicked = st.button("🔍 Auto-detect", use_container_width=True)
-
-    with col2:
-        reload_clicked = st.button("🔄 Reload", use_container_width=True)
-
-    # Handle auto-detect
-    if detect_clicked:
-        detected = find_best_project()
-        if detected:
-            st.session_state.dce_project = detected
-            st.session_state.dce_project_path = str(detected.path)  # Store for persistence
-            # Reset agent to reinitialize with new project
-            st.session_state.agent = None
-            _clear_all_chat_threads()
-            set_status(AppStatus.INITIALIZING, "Loading detected project...")
-            st.success(f"Found project at: {detected.path}")
-            st.rerun()
-        else:
-            st.warning("No DCE project found in current directory or parent directories.")
-
     # Handle reload
     if reload_clicked:
-        # Clear project object but keep dce_project_path so it reloads from same location
-        st.session_state.dce_project = None
+        # Clear project object but keep databao_project_path so it reloads from same location
+        st.session_state.databao_project = None
         st.session_state.agent = None
         _clear_all_chat_threads()
         set_status(AppStatus.INITIALIZING, "Reloading project...")
         st.rerun()
-
-    # Handle manual path input
-    if custom_path and custom_path != current_path:
-        path = Path(custom_path).expanduser().resolve()
-        if path.is_dir():
-            validated = validate_project(path)
-            if validated.status != DCEProjectStatus.NOT_FOUND:
-                if st.button("✓ Apply", type="primary"):
-                    st.session_state.dce_project = validated
-                    st.session_state.dce_project_path = str(path)  # Store for persistence
-                    st.session_state.agent = None
-                    _clear_all_chat_threads()
-                    set_status(AppStatus.INITIALIZING, "Loading project...")
-                    st.rerun()
-            else:
-                st.error(f"No DCE project found at {path}")
-        elif custom_path:
-            st.error(f"Path does not exist: {path}")
 
     st.markdown("---")
 
@@ -110,21 +52,29 @@ def render_context_settings_page() -> None:
         _render_sources(agent)
 
 
-
-def _render_project_info(project: DCEProject) -> None:
-    """Render project information."""
+def _render_project_info(project: DCEProject) -> bool:
+    """
+    Render project information.
+    
+    Returns:
+        True if the project was reloaded, False otherwise.
+    """
     st.markdown(f"**{project.name}**")
     st.code(str(project.path), language=None)
 
     # Status indicator
     if project.status == DCEProjectStatus.VALID:
-        st.success("✓ Project is ready", icon="✅")
+        st.success("Project is ready", icon="✅")
         if project.latest_run:
             st.caption(f"Latest build: {project.latest_run}")
     elif project.status == DCEProjectStatus.NO_BUILD:
-        st.warning("⚠️ Build required - run `nemory build`", icon="⚠️")
+        st.warning("Build required - run `nemory build`", icon="⚠️")
     else:
-        st.error("❌ Project not found", icon="❌")
+        st.error("Project not found", icon="❌")
+
+    reload_clicked = st.button("🔄 Reload")
+
+    return reload_clicked
 
 
 def _render_sources(agent) -> None:

@@ -49,8 +49,8 @@ def _confirm_reset_settings() -> None:
             delete_settings()
             # Clear settings-related session state
             st.session_state.executor_type = "lighthouse"
-            st.session_state.dce_project = None
-            st.session_state.dce_project_path = None
+            st.session_state.databao_project = None
+            st.session_state.databao_project_path = None
             st.session_state.agent = None
             _clear_all_chat_threads()
             st.session_state.app_settings = None
@@ -69,8 +69,8 @@ def render_general_settings_page() -> None:
     st.subheader("📁 Storage Location")
 
     base_path = get_storage_base_path()
-    chats_dir = get_chats_dir(base_path)
-    cache_dir = get_cache_dir(base_path)
+    chats_dir = get_chats_dir()
+    cache_dir = get_cache_dir()
 
     st.markdown("**Base Path** (read-only)")
     st.code(str(base_path), language=None)

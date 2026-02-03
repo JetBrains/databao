@@ -27,6 +27,7 @@ dependencies = [
     "edaplot-vl~=0.1.4",
     "diskcache>=5.6.3",
     "sqlalchemy>=2.0.45",
+    "watchdog>=6.0.0",
 ]
 
 [project.urls]

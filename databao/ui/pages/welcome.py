@@ -62,7 +62,7 @@ def render_welcome_page() -> None:
             st.metric("Data Sources", num_sources)
 
         with stat_col3:
-            project = st.session_state.get("dce_project")
+            project = st.session_state.get("databao_project")
             status = "Ready" if project and agent else "Not ready"
             st.metric("Status", status)
 
@@ -79,7 +79,7 @@ def render_welcome_page() -> None:
                 st.rerun()
 
         with action_col2:
-            if st.button("⚙️ Configure Settings", width="stretch"):
+            if st.button("⚙️ Settings", width="stretch"):
                 context_settings_page = st.session_state.get("_page_context_settings")
                 if context_settings_page:
                     st.switch_page(context_settings_page)

@@ -9,7 +9,6 @@ import threading
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-import streamlit as st
 from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
 
 if TYPE_CHECKING:

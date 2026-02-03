@@ -6,7 +6,6 @@ import json
 import logging
 import pickle
 import shutil
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from databao.ui.services.storage import get_cache_dir, get_chat_dir, get_chats_dir
@@ -36,7 +35,7 @@ _RESULTS_DIR = "results"
 _VISUALIZATIONS_DIR = "visualizations"
 
 
-def save_chat(chat: ChatSession, base_path: Path | None = None) -> None:
+def save_chat(chat: ChatSession) -> None:
     """Save a chat session to disk.
 
     Saves:
@@ -45,9 +44,8 @@ def save_chat(chat: ChatSession, base_path: Path | None = None) -> None:
 
     Args:
         chat: The ChatSession to save
-        base_path: Optional base path override
     """
-    chat_dir = get_chat_dir(chat.id, base_path)
+    chat_dir = get_chat_dir(chat.id)
 
     # Save session JSON
     session_data = chat.to_dict()
@@ -96,19 +94,18 @@ def save_chat(chat: ChatSession, base_path: Path | None = None) -> None:
     logger.debug(f"Chat saved: {chat.id}")
 
 
-def load_chat(chat_id: str, base_path: Path | None = None) -> ChatSession | None:
+def load_chat(chat_id: str) -> ChatSession | None:
     """Load a chat session from disk.
 
     Args:
         chat_id: The chat's unique ID
-        base_path: Optional base path override
 
     Returns:
         ChatSession if found, None otherwise
     """
     from databao.ui.models.chat_session import ChatSession
 
-    chats_dir = get_chats_dir(base_path)
+    chats_dir = get_chats_dir()
     chat_dir = chats_dir / chat_id
 
     if not chat_dir.exists():
@@ -163,16 +160,13 @@ def load_chat(chat_id: str, base_path: Path | None = None) -> ChatSession | None
         return None
 
 
-def load_all_chats(base_path: Path | None = None) -> dict[str, ChatSession]:
+def load_all_chats() -> dict[str, ChatSession]:
     """Load all chat sessions from disk.
-
-    Args:
-        base_path: Optional base path override
 
     Returns:
         Dictionary mapping chat ID to ChatSession
     """
-    chats_dir = get_chats_dir(base_path)
+    chats_dir = get_chats_dir()
     chats: dict[str, ChatSession] = {}
 
     if not chats_dir.exists():
@@ -183,7 +177,7 @@ def load_all_chats(base_path: Path | None = None) -> dict[str, ChatSession]:
             continue
 
         chat_id = chat_dir.name
-        chat = load_chat(chat_id, base_path)
+        chat = load_chat(chat_id)
         if chat is not None:
             chats[chat_id] = chat
 
@@ -191,22 +185,21 @@ def load_all_chats(base_path: Path | None = None) -> dict[str, ChatSession]:
     return chats
 
 
-def delete_chat(chat_id: str, base_path: Path | None = None) -> bool:
+def delete_chat(chat_id: str) -> bool:
     """Delete a chat session and its cache data.
 
     Args:
         chat_id: The chat's unique ID
-        base_path: Optional base path override
 
     Returns:
         True if deleted successfully, False otherwise
     """
     # Load chat to get cache_scope before deleting
-    chat = load_chat(chat_id, base_path)
+    chat = load_chat(chat_id)
     cache_scope = chat.cache_scope if chat else None
 
     # Delete chat directory
-    chats_dir = get_chats_dir(base_path)
+    chats_dir = get_chats_dir()
     chat_dir = chats_dir / chat_id
 
     try:
@@ -220,7 +213,7 @@ def delete_chat(chat_id: str, base_path: Path | None = None) -> bool:
     # Delete cache scope data if available
     if cache_scope:
         try:
-            _delete_cache_scope(cache_scope, base_path)
+            _delete_cache_scope(cache_scope)
         except Exception as e:
             logger.warning(f"Failed to delete cache scope {cache_scope}: {e}")
             # Don't fail the whole operation if cache cleanup fails
@@ -228,16 +221,15 @@ def delete_chat(chat_id: str, base_path: Path | None = None) -> bool:
     return True
 
 
-def _delete_cache_scope(cache_scope: str, base_path: Path | None = None) -> None:
+def _delete_cache_scope(cache_scope: str) -> None:
     """Delete cache data for a specific scope.
 
     Args:
         cache_scope: The cache scope identifier (e.g., "agent_name/uuid")
-        base_path: Optional base path override
     """
     from databao.caches.disk_cache import DiskCache, DiskCacheConfig
 
-    cache_dir = get_cache_dir(base_path)
+    cache_dir = get_cache_dir()
     config = DiskCacheConfig(db_dir=cache_dir / "diskcache")
     cache = DiskCache(config=config)
 
@@ -251,16 +243,13 @@ def _delete_cache_scope(cache_scope: str, base_path: Path | None = None) -> None
         cache.close()
 
 
-def delete_all_chats(base_path: Path | None = None) -> int:
+def delete_all_chats() -> int:
     """Delete all chat sessions.
-
-    Args:
-        base_path: Optional base path override
 
     Returns:
         Number of chats deleted
     """
-    chats_dir = get_chats_dir(base_path)
+    chats_dir = get_chats_dir()
     deleted = 0
 
     if not chats_dir.exists():
@@ -271,11 +260,11 @@ def delete_all_chats(base_path: Path | None = None) -> int:
             continue
 
         chat_id = chat_dir.name
-        if delete_chat(chat_id, base_path):
+        if delete_chat(chat_id):
             deleted += 1
 
     # Also clear the entire cache directory for a clean slate
-    cache_dir = get_cache_dir(base_path)
+    cache_dir = get_cache_dir()
     diskcache_dir = cache_dir / "diskcache"
     if diskcache_dir.exists():
         try:

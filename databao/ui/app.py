@@ -1,5 +1,6 @@
 """Databao Streamlit Web Interface - Main Application with Multipage Navigation."""
 
+import argparse
 import logging
 from pathlib import Path
 from typing import cast
@@ -33,7 +34,6 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-
 def _load_persisted_state() -> None:
     """Load settings and chats from disk on startup."""
     from databao.ui.services.chat_persistence import load_all_chats
@@ -46,10 +46,6 @@ def _load_persisted_state() -> None:
 
         # Apply loaded settings to session state
         st.session_state.executor_type = settings.agent.executor_type
-        if settings.project.dce_project_path:
-            st.session_state.dce_project_path = settings.project.dce_project_path
-
-        logger.info(f"Settings loaded from {settings.storage.base_path}")
 
     # Load chats from disk (only once on startup)
     if "_chats_loaded" not in st.session_state:
@@ -75,11 +71,6 @@ def _save_settings_if_changed() -> None:
     current_executor = st.session_state.get("executor_type", "lighthouse")
     if settings.agent.executor_type != current_executor:
         settings.agent.executor_type = current_executor
-        changed = True
-
-    current_project_path = st.session_state.get("dce_project_path")
-    if settings.project.dce_project_path != current_project_path:
-        settings.project.dce_project_path = current_project_path
         changed = True
 
     if changed:
@@ -147,7 +138,6 @@ def _initialize_agent(project: DCEProject) -> Agent | None:
             agent.add_context(file_ctx.context_text)
 
         st.session_state.agent = agent
-        set_status(AppStatus.READY)  # Clear message on success
 
         return agent
 
@@ -168,40 +158,45 @@ def _clear_all_chat_threads() -> None:
         chat.thread = None
 
 
-def _initialize_app() -> None:
+def _initialize_app(project_dir: str):
     """Initialize app-level resources: project and agent.
 
     This is called on every rerun but returns early if already initialized.
     """
-    project = _get_current_project()
 
-    if project is None:
-        set_status(AppStatus.INITIALIZING, "Set up DCE project to continue")
+    project = _get_current_project(project_dir)
+
+    if project.status == DCEProjectStatus.NOT_FOUND:
+        set_status(AppStatus.INITIALIZING, f"DCE project not found at {project_dir}. Set up DCE project to continue")
         return
 
     if project.status == DCEProjectStatus.NO_BUILD:
         set_status(AppStatus.INITIALIZING, "Project needs build")
         return
 
-    # Initialize agent if not already done
-    if st.session_state.get("agent") is None:
-        set_status(AppStatus.INITIALIZING, "Initializing agent...")
-    _initialize_agent(project)
+    # Load persisted state (settings + chats)
+    with status_context(AppStatus.INITIALIZING, "Loading app data from disk..."):
+        _load_persisted_state()
+
+    with status_context(AppStatus.INITIALIZING, "Initializing agent..."):
+        _initialize_agent(project)
+    
+    set_status(AppStatus.READY)
 
 
 def init_session_state() -> None:
     """Initialize session state variables."""
     # Chat sessions
     if "chats" not in st.session_state:
-        st.session_state.chats = {}  # dict[str, ChatSession]
+        st.session_state.chats = {}
     if "current_chat_id" not in st.session_state:
         st.session_state.current_chat_id = None
 
     # DCE/Agent state
-    if "dce_project" not in st.session_state:
-        st.session_state.dce_project = None
-    if "dce_project_path" not in st.session_state:
-        st.session_state.dce_project_path = None  # Persists across reloads
+    if "databao_project" not in st.session_state:
+        st.session_state.databao_project = None
+    if "databao_project_path" not in st.session_state:
+        st.session_state.databao_project_path = None
     if "agent" not in st.session_state:
         st.session_state.agent = None
     if "app_status" not in st.session_state:
@@ -226,9 +221,6 @@ def init_session_state() -> None:
     # Title generation state
     if "title_futures" not in st.session_state:
         st.session_state.title_futures = {}
-
-    # Load persisted state (settings + chats)
-    _load_persisted_state()
 
 
 def _create_new_chat() -> None:
@@ -382,33 +374,26 @@ def build_navigation() -> None:
     pg.run()
 
 
-def _get_current_project():
+def _get_current_project(project_dir: str) -> DCEProject:
     """Get the current DCE project, auto-detecting if needed.
 
     This is called at app level to determine project status for all pages.
     """
-    from databao.dce import DCEProjectStatus, find_best_project
     from databao.dce.project import validate_project
 
+    project_path = Path(project_dir).expanduser().resolve()
+
     # 1. Return existing project if available
-    if st.session_state.get("dce_project") is not None:
-        return st.session_state.dce_project
+    if st.session_state.get("databao_project") is not None:
+        return st.session_state.databao_project
 
-    # 2. Try to load from stored path (persists across reloads)
-    stored_path = st.session_state.get("dce_project_path")
-    if stored_path:
-        path = Path(stored_path)
-        if path.is_dir():
-            project = validate_project(path)
-            if project.status != DCEProjectStatus.NOT_FOUND:
-                st.session_state.dce_project = project
-                return project
+    # 2. Resolve the project path and check if it is a valid DCE project
+    resolved = project_path.resolve()
 
-    # 3. Fall back to auto-detection
-    project = find_best_project()
-    if project is not None:
-        st.session_state.dce_project = project
-        st.session_state.dce_project_path = str(project.path)  # Store for persistence
+    project = validate_project(resolved)
+
+    st.session_state.databao_project = project
+    st.session_state.databao_project_path = str(project.path)
 
     return project
 
@@ -423,11 +408,21 @@ def _render_global_sidebar() -> None:
     with st.sidebar:
         render_sidebar_header()
 
-
 def main() -> None:
     """Main application entry point."""
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-d", "--project-dir", type=str, required=True, help="Location of your Databao project")
+    try:
+        args = parser.parse_args()
+    except SystemExit:
+        st.warning("Please provide a valid project directory using -d/--project-dir CLI argument")
+        st.stop()
+
+    project_dir = args.project_dir
+
     init_session_state()
-    _initialize_app()  # Project + agent initialization
+    _initialize_app(project_dir)  # Project + agent initialization
     _render_global_sidebar()  # UI only
     build_navigation()
 

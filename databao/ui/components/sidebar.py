@@ -68,7 +68,7 @@ def render_project_info(project: DCEProject | None) -> None:
         st.caption("No project selected")
         # Show Reload button even with no project
         if st.button("🔄 Reload", width="stretch", help="Reload DCE project"):
-            st.session_state.dce_project = None
+            st.session_state.databao_project = None
             st.session_state.agent = None
             _clear_all_chat_threads()
             set_status(AppStatus.INITIALIZING, "Reloading...")
@@ -91,8 +91,8 @@ def render_project_info(project: DCEProject | None) -> None:
 
     # Reload button at bottom of Project section
     if st.button("🔄 Reload", width="stretch", help="Reload DCE project"):
-        # Clear project object but keep dce_project_path so it reloads from same location
-        st.session_state.dce_project = None
+        # Clear project object but keep databao_project_path so it reloads from same location
+        st.session_state.databao_project = None
         st.session_state.agent = None
         _clear_all_chat_threads()
         set_status(AppStatus.INITIALIZING, "Reloading project...")
