@@ -20,6 +20,7 @@ from langgraph.graph.state import CompiledStateGraph, StateGraph
 from langgraph.prebuilt import InjectedState
 from typing_extensions import TypedDict
 
+from databao.duckdb.types import DbConnFactory
 from databao.configs.llm import LLMConfig
 from databao.executors.dbt.utils import db_introspect
 
@@ -72,8 +73,8 @@ class DbtProjectGraph:
     Tool names/signatures are aligned with databao/executors/dbt/system_prompt.jinja.
     """
 
-    def __init__(self, *, db_conn: Any | None = None) -> None:
-        self._db_conn = db_conn
+    def __init__(self, *, db_conn_factory: DbConnFactory | None = None) -> None:
+        self._db_conn_factory = db_conn_factory
 
     def init_state(
         self,
@@ -111,32 +112,35 @@ class DbtProjectGraph:
             Returns:
                 A markdown representation of the schema of the provided database.
             """
-            if self._db_conn is None:
-                return "ERROR: database connection was not provided."
+            if self._db_conn_factory is None:
+                return _json_dumps({"error": "Database connection factory not provided."})
+            con = self._db_conn_factory()
             try:
-                schema_df = db_introspect(self._db_conn)
+                schema_df = db_introspect(con)
                 return schema_df.to_markdown(index=False)
             except Exception as e:
                 return f"ERROR: could not introspect database: {e}"
+            finally:
+                con.close()
 
         @tool(parse_docstring=True)
-        def run_sql(sql: str, db_file: str | None = None, sample_rows: int = 5) -> str:
+        def run_sql(sql: str, sample_rows: int = 5) -> str:
             """
             Run a SQL query against the DuckDB database and return a compact JSON summary.
 
             Args:
                 sql: SQL query
-                db_file: Ignored (kept for compatibility with the system prompt/tool reference)
                 sample_rows: number of rows to include in the sample
 
             Returns:
                 JSON with keys: schema (name+dtype), row_count, sample_rows (list), truncated (bool)
             """
-            if self._db_conn is None:
-                return _json_dumps({"error": "Database connection was not provided."})
+            if self._db_conn_factory is None:
+                return _json_dumps({"error": "Database connection factory not provided."})
 
+            con = self._db_conn_factory()
             try:
-                df = self._db_conn.execute(sql).fetchdf()
+                df = con.execute(sql).fetchdf()
                 schema = [{"name": c, "dtype": str(dt)} for c, dt in zip(df.columns, df.dtypes, strict=True)]
                 sample = df.head(sample_rows).to_dict(orient="records")
                 return _json_dumps(
@@ -149,6 +153,8 @@ class DbtProjectGraph:
                 )
             except Exception as e:
                 return _json_dumps({"error": str(e)})
+            finally:
+                con.close()
 
         @tool(parse_docstring=True)
         def run_dbt(project_dir: str | None, timeout: int | None, graph_state: Annotated[DbtAgentState, InjectedState]) -> str:

@@ -1,18 +1,16 @@
 import logging
 from pathlib import Path
 
-import duckdb
 import databao
 from databao import LLMConfig
 from databao.dbt import DbtConfig
 from databao.executors.dbt.executor import DbtProjectExecutor
+from databao.duckdb.types import make_duckdb_factory
 
 logging.basicConfig(level=logging.INFO)
 
 DB_PATH = "/Users/andrei.gasparian/Documents/databao-agent/examples/shopify001/shopify.duckdb"
 DBT_PROJ_PATH = Path("/Users/andrei.gasparian/Documents/databao-agent/examples/shopify001")
-
-conn = duckdb.connect(str(DB_PATH))
 
 llm_config = LLMConfig(name="gpt-5", temperature=0, agent_recursion_limit=400)
 
@@ -22,7 +20,7 @@ agent = databao.new_agent(
     data_executor=DbtProjectExecutor(dbt_config=DbtConfig(project_dir=DBT_PROJ_PATH)),
 )
 
-agent.add_db(conn)
+agent.add_db(make_duckdb_factory(DB_PATH))
 
 thread = agent.thread(stream_ask=True)
 

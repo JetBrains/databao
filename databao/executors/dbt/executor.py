@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 import duckdb
@@ -15,6 +14,7 @@ from databao.core import Cache, ExecutionResult, Opa
 from databao.core.data_source import DBDataSource, DFDataSource, Sources
 from databao.core.executor import OutputModalityHints
 from databao.dbt.config import DbtConfig
+from databao.duckdb.types import DbConnFactory
 from databao.duckdb.utils import get_db_path, register_sqlalchemy
 from databao.executors.base import GraphExecutor
 from databao.executors.dbt.graph import DbtProjectGraph
@@ -41,9 +41,19 @@ class DbtProjectExecutor(GraphExecutor):
 
         self._prompt_template = self._read_prompt_template("system_prompt.jinja")
 
-        self._duckdb_connection = duckdb.connect(":memory:")
-        self._graph = DbtProjectGraph(db_conn=self._duckdb_connection)
+        self._attached_db_paths: dict[str, str] = {}  # name -> path
+        self._registered_dfs: dict[str, Any] = {}  # name -> DataFrame
+        self._db_conn_factory: DbConnFactory | None = None
+        self._graph = DbtProjectGraph(db_conn_factory=self._get_connection)
         self._compiled_graph: CompiledStateGraph[Any] | None = None
+
+    def _get_connection(self) -> duckdb.DuckDBPyConnection:
+        con = duckdb.connect(":memory:")
+        for name, path in self._attached_db_paths.items():
+            con.execute(f"ATTACH '{path}' AS {name} (READ_ONLY)")
+        for name, df in self._registered_dfs.items():
+            con.register(name, df)
+        return con
 
     @staticmethod
     def _read_prompt_template(template_name: str) -> jinja2.Template:
@@ -76,17 +86,16 @@ class DbtProjectExecutor(GraphExecutor):
             if path is None:
                 raise RuntimeError("Memory-based DuckDB is not supported.")
             connection.close()
-            self._duckdb_connection.execute(f"ATTACH '{path}' AS {source.name} (READ_ONLY)")
+            self._attached_db_paths[source.name] = path
             return
 
         if isinstance(connection, Engine):
-            register_sqlalchemy(self._duckdb_connection, connection, source.name)
-            return
+            raise NotImplementedError("SQLAlchemy connections require a persistent connection; not yet supported with factory pattern.")
 
         raise ValueError("Only DuckDB or SQLAlchemy connections are supported.")
 
     def register_df(self, source: DFDataSource) -> None:
-        self._duckdb_connection.register(source.name, source.df)
+        self._registered_dfs[source.name] = source.df
 
     def _get_compiled_graph(self, llm_config: LLMConfig) -> CompiledStateGraph[Any]:
         compiled_graph = self._compiled_graph or self._graph.compile(llm_config)
