@@ -18,7 +18,7 @@ thread = agent.thread()
 thread.ask(
     "Generate analytical questions that could lead to some metric generation, "
     "that you can base on tables and data available at the database shared with you."
-    "Keep it simple: I need just 3 questions, with simple, explainable to human metrics, "
+    "Keep it simple: I need just 3-7 questions, with simple, explainable to human metrics, "
     "which are not exists in the shared database. "
     "Yet the answer *should be possible* to derive from that database."
 )

@@ -26,8 +26,11 @@ agent.add_db(conn)
 thread = agent.thread(stream_ask=True)
 
 # "What is our 90-day repeat purchase rate"
+# "What share of orders use a discount code (Discount attach rate)"
+# "What is our abandoned checkout recovery rate within 7 days"
+# "How long does it take to fulfill an order?"
 thread.ask(
-    "What share of orders use a discount code (Discount attach rate)"
+    "What is our refund rate by month?"
 )
 
 print("\n=== TEXT ===\n")
