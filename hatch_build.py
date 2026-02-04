@@ -13,7 +13,7 @@ class CustomBuildHook(BuildHookInterface):
 
     def initialize(self, version: str, build_data: dict) -> None:
         root = Path(self.root)
-        client_dir = root / "client" / "multimodal"
+        client_dir = root / "client"
         client_package_json = client_dir / "package.json"
 
         # Skip build if we don't have the full client source (building from sdist)
