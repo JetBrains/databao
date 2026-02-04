@@ -248,38 +248,26 @@ def _render_and_handle_action_buttons(
     # Check if we're processing a query - buttons will be disabled
     is_processing = is_query_running(chat)
 
-    buttons_to_show: list[tuple[str, str, str]] = []  # (key, label, action)
-
-    # If no code was generated, there's nothing to show (no SQL = no data = no plot)
-    has_code = result.code is not None
     has_data = result.df is not None
-
-    # Show Data button only if code exists (SQL was generated) but df not yet fetched
-    if has_code and not has_data:
-        buttons_to_show.append(("data", "📊 Data", "generate_data"))
 
     # Plot button: only show if we have data to plot (plot requires dataframe)
     # Also check thread._data_result exists - it may be None if we failed to restore
     # the thread state from a persisted chat
-    if has_data and not has_visualization and thread._data_result is not None:
-        buttons_to_show.append(("plot", "📈 Generate Plot", "generate_plot"))
-
-    if not buttons_to_show:
+    if not (has_data and not has_visualization and thread._data_result is not None):
         return
 
-    # Render buttons in columns (disabled while processing)
-    cols = st.columns(len(buttons_to_show) + 2)  # Extra columns for spacing
+    # Render button in columns (disabled while processing)
+    cols = st.columns(3)  # Extra columns for spacing
 
-    for i, (_key, label, action) in enumerate(buttons_to_show):
-        with cols[i]:
-            button_key = f"action_{action}_{message_index}"
-            clicked = st.button(label, key=button_key, width="stretch", disabled=is_processing)
-            if clicked and not is_processing:
-                _handle_action_button(action, chat, message_index)
+    with cols[0]:
+        button_key = f"action_generate_plot_{message_index}"
+        clicked = st.button("📈 Generate Plot", key=button_key, width="stretch", disabled=is_processing)
+        if clicked and not is_processing:
+            _handle_generate_plot(chat, message_index)
 
 
-def _handle_action_button(action: str, chat: "ChatSession", message_index: int) -> None:
-    """Handle action button click by generating the missing section.
+def _handle_generate_plot(chat: "ChatSession", message_index: int) -> None:
+    """Handle Generate Plot button click.
 
     Called from within a fragment, so st.rerun() will only rerun the fragment.
     """
@@ -287,53 +275,20 @@ def _handle_action_button(action: str, chat: "ChatSession", message_index: int) 
     if thread is None:
         return
 
-    if action == "generate_data":
-        with st.spinner("Generating data..."):
-            try:
-                df = thread.df()
-                if df is None:
-                    return
+    with st.spinner("Generating visualization..."):
+        try:
+            thread.plot()
 
-                messages = chat.messages
-                if message_index < len(messages) and messages[message_index].result:
-                    old_result = messages[message_index].result
-                    messages[message_index].result = old_result.model_copy(update={"df": df})
-                # Fragment-scoped rerun to show new data
-                st.rerun()
-            except Exception as e:
-                st.error(f"Failed to generate data: {e}")
+            messages = chat.messages
+            if message_index < len(messages):
+                messages[message_index].has_visualization = True
+                messages[message_index].visualization_data = _extract_visualization_data(thread)
+                save_current_chat()
 
-    elif action == "generate_code":
-        with st.spinner("Generating code..."):
-            try:
-                code = thread.code()
-                if code is None:
-                    return
-
-                messages = chat.messages
-                if message_index < len(messages) and messages[message_index].result:
-                    old_result = messages[message_index].result
-                    messages[message_index].result = old_result.model_copy(update={"code": code})
-                # Fragment-scoped rerun to show new code
-                st.rerun()
-            except Exception as e:
-                st.error(f"Failed to generate code: {e}")
-
-    elif action == "generate_plot":
-        with st.spinner("Generating visualization..."):
-            try:
-                thread.plot()
-
-                messages = chat.messages
-                if message_index < len(messages):
-                    messages[message_index].has_visualization = True
-                    messages[message_index].visualization_data = _extract_visualization_data(thread)
-                    save_current_chat()
-
-                # Fragment-scoped rerun to show new visualization
-                st.rerun()
-            except Exception as e:
-                st.error(f"Failed to generate visualization: {e}")
+            # Fragment-scoped rerun to show new visualization
+            st.rerun()
+        except Exception as e:
+            st.error(f"Failed to generate visualization: {e}")
 
 
 def render_execution_result(

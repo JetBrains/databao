@@ -230,24 +230,7 @@ def render_sidebar_chat_content(project: DCEProject | None) -> None:
 
     if current_chat_id and current_chat_id in chats:
         chat = chats[current_chat_id]
-        # Use custom CSS to make button red
-        st.markdown(
-            """
-            <style>
-            div[data-testid="stButton"] button[kind="secondary"]:has(p:contains("Remove")) {
-                background-color: #ff4b4b;
-                color: white;
-                border-color: #ff4b4b;
-            }
-            div[data-testid="stButton"] button[kind="secondary"]:has(p:contains("Remove")):hover {
-                background-color: #ff3333;
-                border-color: #ff3333;
-            }
-            </style>
-            """,
-            unsafe_allow_html=True,
-        )
-        if st.button("🗑️ Remove Chat", use_container_width=True, type="secondary"):
+        if st.button("🗑️ Remove Chat", use_container_width=True, type="primary"):
             _confirm_delete_chat(current_chat_id, chat.display_title)
 
     # Footer
