@@ -1,8 +1,11 @@
+from typing import TextIO
+
 from databao.caches.in_mem_cache import InMemCache
 from databao.configs.llm import LLMConfig, LLMConfigDirectory
 from databao.core import Agent, Cache, Executor, Visualizer
 from databao.dbt.config import DbtConfig
 from databao.executors.lighthouse.executor import LighthouseExecutor
+from databao.executors.react_duckdb.executor import ReactDuckDBExecutor
 from databao.visualizers.vega_chat import VegaChatVisualizer
 
 
@@ -17,16 +20,43 @@ def new_agent(
     stream_plot: bool = False,
     lazy_threads: bool = False,
     auto_output_modality: bool = True,
+    writer: TextIO | None = None,
+    executor_type: str = "lighthouse",
     dbt_config: DbtConfig | None = None,
 ) -> Agent:
     """This is an entry point for users to create a new agent.
     Agent can't be modified after it's created. Only new data sources can be added.
+
+    Args:
+        name: Agent name (default: "default_agent")
+        llm_config: LLM configuration
+        data_executor: Custom executor (overrides executor_type if provided)
+        visualizer: Custom visualizer
+        cache: Custom cache
+        rows_limit: Max rows to materialize
+        stream_ask: Enable streaming for ask()
+        stream_plot: Enable streaming for plot()
+        lazy_threads: Enable lazy thread evaluation
+        auto_output_modality: Auto-detect output modality
+        writer: TextIO for streaming output (e.g., for Streamlit integration)
+        executor_type: Executor type ("lighthouse" or "react_duckdb")
+
+    Returns:
+        Configured Agent instance
     """
     llm_config = llm_config if llm_config else LLMConfigDirectory.DEFAULT
+
+    # Create executor if not provided
+    if data_executor is None:
+        if executor_type == "react_duckdb":
+            data_executor = ReactDuckDBExecutor(writer=writer)
+        else:
+            data_executor = LighthouseExecutor(writer=writer)
+
     return Agent(
         llm_config,
         name=name or "default_agent",
-        data_executor=data_executor or LighthouseExecutor(),
+        data_executor=data_executor,
         visualizer=visualizer or VegaChatVisualizer(llm_config),
         cache=cache or InMemCache(),
         rows_limit=rows_limit,

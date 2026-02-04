@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any
+from typing import Any, TextIO
 
 import duckdb
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
@@ -19,8 +19,8 @@ from databao.executors.lighthouse.utils import get_today_date_str, read_prompt_t
 
 
 class LighthouseExecutor(GraphExecutor):
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, writer: Any = None) -> None:
+        super().__init__(writer=writer)
         self._prompt_template = read_prompt_template(Path("system_prompt.jinja"))
 
         # Create a DuckDB connection for the agent
@@ -105,6 +105,7 @@ class LighthouseExecutor(GraphExecutor):
         *,
         rows_limit: int = 100,
         stream: bool = True,
+        writer: TextIO | None = None,
     ) -> ExecutionResult:
         compiled_graph = self._get_compiled_graph(llm_config)
         messages: list[BaseMessage] = self._process_opas(opas, cache)
@@ -121,8 +122,10 @@ class LighthouseExecutor(GraphExecutor):
         cleaned_messages = clean_tool_history(all_messages_with_system, llm_config.max_tokens_before_cleaning)
 
         init_state = self._graph.init_state(cleaned_messages, limit_max_rows=rows_limit)
-        invoke_config = RunnableConfig(recursion_limit=llm_config.agent_recursion_limit)
-        last_state = self._invoke_graph_sync(compiled_graph, init_state, config=invoke_config, stream=stream)
+        invoke_config = RunnableConfig(recursion_limit=self._graph_recursion_limit or llm_config.agent_recursion_limit)
+        last_state = self._invoke_graph_sync(
+            compiled_graph, init_state, config=invoke_config, stream=stream, writer=writer or self._writer
+        )
         execution_result = self._graph.get_result(last_state)
 
         # Update message history (excluding system message which we add dynamically)

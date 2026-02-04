@@ -1,5 +1,5 @@
 import logging
-from typing import Any
+from typing import Any, TextIO
 
 import duckdb
 from langchain_core.runnables import RunnableConfig
@@ -19,9 +19,9 @@ logger = logging.getLogger(__name__)
 
 
 class ReactDuckDBExecutor(GraphExecutor):
-    def __init__(self) -> None:
+    def __init__(self, writer: Any = None) -> None:
         """Initialize agent with lazy graph compilation."""
-        super().__init__()
+        super().__init__(writer=writer)
         self._duckdb_connection = duckdb.connect(":memory:")
         self._compiled_graph: CompiledStateGraph[Any] | None = None
 
@@ -59,6 +59,7 @@ class ReactDuckDBExecutor(GraphExecutor):
         *,
         rows_limit: int = 100,
         stream: bool = True,
+        writer: TextIO | None = None,
     ) -> ExecutionResult:
         # Get or create graph (cached after first use)
         compiled_graph = self._compiled_graph or self._create_graph(self._duckdb_connection, llm_config)
@@ -68,8 +69,10 @@ class ReactDuckDBExecutor(GraphExecutor):
 
         # Execute the graph
         init_state = {"messages": messages}
-        invoke_config = RunnableConfig(recursion_limit=llm_config.agent_recursion_limit)
-        last_state = self._invoke_graph_sync(compiled_graph, init_state, config=invoke_config, stream=stream)
+        invoke_config = RunnableConfig(recursion_limit=self._graph_recursion_limit or llm_config.agent_recursion_limit)
+        last_state = self._invoke_graph_sync(
+            compiled_graph, init_state, config=invoke_config, stream=stream, writer=writer or self._writer
+        )
         answer: AgentResponse = last_state["structured_response"]
         logger.info("Generated query: %s", answer.sql)
         df = execute_duckdb_sql(answer.sql, self._duckdb_connection, limit=rows_limit)
