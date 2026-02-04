@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
+import pandas as pd
 from langchain_core.language_models import BaseChatModel, LanguageModelInput
 from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
 from langchain_core.runnables import Runnable
@@ -56,6 +57,7 @@ class DbtAgentState(TypedDict):
     context: DbtProjectContext
     tool_calls_log: list[dict[str, Any]]
     last_sql: str | None
+    last_df: pd.DataFrame | None
     last_dbt_returncode: int | None
 
 
@@ -117,6 +119,7 @@ class DbtProjectGraph:
             context=ctx,
             tool_calls_log=[],
             last_sql=None,
+            last_df=None,
             last_dbt_returncode=None,
         )
 
@@ -157,6 +160,7 @@ class DbtProjectGraph:
             context=ctx,
             tool_calls_log=[],
             last_sql=None,
+            last_df=None,
             last_dbt_returncode=None,
         )
 
@@ -212,6 +216,7 @@ class DbtProjectGraph:
         return {
             "text": last_ai.text if last_ai else "",
             "code": state.get("last_sql"),
+            "df": state.get("last_df"),
             "messages": state["messages"],
             "tool_calls": state["tool_calls_log"],
         }
@@ -240,7 +245,7 @@ class DbtProjectGraph:
                 con.close()
 
         @tool(parse_docstring=True)
-        def run_sql(sql: str, sample_rows: int = 5) -> str:
+        def run_sql(sql: str, sample_rows: int = 5) -> dict[str, Any]:
             """
             Run a SQL query against the DuckDB database.
 
@@ -252,21 +257,23 @@ class DbtProjectGraph:
                 JSON with keys: schema, row_count, sample_rows, truncated
             """
             if self._db_conn_factory is None:
-                return _json_dumps({"error": "Database connection factory not provided."})
+                return {"error": "Database connection factory not provided."}
 
             con = self._db_conn_factory()
             try:
                 df = con.execute(sql).fetchdf()
                 schema = [{"name": c, "dtype": str(dt)} for c, dt in zip(df.columns, df.dtypes, strict=True)]
                 sample = df.head(sample_rows).to_dict(orient="records")
-                return _json_dumps({
+                return {
                     "schema": schema,
                     "row_count": int(len(df)),
                     "sample_rows": sample,
                     "truncated": bool(len(df) > sample_rows),
-                })
+                    "df": df,
+                    "sql": sql,
+                }
             except Exception as e:
-                return _json_dumps({"error": str(e)})
+                return {"error": str(e)}
             finally:
                 con.close()
 
@@ -501,17 +508,13 @@ class DbtProjectGraph:
             out_messages: list[ToolMessage] = []
             tool_log = list(state.get("tool_calls_log", []))
             last_sql = state.get("last_sql")
+            last_df = state.get("last_df")
             last_dbt_returncode = state.get("last_dbt_returncode")
 
             for tc in last.tool_calls:
                 name = tc["name"]
                 tool_call_id = tc["id"]
                 args = tc.get("args", {}) or {}
-
-                if name == "run_sql" and isinstance(args, dict):
-                    sql = args.get("sql")
-                    if isinstance(sql, str) and sql.strip():
-                        last_sql = sql
 
                 start = _now()
                 try:
@@ -525,10 +528,16 @@ class DbtProjectGraph:
                         ok = True
                         err = None
 
-                        # Track last dbt run result
+                        # Track last SQL result (including DataFrame)
+                        if name == "run_sql" and isinstance(result, dict):
+                            if "sql" in result:
+                                last_sql = result["sql"]
+                            if "df" in result:
+                                last_df = result["df"]
+
                         if name == "run_dbt":
                             try:
-                                parsed = json.loads(result)
+                                parsed = json.loads(result) if isinstance(result, str) else result
                                 if "returncode" in parsed:
                                     last_dbt_returncode = parsed["returncode"]
                                 elif parsed.get("timeout"):
@@ -553,12 +562,18 @@ class DbtProjectGraph:
                     )
                 )
 
-                out_messages.append(ToolMessage(content=str(result), tool_call_id=tool_call_id))
+                if isinstance(result, dict):
+                    content = _json_dumps({k: v for k, v in result.items() if k != "df"})
+                else:
+                    content = str(result)
+
+                out_messages.append(ToolMessage(content=content, tool_call_id=tool_call_id))
 
             return {
                 "messages": out_messages,
                 "tool_calls_log": tool_log,
                 "last_sql": last_sql,
+                "last_df": last_df,
                 "last_dbt_returncode": last_dbt_returncode,
             }
 

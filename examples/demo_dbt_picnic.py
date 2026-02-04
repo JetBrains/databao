@@ -38,3 +38,6 @@ print(thread.text())
 
 print("\n=== CODE ===\n")
 print(thread.code())
+
+print("\n=== Dataframe ===\n")
+print(thread.df())

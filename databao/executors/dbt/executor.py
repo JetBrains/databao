@@ -213,7 +213,7 @@ class DbtProjectExecutor(GraphExecutor):
 
         execution_result = ExecutionResult(
             text=str(result.get("text", "")),
-            df=None,
+            df=result.get("df"),
             code=result.get("code"),
             meta={
                 "messages": final_messages or [],
