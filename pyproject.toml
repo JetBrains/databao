@@ -54,11 +54,11 @@ fallback-version = "0.0.0"  # https://github.com/ninoseki/uv-dynamic-versioning/
 bump = true
 
 [tool.hatch.build.targets.sdist]
-include = ["/databao", "/client/out"]
+include = ["/databao"]
 force-include = { "client/out" = "client/out" }
 
 [tool.hatch.build.targets.wheel]
-include = ["/databao", "/client/out"]
+include = ["/databao"]
 force-include = { "client/out" = "client/out" }
 
 [tool.hatch.build.hooks.custom]
