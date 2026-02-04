@@ -12,6 +12,7 @@ from databao.dbt.config import DbtConfig
 from databao.duckdb.types import DbConnFactory
 
 if TYPE_CHECKING:
+    from databao.configs.agent import AgentConfig
     from databao.configs.llm import LLMConfig
     from databao.core.cache import Cache
     from databao.core.executor import Executor
@@ -27,6 +28,7 @@ class Agent:
     def __init__(
         self,
         llm: "LLMConfig",
+        agent_config: "AgentConfig",
         data_executor: "Executor",
         visualizer: "Visualizer",
         cache: "Cache",
@@ -42,6 +44,7 @@ class Agent:
         self.__name = name
         self.__llm = llm.new_chat_model()
         self.__llm_config = llm
+        self.__agent_config = agent_config
 
         self.__sources: Sources = Sources(dfs={}, dbs={}, additional_context=[])
 
@@ -192,6 +195,10 @@ class Agent:
     @property
     def llm_config(self) -> "LLMConfig":
         return self.__llm_config
+
+    @property
+    def agent_config(self) -> "AgentConfig":
+        return self.__agent_config
 
     @property
     def executor(self) -> "Executor":

@@ -1,0 +1,22 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+.eslintcache
+*.local
+.nx
+graph.json
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+**/node_modules
+**/build
+**/dist

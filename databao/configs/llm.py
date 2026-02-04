@@ -49,17 +49,11 @@ class LLMConfig(BaseModel):
     model_kwargs: dict[str, Any] = Field(default_factory=dict)
     """Additional kwargs for the model constructor."""
 
-    agent_recursion_limit: int = 50
-    """Maximum recursion depth for LLM agent execution."""
-
-    parallel_tool_calls: bool = True
-    """Whether agent is allowed to call several tools in one response."""
-
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     def _resolve_timeout(self) -> float | None:
         if self.timeout == "auto":
-            return 360 if _is_reasoning_model(self.name) else 60
+            return 360 if is_reasoning_model(self.name) else 60
         else:
             return self.timeout
 
@@ -72,7 +66,7 @@ class LLMConfig(BaseModel):
             # Use the verbatim name if using an OAI server
             model_name = self.name if self.api_base_url is not None else name
 
-            is_reasoning = _is_reasoning_model(model_name)
+            is_reasoning = is_reasoning_model(model_name)
             extra_kwargs: dict[str, Any] = {}
             if self.use_responses_api:
                 extra_kwargs.update(
@@ -153,17 +147,17 @@ class LLMConfig(BaseModel):
         return cls.model_validate(model_dict)
 
 
-def _is_reasoning_model(model_name: str) -> bool:
+def is_reasoning_model(model_name: str) -> bool:
     """Check if a model is a reasoning model based on its name."""
     return any(prefix in model_name for prefix in _OPENAI_REASONING_INFIXES)
 
 
-def _is_openai_model(model_name: str) -> bool:
+def is_openai_model(model_name: str) -> bool:
     """Check if a model is an OpenAI model based on its name."""
     return any(model_name.startswith(prefix) for prefix in _OPENAI_PREFIXES)
 
 
-def _is_anthropic_model(model_name: str) -> bool:
+def is_anthropic_model(model_name: str) -> bool:
     """Check if a model is an Anthropic model based on its name."""
     return any(model_name.startswith(prefix) for prefix in _ANTHROPIC_PREFIXES)
 
@@ -172,9 +166,9 @@ def _parse_model_provider(model: str) -> tuple[str, str]:
     """Parse the provider and model name from a string of the form 'provider:name' or 'name'."""
     provider, sep, name = model.partition(":")
     if len(sep) == 0 and len(name) == 0:
-        if _is_openai_model(model):
+        if is_openai_model(model):
             return "openai", model
-        elif _is_anthropic_model(model):
+        elif is_anthropic_model(model):
             return "anthropic", model
         else:
             return "", model

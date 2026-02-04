@@ -1,6 +1,7 @@
 from typing import TextIO
 
 from databao.caches.in_mem_cache import InMemCache
+from databao.configs.agent import DEFAULT_AGENT_CONFIG, AgentConfig
 from databao.configs.llm import LLMConfig, LLMConfigDirectory
 from databao.core import Agent, Cache, Executor, Visualizer
 from databao.dbt.config import DbtConfig
@@ -12,6 +13,7 @@ from databao.visualizers.vega_chat import VegaChatVisualizer
 def new_agent(
     name: str | None = None,
     llm_config: LLMConfig | None = None,
+    agent_config: AgentConfig | None = None,
     data_executor: Executor | None = None,
     visualizer: Visualizer | None = None,
     cache: Cache | None = None,
@@ -45,6 +47,7 @@ def new_agent(
         Configured Agent instance
     """
     llm_config = llm_config if llm_config else LLMConfigDirectory.DEFAULT
+    agent_config = agent_config if agent_config else DEFAULT_AGENT_CONFIG
 
     # Create executor if not provided
     if data_executor is None:
@@ -55,6 +58,7 @@ def new_agent(
 
     return Agent(
         llm_config,
+        agent_config,
         name=name or "default_agent",
         data_executor=data_executor,
         visualizer=visualizer or VegaChatVisualizer(llm_config),

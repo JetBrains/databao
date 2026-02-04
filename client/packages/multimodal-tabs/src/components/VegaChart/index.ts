@@ -1,0 +1,1 @@
+export { VegaChart } from "./VegaChart";

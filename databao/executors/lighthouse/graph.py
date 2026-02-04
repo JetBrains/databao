@@ -14,6 +14,8 @@ from langgraph.graph.state import CompiledStateGraph, StateGraph
 from langgraph.prebuilt import InjectedState
 from typing_extensions import TypedDict
 
+from databao.configs import llm
+from databao.configs.agent import AgentConfig
 from databao.configs.llm import LLMConfig
 from databao.core import ExecutionResult
 from databao.duckdb.react_tools import execute_duckdb_sql
@@ -152,13 +154,17 @@ class ExecuteSubmit:
         tools = [run_sql_query, submit_result]
         return tools
 
-    def compile(self, model_config: LLMConfig) -> CompiledStateGraph[Any]:
+    def compile(self, model_config: LLMConfig, agent_config: AgentConfig) -> CompiledStateGraph[Any]:
         tools = self.make_tools()
         llm_model = model_config.new_chat_model()
 
-        model_with_tools = self._model_bind_tools(
-            llm_model, tools, parallel_tool_calls=model_config.parallel_tool_calls
-        )
+        if llm.is_openai_model(model_config.name):
+            # Only OpenAI models support parallel tool calls parameter
+            model_with_tools = self._model_bind_tools(
+                llm_model, tools, parallel_tool_calls=agent_config.parallel_tool_calls
+            )
+        else:
+            model_with_tools = self._model_bind_tools(llm_model, tools)
 
         def llm_node(state: AgentState) -> dict[str, Any]:
             messages = state["messages"]
