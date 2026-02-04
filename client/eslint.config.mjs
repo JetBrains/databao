@@ -3,18 +3,18 @@ import { fileURLToPath } from "url";
 
 import js from "@eslint/js";
 import globals from "globals";
-import importPlugin from "eslint-plugin-import";
-import perfectionist from "eslint-plugin-perfectionist";
-import reactPlugin from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
+import perfectionist from "eslint-plugin-perfectionist";
+import reactPlugin from "eslint-plugin-react";
+import importPlugin from "eslint-plugin-import";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default tseslint.config(
   {
-    ignores: ["**/dist/**", "**/node_modules/**", "**/build/**", "**/*.d.ts"],
+    ignores: ["**/dist/**", "**/node_modules/**", "**/build/**"],
   },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],

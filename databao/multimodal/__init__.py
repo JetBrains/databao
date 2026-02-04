@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from databao.core.thread import Thread
 
 
-TEMPLATE_PATH = Path(__file__).parent.parent.parent / "client" / "out" / "index.html"
+TEMPLATE_PATH = Path(__file__).parent.parent.parent / "client" / "out" / "multimodal-html" / "index.html"
 DATA_PLACEHOLDER = "window.__DATA__ = null;"
 
 

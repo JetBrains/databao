@@ -1,0 +1,26 @@
+{
+  "name": "@databao/multimodal-html",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "nx build:pckg @databao/multimodal-html",
+    "build:pckg": "tsc && NODE_ENV=production vite build"
+  },
+  "dependencies": {
+    "@databao/multimodal-tabs": "workspace:*",
+    "@radix-ui/themes": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "vite": "catalog:",
+    "vite-plugin-html": "3.2.2",
+    "vite-plugin-singlefile": "2.0.2"
+  }
+}
