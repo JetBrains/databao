@@ -45,7 +45,7 @@ ui = [
     "click>=8.0.0",
     "pyyaml>=6.0",
     "uuid6>=2024.7.10",
-    "databao-context-engine>=0.1.4dev",
+    "databao-context-engine==0.1.6",
 ]
 
 [build-system]

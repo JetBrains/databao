@@ -4,9 +4,9 @@ from databao_context_engine import DatasourceType
 from databao.databases.database_adapter import DatabaseAdapter
 from databao.databases.database_connection import DBConnection, DBConnectionConfig, DBConnectionRuntime
 
-DUCKDB_TYPE = DatasourceType(full_type="databases/duckdb")
+DUCKDB_TYPE = DatasourceType(full_type="duckdb")
 
-DATABASE_KEY = "database"
+DATABASE_KEY = "database_path"
 
 
 class DuckDBAdapter(DatabaseAdapter):
@@ -36,7 +36,7 @@ class DuckDBAdapter(DatabaseAdapter):
 
     @classmethod
     def register_in_duckdb(cls, shared_conn: DuckDBPyConnection, config: DBConnectionConfig, name: str) -> None:
-        database = config.content.get(DATABASE_KEY)
+        database = config.content.get("connection", {}).get(DATABASE_KEY)
         shared_conn.execute(f"ATTACH '{database}' AS {name} (READ_ONLY);")
 
     @staticmethod

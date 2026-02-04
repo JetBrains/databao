@@ -9,6 +9,7 @@ from databao_context_engine import (
 )
 from databao_context_engine.datasources.datasource_discovery import discover_datasources, logger, prepare_source
 from databao_context_engine.datasources.types import PreparedDatasource
+from databao_context_engine.project.layout import ProjectLayout
 
 
 class DatabaoContextProjectManagerApi:
@@ -23,7 +24,7 @@ class DatabaoContextProjectManagerApi:
     # TODO (dce): should be implemented on the DCE side
     def get_prepared_datasource_list(self) -> list[PreparedDatasource]:
         result = []
-        for discovered_datasource in discover_datasources(project_dir=self.project_dir):
+        for discovered_datasource in discover_datasources(project_layout=self.project_layout):
             try:
                 prepared_source = prepare_source(discovered_datasource)
             except Exception as e:
@@ -39,3 +40,7 @@ class DatabaoContextProjectManagerApi:
     @property
     def project_dir(self) -> Path:
         return self._delegate.project_dir
+
+    @property
+    def project_layout(self) -> ProjectLayout:
+        return self._delegate._project_layout
