@@ -78,7 +78,7 @@ class VegaChatVisualizer(Visualizer):
     def _process_result(self, state: VegaChatState, spec_df: pd.DataFrame) -> VegaChatResult:
         # Use the possibly transformed dataframe tied to the generated spec
         model_out = state["messages"][-1]
-        text = model_out.message.text()
+        text = model_out.message.text
         meta = {"messages": state["messages"]}  # Full history. Also used for edit follow ups.
         spec = model_out.spec
         spec_json = json.dumps(spec, indent=2) if spec is not None else None

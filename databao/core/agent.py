@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import TYPE_CHECKING, TextIO
+from typing import TYPE_CHECKING, TextIO, Protocol, cast
 
 from duckdb import DuckDBPyConnection
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -10,21 +10,69 @@ from databao.core.data_source import DBDataSource, DFDataSource, Sources
 from databao.core.thread import Thread
 
 if TYPE_CHECKING:
+    from databao.configs.agent import AgentConfig
     from databao.configs.llm import LLMConfig
     from databao.core.cache import Cache
     from databao.core.executor import Executor
     from databao.core.visualizer import Visualizer
 
 
-class Agent:
+class Agent(Protocol):
     """An agent manages all databases and Dataframes as well as the context for them.
     Agent determines what LLM to use, what executor to use and how to visualize data for all threads.
     Several threads can be spawned out of the agent.
     """
 
+    def thread(
+        self,
+        *,
+        stream_ask: bool | None = None,
+        stream_plot: bool | None = None,
+        lazy: bool | None = None,
+        auto_output_modality: bool | None = None,
+    ) -> Thread:
+        """Start a new thread in this agent."""
+        ...
+
+    @property
+    def sources(self) -> Sources: ...
+
+    @property
+    def dbs(self) -> dict[str, DBDataSource]: ...
+
+    @property
+    def dfs(self) -> dict[str, DFDataSource]: ...
+
+    @property
+    def name(self) -> str: ...
+
+    @property
+    def llm(self) -> BaseChatModel: ...
+
+    @property
+    def llm_config(self) -> "LLMConfig": ...
+
+    @property
+    def agent_config(self) -> "AgentConfig": ...
+
+    @property
+    def executor(self) -> "Executor": ...
+
+    @property
+    def visualizer(self) -> "Visualizer": ...
+
+    @property
+    def cache(self) -> "Cache": ...
+
+    @property
+    def additional_context(self) -> list[str]: ...
+
+
+class AgentV1(Agent):
     def __init__(
         self,
         llm: "LLMConfig",
+        agent_config: "AgentConfig",
         data_executor: "Executor",
         visualizer: "Visualizer",
         cache: "Cache",
@@ -39,6 +87,7 @@ class Agent:
         self.__name = name
         self.__llm = llm.new_chat_model()
         self.__llm_config = llm
+        self.__agent_config = agent_config
 
         self.__sources: Sources = Sources(dfs={}, dbs={}, additional_context=[])
 
@@ -146,8 +195,9 @@ class Agent:
         """
         if not self.__sources.dbs and not self.__sources.dfs:
             raise ValueError("No databases or dataframes registered in this agent.")
+        # noinspection PyTypeChecker
         return Thread(
-            self,
+            cast(Agent, self),
             rows_limit=self.__rows_limit,
             stream_ask=stream_ask if stream_ask is not None else self.__stream_ask,
             stream_plot=stream_plot if stream_plot is not None else self.__stream_plot,
@@ -182,6 +232,10 @@ class Agent:
     @property
     def llm_config(self) -> "LLMConfig":
         return self.__llm_config
+
+    @property
+    def agent_config(self) -> "AgentConfig":
+        return self.__agent_config
 
     @property
     def executor(self) -> "Executor":

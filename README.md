@@ -1,24 +1,75 @@
-# Databao: NL queries for data
+[![official project](https://jb.gg/badges/official.svg)](https://github.com/JetBrains#jetbrains-on-github)
+[![PyPI version](https://img.shields.io/pypi/v/databao.svg)](https://pypi.org/project/databao)
+[![Python versions](https://img.shields.io/pypi/pyversions/databao.svg)](https://pypi.org/project/databao/)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/JetBrains/databao/blob/main/LICENSE)
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1zYAlVbuOfIA3Ux5LVahM2eBU7wJplO48?usp=sharing)
 
-Natural‑language queries for your data — connect SQL databases and DataFrames, ask questions in plain English, and get tables, plots, and explanations back. 
-Databao runs agents on top of dataframes and your DB connections, and can use both cloud and local LLMs.
+<h1 align="center">Databao Agent</h1>
 
+<p align="center">
+ <b>Talk to your data in plain English.</b><br/>
+ Ask questions → Get answers (Text, SQL, and interactive visual insights).
+</p>
 
-## Overview
-- Ask questions like “list all German shows” or “plot revenue by month”.
-- Works with SQLAlchemy engines and in‑memory DataFrames.
-- Built‑in visualization via a Vega‑Lite chat visualizer.
-- Pluggable LLMs: OpenAI/Anthropic or local models via Ollama or any OpenAI‑compatible server.
+<p align="center">
+ <a href="https://databao.app">Website</a> •
+ <a href="#quickstart">Quickstart</a> •
+ <a href="#local-models">Local models</a> •
+ <a href="#contributing">Contributing</a> •
+ <a href="https://discord.gg/hEUqCcWdVh">Discord</a>
+</p>
+
+---
+
+## What is Databao Agent?
+
+Databao Agent is an **open-source AI agent** that lets you query your data sources using natural language. 
+
+Simply ask:
+- *"Show me all German shows"*
+- *"Plot revenue by month"*
+- *"Which customers churned last quarter?"*
+
+Get back **tables, charts, and explanations** — no SQL or code needed.
+
+<p align="center">
+ <img src="https://databao.app/agent.png" alt="Databao Agent Demo" width="500">
+</p>
+
+## Why choose Databao Agent?
+
+| Feature                   | What it means for you                                                |
+|:--------------------------|:---------------------------------------------------------------------|
+| **Interactive outputs**   | Tables you can sort/filter and charts you can zoom/hover (Vega-Lite) |
+| **Simple, Pythonic API**  | `thread.ask("question").df()`just works                              |
+| **Python-native**         | Fits perfectly into existing data science and exploratory workflows  |
+| **Natural language**      | Ask questions about your data just like asking a colleague           |
+| **Broad DB support**      | PostgreSQL, MySQL, SQLite, DuckDB... anything SQLAlchemy supports    |
+| **Auto-generated charts** | Get Vega-Lite visualizations without writing plotting code           |
+| **Local first**           | Use Ollama or LM Studio — your data never leaves your machine        |
+| **Cloud LLM ready**       | Built-in support for OpenAI, Anthropic, and OpenAI-compatible APIs   |
+| **Conversational**        | Maintains context for follow-up questions and iterative analysis     |
 
 ## Installation
-Using pip:
+
 ```bash
 pip install databao
 ```
 
+## Supported data sources
+
+* <img src="https://cdn.simpleicons.org/pandas/150458" width="16" height="16" alt=""> Pandas DataFrame
+* <img src="https://cdn.simpleicons.org/postgresql/316192" width="16" height="16" alt=""> PostgreSQL
+* <img src="https://cdn.simpleicons.org/mysql/4479A1" width="16" height="16" alt=""> MySQL
+* <img src="https://cdn.simpleicons.org/sqlite/003B57" width="16" height="16" alt=""> SQLite
+* <img src="https://cdn.simpleicons.org/duckdb/FFF000" width="16" height="16" alt=""> DuckDB
+
+For PostgreSQL, MySQL, and SQLite, pass a SQLAlchemy `Engine` to `add_db()`. For DuckDB, pass `DuckDBPyConnection`.
+
 ## Quickstart
 
-### 1) Create a database connection (SQLAlchemy)
+### 1. Create a database connection (SQLAlchemy)
+
 ```python
 import os
 from sqlalchemy import create_engine
@@ -29,18 +80,19 @@ host = os.environ.get("DATABASE_HOST")
 database = os.environ.get("DATABASE_NAME")
 
 engine = create_engine(
-    f"postgresql://{user}:{password}@{host}/{database}"
+   f"postgresql://{user}:{password}@{host}/{database}"
 )
 ```
 
-### 2) Open a databao agent and register sources
+### 2. Create a Databao agent and register sources
 
 ```python
 import databao
 from databao import LLMConfig
 
-# Option A - Local: install and run any compatible local LLM. For list of compatible models, see: "Local models" below 
-# llm = LLMConfig(name="ollama:gpt-oss:20b", temperature=0)
+# Option A - Local: install and run any compatible local LLM
+# For list of compatible models, see "Local Models" below
+# llm_config = LLMConfig(name="ollama:gpt-oss:20b", temperature=0)
 
 # Option B - Cloud (requires an API key, e.g. OPENAI_API_KEY)
 llm_config = LLMConfig(name="gpt-4o-mini", temperature=0)
@@ -50,7 +102,7 @@ agent = databao.new_agent(name="demo", llm_config=llm_config)
 agent.add_db(engine)
 ```
 
-### 3) Ask questions and materialize results
+### 3. Ask questions and materialize results
 
 ```python
 # Start a conversational thread
@@ -71,53 +123,78 @@ print(plot.code)  # access generated plot code if needed
 ## Environment variables
 
 Specify your API keys in the environment variables:
-- `OPENAI_API_KEY` — if using OpenAI models
-- `ANTHROPIC_API_KEY` — if using Anthropic models
-- Optional for local/OAI‑compatible servers:
-  - `OPENAI_BASE_URL` (aka `api_base_url` in code)
-  - `OLLAMA_HOST` (e.g., `127.0.0.1:11434`)
 
-## Local models
-Databao can be used with local LLMs either using Ollama or OpenAI‑compatible servers (LM Studio, llama.cpp, etc.).
+| Variable            | Description                                          |
+|:--------------------|:-----------------------------------------------------|
+| `OPENAI_API_KEY`    | Required for OpenAI models or OpenAI-compatible APIs |
+| `ANTHROPIC_API_KEY` | Required for Anthropic models                        |
+
+Optional for local/OpenAI-compatible servers:
+
+| Variable          | Description                                     |
+|:------------------|:------------------------------------------------|
+| `OPENAI_BASE_URL` | Custom endpoint (aka `api_base_url` in code)    |
+| `OLLAMA_HOST`     | Ollama server address (e.g., `127.0.0.1:11434`) |
+
+## Local Models
+
+Databao agent works great with local LLMs — your data never leaves your machine.
 
 ### Ollama
-1. Install [Ollama](https://ollama.com/download) for your OS and make sure it is running. 
-2. Use an `LLMConfig` with `name` of the form `"ollama:<model_name>"`.
-   For example, `LLMConfig(name="ollama:gpt-oss:20b", temperature=0)`
 
-The model will be downloaded automatically if it doesn't already exist. Alternatively, run `ollama pull <model_name>` to download it manually.
+1. Install [Ollama](https://ollama.com/download) for your OS and make sure it’s running
+2. Use an `LLMConfig` with `name` of the form `"ollama:<model_name>"`:
 
-### OpenAI‑compatible servers
-You can use any OpenAI‑compatible server by setting `api_base_url` in the `LLMConfig`.
+   ```python
+   llm_config = LLMConfig(name="ollama:gpt-oss:20b", temperature=0)
+   ```
+
+   The model will be downloaded automatically if it doesn't exist. Or run `ollama pull <model_name>` to download manually.
+
+### OpenAI-compatible servers
+
+You can use any OpenAI-compatible server by setting `api_base_url` in the `LLMConfig`.
+
 For an example, see `examples/configs/qwen3-8b-oai.yaml`.
 
-Examples of compatible servers:
-- LM Studio (macOS‑friendly; supports the OpenAI Responses API)
-- Ollama (`OLLAMA_HOST=127.0.0.1:8080 ollama serve`)
-- llama.cpp (`llama-server`)
-- vLLM
+**Compatible servers:**
+* [LM Studio](https://lmstudio.ai/): macOS-friendly, supports OpenAI Responses API
+* [Ollama](https://ollama.com/): `OLLAMA_HOST=127.0.0.1:8080 ollama serve`
+* [llama.cpp](https://github.com/ggerganov/llama.cpp): `llama-server`
+* [vLLM](https://github.com/vllm-project/vllm)
 
+## Alternatives
 
+How does Databao agent compare to other agentic data tools?
+
+| Tool        | Open source | Local LLMs             | SQL + DataFrames | Multiple sources   | Interactive output |
+|-------------|-------------|------------------------|------------------|--------------------|--------------------|
+| **Databao** | ✅           | ✅ Native Ollama        | ✅ Both           | ✅ Multiple sources | ✅ Tables + charts  |
+| PandasAI    | ✅           | ✅ Ollama/LM Studio     | ✅ Both           | ❌ One source       | ❌ Static           |
+| Chat2DB     | ✅           | ✅ Custom LLM, SQL only | ❌ One DB         | ✅ Dashboards       |
+| Vanna       | ✅           | ✅ Ollama               | SQL only         | ❌ One DB           | ✅ Plotly           |
 
 ## Development
 
-Installation using uv (for development):
+### Installation (using uv)
 
 Clone this repo and run:
+
 ```bash
-# Install dependencies for the library
+# Install dependencies
 uv sync
 
 # Optionally include example extras (notebooks, dotenv)
 uv sync --extra examples
 ```
 
-We recommend using the same version of uv as the one used in GitHub Actions:
+We recommend using the same version of uv as GitHub Actions:
+
 ```bash
 uv self update 0.9.5
 ```
 
-Using Makefile targets:
+### Makefile targets
 
 ```bash
 # Lint and static checks (pre-commit on all files)
@@ -127,7 +204,7 @@ make check
 make test
 ```
 
-Using uv directly:
+### Direct commands
 
 ```bash
 uv run pytest -v
@@ -135,17 +212,41 @@ uv run pre-commit run --all-files
 ```
 
 ### Tests
-- Test suite uses `pytest`.
-- Some tests are marked `@pytest.mark.apikey` and require provider API keys.
 
-Run all tests:
+The test suite uses pytest. Some tests require API keys and are marked with `@pytest.mark.apikey`.
 
 ```bash
+# Run all tests
 uv run pytest -v
-```
 
-Run only tests that do NOT require API keys:
-
-```bash
+# Run only tests that do NOT require API keys
 uv run pytest -v -m "not apikey"
 ```
+
+## Contributing
+
+We love contributions! Here’s how you can help:
+
+- ⭐ **Star this repo** — it helps others find us!
+- 🐛 **Found a bug?** [Open an issue](https://github.com/JetBrains/databao-agent/issues)
+- 💡 **Have an idea?** We’re all ears — create a feature request
+- 👍 **Upvote issues** you care about — helps us prioritize
+- 🔧 **Submit a PR**
+- 📝 **Improve docs** — typos, examples, tutorials — everything helps!
+
+New to open source? No worries! We’re friendly and happy to help you get started.
+
+## License
+
+Apache 2.0 — use it however you want. See the [LICENSE](LICENSE.md) file for details.
+
+---
+
+<p align="center">
+ <b>Like Databao? </b> Give us a ⭐! It will help to distribute the technology.
+</p>
+
+<p align="center">
+ <a href="https://databao.app">Website</a> •
+ <a href="https://discord.gg/hEUqCcWdVh">Discord</a>
+</p>

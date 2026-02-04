@@ -15,7 +15,5 @@ dist/
 .idea/
 .ipynb_checkpoints/
 
-.cursor/debug.log
-.cursor/plans/
-
-*.code-workspace
+# Client build artifacts
+client/out

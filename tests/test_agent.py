@@ -1,3 +1,6 @@
+import collections.abc
+import shutil
+import uuid
 from pathlib import Path
 
 import duckdb
@@ -6,6 +9,7 @@ import pytest
 
 import databao
 from databao.configs import LLMConfigDirectory
+from databao.core import AgentV1
 
 
 @pytest.fixture
@@ -17,11 +21,26 @@ def temp_context_file(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
-def duckdb_conn() -> duckdb.DuckDBPyConnection:
-    return duckdb.connect("./examples/web_shop_orders/data/web_shop.duckdb")
+def duckdb_conn(request: pytest.FixtureRequest) -> collections.abc.Generator[duckdb.DuckDBPyConnection, None, None]:
+    root = Path(request.config.rootpath)
+    base = root / "tests/.pytest-artifacts"
+    base.mkdir(parents=True, exist_ok=True)
+
+    path = base / f"duckdb-{request.node.name}-{uuid.uuid4().hex}"
+    path.mkdir(parents=True, exist_ok=False)
+
+    src = root / "examples/web_shop_orders/data/web_shop.duckdb"
+    dst = path / "web_shop.duckdb"
+    shutil.copy2(src, dst)
+    conn = duckdb.connect(str(dst))
+    try:
+        yield conn
+    finally:
+        conn.close()
+        shutil.rmtree(path, ignore_errors=True)
 
 
-def _new_agent() -> databao.Agent:
+def _new_agent() -> AgentV1:
     llm_config = LLMConfigDirectory.DEFAULT.model_copy(update={"model_kwargs": {"api_key": "test"}})
     return databao.new_agent(llm_config=llm_config)
 

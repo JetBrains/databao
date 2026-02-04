@@ -1,8 +1,11 @@
 from typing import TextIO
 
 from databao.caches.in_mem_cache import InMemCache
+from databao.configs.agent import DEFAULT_AGENT_CONFIG, AgentConfig
 from databao.configs.llm import LLMConfig, LLMConfigDirectory
-from databao.core import Agent, Cache, Executor, Visualizer
+from databao.core import Agent, AgentV1, Cache, Executor, Visualizer
+from databao.core.v2.agent import AgentV2
+from databao.core.v2.context import Context
 from databao.executors.lighthouse.executor import LighthouseExecutor
 from databao.executors.react_duckdb.executor import ReactDuckDBExecutor
 from databao.visualizers.vega_chat import VegaChatVisualizer
@@ -11,6 +14,7 @@ from databao.visualizers.vega_chat import VegaChatVisualizer
 def new_agent(
     name: str | None = None,
     llm_config: LLMConfig | None = None,
+    agent_config: AgentConfig | None = None,
     data_executor: Executor | None = None,
     visualizer: Visualizer | None = None,
     cache: Cache | None = None,
@@ -28,6 +32,7 @@ def new_agent(
     Args:
         name: Agent name (default: "default_agent")
         llm_config: LLM configuration
+        agent_config: Agent configuration
         data_executor: Custom executor (overrides executor_type if provided)
         visualizer: Custom visualizer
         cache: Custom cache
@@ -43,6 +48,7 @@ def new_agent(
         Configured Agent instance
     """
     llm_config = llm_config if llm_config else LLMConfigDirectory.DEFAULT
+    agent_config = agent_config if agent_config else DEFAULT_AGENT_CONFIG
 
     # Create executor if not provided
     if data_executor is None:
@@ -51,8 +57,44 @@ def new_agent(
         else:
             data_executor = LighthouseExecutor(writer=writer)
 
-    return Agent(
+    return AgentV1(
         llm_config,
+        agent_config,
+        name=name or "default_agent",
+        data_executor=data_executor,
+        visualizer=visualizer or VegaChatVisualizer(llm_config),
+        cache=cache or InMemCache(),
+        rows_limit=rows_limit,
+        stream_ask=stream_ask,
+        stream_plot=stream_plot,
+        lazy_threads=lazy_threads,
+        auto_output_modality=auto_output_modality,
+    )
+
+
+def new_agent_v2(
+    context: Context,
+    name: str | None = None,
+    llm_config: LLMConfig | None = None,
+    agent_config: AgentConfig | None = None,
+    data_executor: Executor | None = None,
+    visualizer: Visualizer | None = None,
+    cache: Cache | None = None,
+    rows_limit: int = 1000,
+    stream_ask: bool = True,
+    stream_plot: bool = False,
+    lazy_threads: bool = False,
+    auto_output_modality: bool = True,
+) -> AgentV2:
+    """This is an entry point for users to create a new agent.
+    Agent can't be modified after it's created. Only new data sources can be added.
+    """
+    llm_config = llm_config if llm_config else LLMConfigDirectory.DEFAULT
+    agent_config = agent_config if agent_config else DEFAULT_AGENT_CONFIG
+    return AgentV2(
+        context,
+        llm_config,
+        agent_config,
         name=name or "default_agent",
         data_executor=data_executor,
         visualizer=visualizer or VegaChatVisualizer(llm_config),

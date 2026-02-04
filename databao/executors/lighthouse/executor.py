@@ -8,9 +8,11 @@ from langgraph.graph.state import CompiledStateGraph
 from sqlalchemy import Connection, Engine
 
 from databao.configs import LLMConfig
+from databao.configs.agent import AgentConfig
 from databao.core import Cache, ExecutionResult, Opa
 from databao.core.data_source import DBDataSource, DFDataSource, Sources
 from databao.core.executor import OutputModalityHints
+from databao.databases import DBConnectionConfig, register_in_duckdb
 from databao.duckdb.utils import describe_duckdb_schema, get_db_path, register_sqlalchemy
 from databao.executors.base import GraphExecutor
 from databao.executors.lighthouse.graph import ExecuteSubmit
@@ -32,6 +34,7 @@ class LighthouseExecutor(GraphExecutor):
         self,
         data_connection: Any,
         sources: Sources,
+        recursion_limit: int = 50,
     ) -> str:
         """Render system prompt with database schema."""
         db_schema = describe_duckdb_schema(data_connection)
@@ -50,7 +53,7 @@ class LighthouseExecutor(GraphExecutor):
         context = context.strip()
 
         prompt = self._prompt_template.render(
-            date=get_today_date_str(), db_schema=db_schema, context=context, tool_limit=self._graph_recursion_limit // 2
+            date=get_today_date_str(), db_schema=db_schema, context=context, tool_limit=recursion_limit // 2
         )
 
         return prompt.strip()
@@ -70,15 +73,17 @@ class LighthouseExecutor(GraphExecutor):
                 raise RuntimeError("Memory-based DuckDB is not supported.")
         elif isinstance(connection, Engine):
             register_sqlalchemy(self._duckdb_connection, connection, source.name)
+        elif isinstance(connection, DBConnectionConfig):
+            register_in_duckdb(self._duckdb_connection, connection, source.name)
         else:
             raise ValueError("Only DuckDB or SQLAlchemy connections are supported.")
 
     def register_df(self, source: DFDataSource) -> None:
         self._duckdb_connection.register(source.name, source.df)
 
-    def _get_compiled_graph(self, llm_config: LLMConfig) -> CompiledStateGraph[Any]:
+    def _get_compiled_graph(self, llm_config: LLMConfig, agent_config: AgentConfig) -> CompiledStateGraph[Any]:
         """Get compiled graph."""
-        compiled_graph = self._compiled_graph or self._graph.compile(llm_config)
+        compiled_graph = self._compiled_graph or self._graph.compile(llm_config, agent_config)
         self._compiled_graph = compiled_graph
 
         return compiled_graph
@@ -100,26 +105,29 @@ class LighthouseExecutor(GraphExecutor):
         opas: list[Opa],
         cache: Cache,
         llm_config: LLMConfig,
+        agent_config: AgentConfig,
         sources: Sources,
         *,
         rows_limit: int = 100,
         stream: bool = True,
         writer: TextIO | None = None,
     ) -> ExecutionResult:
-        compiled_graph = self._get_compiled_graph(llm_config)
+        compiled_graph = self._get_compiled_graph(llm_config, agent_config)
         messages: list[BaseMessage] = self._process_opas(opas, cache)
 
         # Prepend system message if not present
         all_messages_with_system = messages
         if not all_messages_with_system or all_messages_with_system[0].type != "system":
             all_messages_with_system = [
-                SystemMessage(self.render_system_prompt(self._duckdb_connection, sources)),
+                SystemMessage(
+                    self.render_system_prompt(self._duckdb_connection, sources, agent_config.recursion_limit)
+                ),
                 *all_messages_with_system,
             ]
         cleaned_messages = clean_tool_history(all_messages_with_system, llm_config.max_tokens_before_cleaning)
 
         init_state = self._graph.init_state(cleaned_messages, limit_max_rows=rows_limit)
-        invoke_config = RunnableConfig(recursion_limit=self._graph_recursion_limit)
+        invoke_config = RunnableConfig(recursion_limit=agent_config.recursion_limit)
         last_state = self._invoke_graph_sync(
             compiled_graph, init_state, config=invoke_config, stream=stream, writer=writer or self._writer
         )

@@ -28,6 +28,7 @@ dependencies = [
     "diskcache>=5.6.3",
     "sqlalchemy>=2.0.45",
     "watchdog>=6.0.0",
+    "pandas-stubs~=2.3.3",
 ]
 
 [project.urls]
@@ -65,10 +66,17 @@ bump = true
 allow-direct-references = true
 
 [tool.hatch.build.targets.sdist]
-include = ["/databao"]
+include = ["/databao", "/client/out"]
 
 [tool.hatch.build.targets.wheel]
-include = ["/databao"]
+include = ["/databao", "/client/out"]
+
+[tool.hatch.build.hooks.custom]
+path = "hatch_build.py"
+
+[tool.hatch.build.targets.sdist.hooks.custom]
+
+[tool.hatch.build.targets.wheel.hooks.custom]
 
 [dependency-groups]
 dev = [
@@ -94,6 +102,14 @@ allow_redefinition_new = true
 local_partial_types = true
 files = ["databao", "tests", "examples"]
 plugins = ["pydantic.mypy", "sqlalchemy.ext.mypy.plugin"]
+
+[[tool.mypy.overrides]]
+module = ["databao_context_engine", "databao_context_engine.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["databao.integrations.dce.*"]
+disable_error_code = ["no-any-return"]
 
 [tool.ruff]
 line-length = 120

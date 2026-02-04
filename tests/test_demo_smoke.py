@@ -6,6 +6,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
 import databao
+from databao import LLMConfig
 
 
 @pytest.fixture
@@ -36,7 +37,7 @@ def test_demo_smoke(db_engine: Engine) -> None:
     assert len(df) > 0, "Expected to get some results from the database query"
 
     # Step 2: Create a databao agent
-    agent = databao.new_agent("test_agent")
+    agent = databao.new_agent("test_agent", LLMConfig(name="gpt-5"))
     assert agent is not None
 
     # Step 3: Add database to agent
@@ -72,7 +73,7 @@ def test_consecutive_ask_calls(db_engine: Engine) -> None:
     logging.basicConfig(level=logging.INFO)
 
     # Step 1: Create databao agent
-    agent = databao.new_agent("test_consecutive_agent")
+    agent = databao.new_agent("test_consecutive_agent", LLMConfig(name="gpt-5"))
     assert agent is not None
 
     # Step 2: Add database to agent
