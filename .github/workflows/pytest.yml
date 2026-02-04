@@ -32,17 +32,17 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24.5.0"
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10.14.0
 
       - name: Install the project
         run: uv sync --locked --all-extras --dev
 
       - name: Run pytest
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}  # Real API key for integration tests
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }} # Real API key for integration tests
         run: uv run pytest tests -v
