@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
+import duckdb
 import pandas as pd
 from langchain_core.language_models import BaseChatModel, LanguageModelInput
 from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
@@ -59,6 +60,8 @@ class DbtAgentState(TypedDict):
     last_sql: str | None
     last_df: pd.DataFrame | None
     last_dbt_returncode: int | None
+    answer_sql: str | None
+    answer_df: pd.DataFrame | None
 
 
 def _now() -> float:
@@ -100,6 +103,8 @@ class DbtProjectGraph:
         self._source_project_dir: Path | None = None
         self._staged_project_dir: Path | None = None
         self._before_snapshot: dict[Path, str] | None = None
+        self._db_explored: bool = False
+        self._db_path_remaps: dict[str, str] = {}
 
     def init_state(
         self,
@@ -121,6 +126,8 @@ class DbtProjectGraph:
             last_sql=None,
             last_df=None,
             last_dbt_returncode=None,
+            answer_sql=None,
+            answer_df=None,
         )
 
     def init_state_sandboxed(
@@ -148,6 +155,11 @@ class DbtProjectGraph:
         self._staged_project_dir = staged
         self._before_snapshot = _snapshot_tree(staged)
 
+        self._db_path_remaps = {}
+        for db_file in staged.rglob("*.duckdb"):
+            original_path = source_dir / db_file.relative_to(staged)
+            self._db_path_remaps[str(original_path)] = str(db_file)
+
         pre_existing_files = [str(p.resolve()) for p in staged.rglob("*") if p.is_file()]
 
         ctx = DbtProjectContext(
@@ -162,6 +174,8 @@ class DbtProjectGraph:
             last_sql=None,
             last_df=None,
             last_dbt_returncode=None,
+            answer_sql=None,
+            answer_df=None,
         )
 
     def should_commit_sandbox(self, state: DbtAgentState) -> bool:
@@ -172,6 +186,14 @@ class DbtProjectGraph:
         """Copy changed files from sandbox back to source directory."""
         if not self._staged_project_dir or not self._source_project_dir or not self._before_snapshot:
             raise RuntimeError("No active sandbox to commit.")
+
+        for db_file in self._staged_project_dir.rglob("*.duckdb"):
+            try:
+                con = duckdb.connect(str(db_file))
+                con.execute("CHECKPOINT")
+                con.close()
+            except Exception:
+                pass
 
         after_snapshot = _snapshot_tree(self._staged_project_dir)
 
@@ -208,24 +230,29 @@ class DbtProjectGraph:
         self._source_project_dir = None
         self._staged_project_dir = None
         self._before_snapshot = None
+        self._db_path_remaps = {}
 
     def get_result(self, state: DbtAgentState) -> dict[str, Any]:
         last_ai: AIMessage | None = next(
             (m for m in reversed(state["messages"]) if isinstance(m, AIMessage)), None
         )
+        result_df = state.get("answer_df") if state.get("answer_df") is not None else state.get("last_df")
+        result_sql = state.get("answer_sql") if state.get("answer_sql") is not None else state.get("last_sql")
+
         return {
             "text": last_ai.text if last_ai else "",
-            "code": state.get("last_sql"),
-            "df": state.get("last_df"),
+            "code": result_sql,
+            "df": result_df,
             "messages": state["messages"],
             "tool_calls": state["tool_calls_log"],
+            "answer_submitted": state.get("answer_df") is not None,
         }
 
     def make_tools(self) -> list[BaseTool]:
         @tool(parse_docstring=True)
-        def run_database_explore(project_dir: str, graph_state: Annotated[DbtAgentState, InjectedState]) -> str:
+        def run_database_explore(project_dir: str) -> str:
             """
-            Explore the provided database before any transformations.
+            Explore the provided database schema. Can only be called once at the beginning.
 
             Args:
                 project_dir: The directory of the dbt project
@@ -233,12 +260,22 @@ class DbtProjectGraph:
             Returns:
                 A markdown representation of the schema of the provided database.
             """
+            if self._db_explored:
+                return (
+                    "OK: Database schema was already retrieved at the start of this session. "
+                    "Refer to the earlier run_database_explore result in the conversation. "
+                    "Use run_sql('SELECT * FROM table LIMIT 5') to explore specific tables."
+                )
+
             if self._db_conn_factory is None:
                 return _json_dumps({"error": "Database connection factory not provided."})
+
             con = self._db_conn_factory()
             try:
                 schema_df = db_introspect(con)
-                return schema_df.to_markdown(index=False)
+                result = schema_df.to_markdown(index=False)
+                self._db_explored = True
+                return result
             except Exception as e:
                 return f"ERROR: could not introspect database: {e}"
             finally:
@@ -308,6 +345,15 @@ class DbtProjectGraph:
                 )
             except subprocess.TimeoutExpired:
                 return _json_dumps({"timeout": True})
+
+            project_path = Path(project_dir_str)
+            for db_file in project_path.rglob("*.duckdb"):
+                try:
+                    con = duckdb.connect(str(db_file))
+                    con.execute("CHECKPOINT")
+                    con.close()
+                except Exception:
+                    pass  # Best effort
 
             return _json_dumps({
                 "returncode": int(proc.returncode),
@@ -479,6 +525,46 @@ class DbtProjectGraph:
                 return result[:10_000] + "\n\n...[truncated]"
             return result
 
+        @tool(parse_docstring=True)
+        def submit_answer(
+            sql: str,
+            description: str,
+            graph_state: Annotated[DbtAgentState, InjectedState],
+        ) -> dict[str, Any]:
+            """
+            Submit the final answer to the user's question. Call this AFTER you have verified your answer.
+            This marks the provided SQL as the definitive answer that will be returned to the user.
+
+            Args:
+                sql: The SQL query that produces the answer (will be executed and returned as the final DataFrame)
+                description: A brief description of what the result contains
+
+            Returns:
+                Confirmation with result summary
+            """
+            if self._db_conn_factory is None:
+                return {"_submit_answer": False, "error": "Database connection factory not provided."}
+
+            con = self._db_conn_factory()
+            try:
+                df = con.execute(sql).fetchdf()
+                return {
+                    "_submit_answer": True,
+                    "sql": sql,
+                    "description": description,
+                    "row_count": len(df),
+                    "columns": list(df.columns),
+                    "preview": df.head(5).to_dict(orient="records"),
+                    "df": df,
+                }
+            except Exception as e:
+                return {
+                    "_submit_answer": False,
+                    "error": str(e),
+                }
+            finally:
+                con.close()
+
         return [
             run_database_explore,
             run_sql,
@@ -488,6 +574,7 @@ class DbtProjectGraph:
             write_tool,
             edit_tool,
             grep_tool,
+            submit_answer,
         ]
 
     def compile(self, llm_config: LLMConfig) -> CompiledStateGraph[Any]:
@@ -510,6 +597,8 @@ class DbtProjectGraph:
             last_sql = state.get("last_sql")
             last_df = state.get("last_df")
             last_dbt_returncode = state.get("last_dbt_returncode")
+            answer_sql = state.get("answer_sql")
+            answer_df = state.get("answer_df")
 
             for tc in last.tool_calls:
                 name = tc["name"]
@@ -528,12 +617,16 @@ class DbtProjectGraph:
                         ok = True
                         err = None
 
-                        # Track last SQL result (including DataFrame)
                         if name == "run_sql" and isinstance(result, dict):
                             if "sql" in result:
                                 last_sql = result["sql"]
                             if "df" in result:
                                 last_df = result["df"]
+
+                        if name == "submit_answer" and isinstance(result, dict):
+                            if result.get("_submit_answer") and "df" in result:
+                                answer_sql = result.get("sql")
+                                answer_df = result.pop("df")
 
                         if name == "run_dbt":
                             try:
@@ -575,6 +668,8 @@ class DbtProjectGraph:
                 "last_sql": last_sql,
                 "last_df": last_df,
                 "last_dbt_returncode": last_dbt_returncode,
+                "answer_sql": answer_sql,
+                "answer_df": answer_df,
             }
 
         def should_continue(state: DbtAgentState) -> Literal["tools", "end"]:

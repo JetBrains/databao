@@ -17,7 +17,12 @@ llm_config = LLMConfig(name="gpt-5", temperature=0, agent_recursion_limit=400)
 agent = databao.new_agent(
     name="demo-dbt-executor",
     llm_config=llm_config,
-    data_executor=DbtProjectExecutor(dbt_config=DbtConfig(project_dir=DBT_PROJ_PATH)),
+    data_executor=DbtProjectExecutor(
+        dbt_config=DbtConfig(
+            project_dir=DBT_PROJ_PATH,
+        ),
+        use_sandbox=True,
+    ),
 )
 
 conn = duckdb.connect(DB_PATH)

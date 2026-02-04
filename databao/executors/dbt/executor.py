@@ -15,7 +15,7 @@ from databao.core.data_source import DBDataSource, DFDataSource, Sources
 from databao.core.executor import OutputModalityHints
 from databao.dbt.config import DbtConfig
 from databao.duckdb.types import DbConnFactory
-from databao.duckdb.utils import get_db_path, register_sqlalchemy
+from databao.duckdb.utils import get_db_path
 from databao.executors.base import GraphExecutor
 from databao.executors.dbt.graph import DbtProjectGraph
 from databao.executors.lighthouse.history_cleaning import clean_tool_history
@@ -41,31 +41,25 @@ class DbtProjectExecutor(GraphExecutor):
     ### 2. ANSWER the user's question
     Use `run_sql` to explore data and compute the answer.
 
-    ### 3. CAPTURE reusable work as dbt models
-    After answering, evaluate whether your work should be persisted:
+    ### 3. CAPTURE your work in the dbt project
+    **By default, persist your work as dbt models.** This includes:
+    - The final mart table answering the user's question
+    - Any intermediate transformations needed to produce it
+    - Use `models/marts/` for final metrics, `models/intermediate/` for supporting transforms
+    - Run `run_dbt` after creating models to verify they build
 
-    **CREATE a new model when:**
-    - You calculated a metric the user or others might need again (e.g., "repeat purchase rate", "customer LTV")
-    - You built a useful intermediate transformation (e.g., sessionized events, order-customer joins)
-    - The logic encodes business rules that shouldn't be reimplemented
+    **Skip dbt changes ONLY if:**
+    - The query is trivial exploration (e.g., "show 5 rows", "list columns", "what tables exist")
+    - The needed model already exists and is well-documented
 
-    **SKIP model creation when:**
-    - The query is a one-off exploration (e.g., "show me 5 rows from X")
-    - The transformation already exists in the project
-    - The metric is trivial and unlikely to be reused
+    ### 4. SUBMIT the answer
+    Call `submit_answer(sql, description)` with the SQL that produces the final result for the user.
 
-    **When creating models:**
-    - Place them in the appropriate folder (`staging/`, `intermediate/`, `marts/`)
-    - Use proper naming conventions (`stg_`, `int_`, `fct_`, `dim_`)
-    - Add a brief description comment at the top
-    - Run `run_dbt` to verify the new model builds
-    - Confirm the model produces correct results with `run_sql`
-
-    ### 4. VALIDATE before completing
+    ### 5. VALIDATE before completing
     Your response is not complete until:
     - [ ] `run_dbt` passes with 0 errors
-    - [ ] Your answer to the user is verified with actual query results
-    - [ ] Any new models you created are building correctly
+    - [ ] Your answer is verified with actual query results
+    - [ ] `submit_answer` has been called with the final answer SQL
     """
 
     def __init__(self, *, dbt_config: DbtConfig, use_sandbox: bool = True) -> None:
@@ -84,7 +78,8 @@ class DbtProjectExecutor(GraphExecutor):
     def _get_connection(self) -> duckdb.DuckDBPyConnection:
         con = duckdb.connect(":memory:")
         for name, path in self._attached_db_paths.items():
-            con.execute(f"ATTACH '{path}' AS {name} (READ_ONLY)")
+            actual_path = self._graph._db_path_remaps.get(path, path)
+            con.execute(f"ATTACH '{actual_path}' AS {name} (READ_ONLY)")
         for name, df in self._registered_dfs.items():
             con.register(name, df)
         return con
