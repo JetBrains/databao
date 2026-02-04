@@ -49,7 +49,6 @@ def new_agent(
     llm_config = llm_config if llm_config else LLMConfigDirectory.DEFAULT
     agent_config = agent_config if agent_config else DEFAULT_AGENT_CONFIG
 
-    # Create executor if not provided
     if data_executor is None:
         if executor_type == "react_duckdb":
             data_executor = ReactDuckDBExecutor(writer=writer)

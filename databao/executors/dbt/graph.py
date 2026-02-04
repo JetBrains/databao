@@ -25,6 +25,7 @@ from langgraph.graph.state import CompiledStateGraph, StateGraph
 from langgraph.prebuilt import InjectedState
 from typing_extensions import TypedDict
 
+from databao.configs.agent import AgentConfig
 from databao.duckdb.types import DbConnFactory
 from databao.configs.llm import LLMConfig
 from databao.executors.dbt.utils import db_introspect
@@ -577,10 +578,10 @@ class DbtProjectGraph:
             submit_answer,
         ]
 
-    def compile(self, llm_config: LLMConfig) -> CompiledStateGraph[Any]:
+    def compile(self, llm_config: LLMConfig, agent_config: AgentConfig) -> CompiledStateGraph[Any]:
         tools = self.make_tools()
         llm = llm_config.new_chat_model()
-        model = self._bind_tools(llm, tools, parallel_tool_calls=llm_config.parallel_tool_calls)
+        model = self._bind_tools(llm, tools, parallel_tool_calls=agent_config.parallel_tool_calls)
 
         def llm_node(state: DbtAgentState) -> dict[str, Any]:
             response = self._call_model(model, llm_config, state["messages"])

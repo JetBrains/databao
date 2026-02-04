@@ -4,6 +4,7 @@ from pathlib import Path
 import duckdb
 import databao
 from databao import LLMConfig
+from databao.configs.agent import AgentConfig
 from databao.dbt import DbtConfig
 from databao.executors.dbt.executor import DbtProjectExecutor
 
@@ -12,16 +13,18 @@ logging.basicConfig(level=logging.INFO)
 DB_PATH = "/Users/andrei.gasparian/Documents/databao-agent/examples/shopify002/shopify.duckdb"
 DBT_PROJ_PATH = Path("/Users/andrei.gasparian/Documents/databao-agent/examples/shopify002")
 
-llm_config = LLMConfig(name="gpt-5", temperature=0, agent_recursion_limit=400)
+llm_config = LLMConfig(name="gpt-5", temperature=0)
+agent_config = AgentConfig(recursion_limit=100, parallel_tool_calls=True)
 
 agent = databao.new_agent(
     name="demo-dbt-executor",
     llm_config=llm_config,
+    agent_config=agent_config,
     data_executor=DbtProjectExecutor(
         dbt_config=DbtConfig(
             project_dir=DBT_PROJ_PATH,
         ),
-        use_sandbox=True,
+        use_sandbox=False,
     ),
 )
 

@@ -10,6 +10,7 @@ from langgraph.graph.state import CompiledStateGraph
 from sqlalchemy import Connection, Engine
 
 from databao.configs import LLMConfig
+from databao.configs.agent import AgentConfig
 from databao.core import Cache, ExecutionResult, Opa
 from databao.core.data_source import DBDataSource, DFDataSource, Sources
 from databao.core.executor import OutputModalityHints
@@ -126,8 +127,8 @@ class DbtProjectExecutor(GraphExecutor):
     def register_df(self, source: DFDataSource) -> None:
         self._registered_dfs[source.name] = source.df
 
-    def _get_compiled_graph(self, llm_config: LLMConfig) -> CompiledStateGraph[Any]:
-        compiled_graph = self._compiled_graph or self._graph.compile(llm_config)
+    def _get_compiled_graph(self, llm_config: LLMConfig, agent_config: AgentConfig) -> CompiledStateGraph[Any]:
+        compiled_graph = self._compiled_graph or self._graph.compile(llm_config, agent_config)
         self._compiled_graph = compiled_graph
         return compiled_graph
 
@@ -147,13 +148,14 @@ class DbtProjectExecutor(GraphExecutor):
         opas: list[Opa],
         cache: Cache,
         llm_config: LLMConfig,
+        agent_config: AgentConfig,
         sources: Sources,
         *,
         rows_limit: int = 100,
         stream: bool = True,
         writer: TextIO | None = None,
     ) -> ExecutionResult:
-        compiled_graph = self._get_compiled_graph(llm_config)
+        compiled_graph = self._get_compiled_graph(llm_config, agent_config)
         messages: list[BaseMessage] = self._process_opas(opas, cache)
 
         all_messages_with_system = messages
@@ -183,7 +185,7 @@ class DbtProjectExecutor(GraphExecutor):
                 dbt_timeout_seconds=self._dbt_config.dbt_timeout_seconds,
             )
 
-        invoke_config = RunnableConfig(recursion_limit=self._graph_recursion_limit or llm_config.agent_recursion_limit)
+        invoke_config = RunnableConfig(recursion_limit=self._graph_recursion_limit or agent_config.recursion_limit)
         last_state = self._invoke_graph_sync(
             compiled_graph, init_state, config=invoke_config, stream=stream, writer=writer or self._writer
         )
