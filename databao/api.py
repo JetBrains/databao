@@ -52,10 +52,13 @@ def new_agent(
 
     # Create executor if not provided
     if data_executor is None:
-        if executor_type == "react_duckdb":
-            data_executor = ReactDuckDBExecutor(writer=writer)
-        else:
-            data_executor = LighthouseExecutor(writer=writer)
+        match executor_type:
+            case "react_duckdb":
+                data_executor = ReactDuckDBExecutor(writer=writer)
+            case "lighthouse":
+                data_executor = LighthouseExecutor(writer=writer)
+            case _:
+                raise ValueError(f"Invalid executor type: {executor_type}")
 
     return AgentV1(
         llm_config,
@@ -85,12 +88,44 @@ def new_agent_v2(
     stream_plot: bool = False,
     lazy_threads: bool = False,
     auto_output_modality: bool = True,
+    executor_type: str = "lighthouse",
+    writer: TextIO | None = None,
 ) -> AgentV2:
     """This is an entry point for users to create a new agent.
     Agent can't be modified after it's created. Only new data sources can be added.
+
+    Args:
+        context: Context object containing DCE engine and sources
+        name: Agent name (default: "default_agent")
+        llm_config: LLM configuration
+        agent_config: Agent configuration
+        data_executor: Custom executor (overrides executor_type if provided)
+        visualizer: Custom visualizer
+        cache: Custom cache
+        rows_limit: Max rows to materialize
+        stream_ask: Enable streaming for ask()
+        stream_plot: Enable streaming for plot()
+        lazy_threads: Enable lazy thread evaluation
+        auto_output_modality: Auto-detect output modality
+        executor_type: Executor type ("lighthouse" or "react_duckdb")
+        writer: TextIO for streaming output (e.g., for Streamlit integration)
+
+    Returns:
+        Configured AgentV2 instance
     """
     llm_config = llm_config if llm_config else LLMConfigDirectory.DEFAULT
     agent_config = agent_config if agent_config else DEFAULT_AGENT_CONFIG
+
+    # Create executor if not provided
+    if data_executor is None:
+        match executor_type:
+            case "react_duckdb":
+                data_executor = ReactDuckDBExecutor(writer=writer)
+            case "lighthouse":
+                data_executor = LighthouseExecutor(writer=writer)
+            case _:
+                raise ValueError(f"Invalid executor type: {executor_type}")
+
     return AgentV2(
         context,
         llm_config,

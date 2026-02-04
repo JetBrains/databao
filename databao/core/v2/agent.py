@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, TextIO, cast
 
 from langchain_core.language_models.chat_models import BaseChatModel
 
@@ -66,8 +66,19 @@ class AgentV2(Agent):
         stream_plot: bool | None = None,
         lazy: bool | None = None,
         auto_output_modality: bool | None = None,
+        cache_scope: str | None = None,
+        writer: TextIO | None = None,
     ) -> Thread:
-        """Start a new thread in this agent."""
+        """Start a new thread in this agent.
+
+        Args:
+            stream_ask: Whether to stream ask responses.
+            stream_plot: Whether to stream plot generation.
+            lazy: Whether to use lazy mode.
+            auto_output_modality: Whether to auto-detect output modality.
+            cache_scope: Optional existing cache scope to restore a previous session.
+            writer: Optional TextIO for streaming output. If provided, overrides agent's default writer.
+        """
         if not self.__sources.dbs and not self.__sources.dfs:
             raise ValueError("No databases or dataframes registered in this agent.")
         # noinspection PyTypeChecker
@@ -80,6 +91,8 @@ class AgentV2(Agent):
             auto_output_modality=auto_output_modality
             if auto_output_modality is not None
             else self.__auto_output_modality,
+            cache_scope=cache_scope,
+            writer=writer,
         )
 
     @property

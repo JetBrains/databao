@@ -81,7 +81,7 @@ def set_status(status: AppStatus, message: str | None = None) -> None:
 
 @contextmanager
 def status_context(
-    status: AppStatus, message: str | None = None
+    status: AppStatus, message: str | None = None, preserve_inner_status: bool = True
 ) -> Generator[None, None, None]:
     """Temporarily set status, restore previous on exit.
 
@@ -91,6 +91,7 @@ def status_context(
     Args:
         status: AppStatus enum value (READY, INITIALIZING, ERROR)
         message: Optional message to display. If None, uses default message.
+        preserve_inner_status: If True, any inner status changes (i.e. from inside `with` code block) will be preserved.
 
     Example:
         with status_context(AppStatus.INITIALIZING, "Loading data..."):
@@ -110,6 +111,8 @@ def status_context(
         yield
     finally:
         # Pop and restore previous status
-        if st.session_state.status_stack:
-            prev_status, prev_message = st.session_state.status_stack.pop()
-            set_status(prev_status, prev_message)
+        status_not_changed_inside_block = (st.session_state.app_status == status or st.session_state.status_message == message)
+        if not preserve_inner_status or status_not_changed_inside_block:
+            if st.session_state.status_stack:
+                prev_status, prev_message = st.session_state.status_stack.pop()
+                set_status(prev_status, prev_message)

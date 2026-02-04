@@ -7,7 +7,7 @@ import streamlit as st
 
 from databao.core.agent import Agent
 from databao.core.thread import Thread
-from databao.dce import DCEProject, DCEProjectStatus
+from databao.ui.databao_project import DatabaoProject, DCEProjectStatus
 from databao.ui.app import _clear_all_chat_threads
 from databao.ui.components.chat import render_chat_interface
 from databao.ui.components.sidebar import render_sidebar_chat_content
@@ -19,7 +19,7 @@ from databao.ui.services.chat_title import check_title_completion, trigger_title
 logger = logging.getLogger(__name__)
 
 
-def _render_chat_sidebar(project: DCEProject | None) -> None:
+def _render_chat_sidebar(project: DatabaoProject | None) -> None:
     """Render chat-specific sidebar content.
 
     The header (logo + status) is rendered globally by app.py.
@@ -52,7 +52,7 @@ def render_chat_page() -> None:
         _render_no_project_state()
         return
 
-    if project.status == DCEProjectStatus.NO_BUILD:
+    if project.dce_status == DCEProjectStatus.NO_BUILD:
         # Status already set by app.py
         _render_chat_sidebar(project)
         _render_no_build_state(project)
@@ -135,14 +135,14 @@ def _get_or_create_current_chat() -> ChatSession | None:
     return chat
 
 
-def _get_current_project() -> DCEProject | None:
+def _get_current_project() -> DatabaoProject | None:
     """Get the current DCE project from session state.
 
     Project loading and auto-detection is handled by app.py.
     This just retrieves the project for chat page use.
     """
     project = st.session_state.get("databao_project")
-    return cast(DCEProject, project) if project is not None else None
+    return cast(DatabaoProject, project) if project is not None else None
 
 
 def _get_or_create_thread_for_chat(chat: ChatSession, agent: Agent) -> bool:
@@ -241,7 +241,7 @@ def _render_no_project_state() -> None:
         st.switch_page(context_settings_page)
 
 
-def _render_no_build_state(project: DCEProject) -> None:
+def _render_no_build_state(project: DatabaoProject) -> None:
     """Render state when DCE project has no build output."""
     st.title("💬 Chat")
     st.markdown("---")
@@ -273,7 +273,9 @@ def _render_error_state() -> None:
     st.title("💬 Chat")
     st.markdown("---")
 
-    st.error(st.session_state.get("status_message", "An error occurred"))
+    default_message = "An error occurred"
+    error_message = st.session_state.get("status_message", default_message) or default_message
+    st.error(error_message)
 
     if st.button("🔄 Retry"):
         st.session_state.agent = None

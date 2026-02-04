@@ -21,10 +21,10 @@ def get_storage_base_path() -> Path:
     Returns:
         Path to <databao_project_path>/ui/
     """
-    path = st.session_state.databao_project_path
-    if path is None:
+    databao_project = st.session_state.databao_project
+    if databao_project is None:
         raise RuntimeError("Databao project path not set")
-    return Path(path) / _UI_SUBDIR
+    return databao_project.databao_dir / _UI_SUBDIR
 
 
 def get_settings_path() -> Path:

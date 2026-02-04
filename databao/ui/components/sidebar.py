@@ -2,7 +2,7 @@
 
 import streamlit as st
 
-from databao.dce import DCEProject, DCEProjectStatus
+from databao.ui.databao_project import DatabaoProject, DCEProjectStatus
 from databao.ui.app import _clear_all_chat_threads
 from databao.ui.components.status import AppStatus, render_status_fragment, set_status
 from databao.ui.suggestions import reset_suggestions_state
@@ -60,7 +60,7 @@ def get_db_icon(db_type: str) -> str:
     return DB_ICONS.get(db_type.lower(), DB_ICONS["default"])
 
 
-def render_project_info(project: DCEProject | None) -> None:
+def render_project_info(project: DatabaoProject | None) -> None:
     """Render project information section with Reload button."""
     st.markdown("### 📊 Project")
 
@@ -80,18 +80,15 @@ def render_project_info(project: DCEProject | None) -> None:
     st.caption(str(project.path))
 
     # Status indicator
-    if project.status == DCEProjectStatus.VALID:
+    if project.dce_status == DCEProjectStatus.VALID:
         st.success("✓ Ready", icon="✅")
-        if project.latest_run:
-            st.caption(f"Build: {project.latest_run}")
-    elif project.status == DCEProjectStatus.NO_BUILD:
+    elif project.dce_status == DCEProjectStatus.NO_BUILD:
         st.warning("Build required", icon="⚠️")
     else:
         st.error("Not found", icon="❌")
 
     # Reload button at bottom of Project section
     if st.button("🔄 Reload", width="stretch", help="Reload DCE project"):
-        # Clear project object but keep databao_project_path so it reloads from same location
         st.session_state.databao_project = None
         st.session_state.agent = None
         _clear_all_chat_threads()
@@ -122,12 +119,15 @@ def render_sources_info() -> None:
     for name, source in dbs.items():
         # Try to determine DB type from connection
         conn = source.db_connection
-        db_type = type(conn).__name__
-        if "duckdb" in db_type.lower():
-            icon = get_db_icon("duckdb")
-            db_type = "DuckDB"
-        elif "engine" in db_type.lower():
-            # SQLAlchemy engine - try to get dialect
+        from databao.databases import DBConnectionConfig
+
+        if isinstance(conn, DBConnectionConfig):
+            # DBConnectionConfig - get type from config
+            db_type_str = conn.type.full_type
+            icon = get_db_icon(db_type_str)
+            db_type = db_type_str.capitalize()
+        elif hasattr(conn, "dialect"):
+            # SQLAlchemy Engine/Connection
             try:
                 dialect = conn.dialect.name
                 icon = get_db_icon(dialect)
@@ -135,8 +135,12 @@ def render_sources_info() -> None:
             except Exception:
                 icon = get_db_icon("default")
                 db_type = "Database"
+        elif "duckdb" in type(conn).__name__.lower():
+            icon = get_db_icon("duckdb")
+            db_type = "DuckDB"
         else:
             icon = get_db_icon("default")
+            db_type = "Database"
 
         st.markdown(f"{icon} **{name}** ({db_type})")
 
@@ -201,7 +205,7 @@ def render_sidebar_header() -> None:
     render_status_fragment()
 
 
-def render_sidebar_chat_content(project: DCEProject | None) -> None:
+def render_sidebar_chat_content(project: DatabaoProject | None) -> None:
     """Render chat-specific sidebar content.
 
     This is called only on chat pages to show project info, sources, and executor.

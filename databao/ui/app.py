@@ -8,16 +8,11 @@ from typing import cast
 import streamlit as st
 
 import databao
-import databao.dce
 from databao.caches.disk_cache import DiskCache, DiskCacheConfig
 from databao.core.agent import Agent
-from databao.dce import (
-    DCEProject,
-    DCEProjectStatus,
-    create_all_connections,
-    get_all_context,
-)
+from databao.core.v2.context import Context
 from databao.ui.components.status import AppStatus, set_status, status_context
+from databao.ui.databao_project import DatabaoProject, DCEProjectStatus
 from databao.ui.models.chat_session import ChatSession
 from databao.ui.services.storage import get_cache_dir
 
@@ -87,7 +82,7 @@ def _get_or_create_disk_cache() -> DiskCache:
     return st.session_state.disk_cache
 
 
-def _initialize_agent(project: DCEProject) -> Agent | None:
+def _initialize_agent(project: DatabaoProject) -> Agent | None:
     """Initialize or return existing Databao agent.
 
     This is called at app level to ensure one agent is shared across all chats.
@@ -95,10 +90,10 @@ def _initialize_agent(project: DCEProject) -> Agent | None:
     if st.session_state.get("agent") is not None:
         return cast(Agent, st.session_state.agent)
 
-    if project.status == DCEProjectStatus.NO_BUILD:
+    if project.dce_status == DCEProjectStatus.NO_BUILD:
         set_status(
             AppStatus.INITIALIZING,
-            "DCE project found but no build output. Run 'nemory build' first.",
+            "DCE project found but no build output. Run 'databao build' first.",
         )
         return None
 
@@ -108,34 +103,23 @@ def _initialize_agent(project: DCEProject) -> Agent | None:
         # Use DiskCache for persistence
         cache = _get_or_create_disk_cache()
 
-        # Note: No global writer - each thread gets its own writer for per-chat streaming
-        agent = databao.new_agent(
-            executor_type=executor_type,
-            cache=cache,
-        )
+        # Load context using the new DCE integration
+        with status_context(AppStatus.INITIALIZING, "Loading context..."):
+            context = project.context
 
-        with status_context(AppStatus.INITIALIZING, "Connecting to databases..."):
-            connections = create_all_connections(project.path)
-
-        if not connections:
+        # Check if we have any datasources
+        if not context.sources.dbs and not context.sources.dfs:
             set_status(AppStatus.ERROR, "No datasource connections found in DCE project.")
             return None
 
-        run_dir = project.latest_run_dir
-        db_contexts: list[databao.dce.DatabaseContext] = []
-        file_contexts: list[databao.dce.FileContext] = []
-        if run_dir:
-            with status_context(AppStatus.INITIALIZING, "Loading context..."):
-                db_contexts, file_contexts = get_all_context(run_dir)
+        # Create AgentV2 with the context
+        from databao.api import new_agent_v2
 
-        db_context_map = {ctx.database_id: ctx.context_text for ctx in db_contexts}
-
-        for conn_info in connections:
-            context = db_context_map.get(conn_info.name) or db_context_map.get(conn_info.db_type)
-            agent.add_db(conn_info.connection, name=conn_info.name, context=context)
-
-        for file_ctx in file_contexts:
-            agent.add_context(file_ctx.context_text)
+        agent = new_agent_v2(
+            context=context,
+            executor_type=executor_type,
+            cache=cache,
+        )
 
         st.session_state.agent = agent
 
@@ -166,11 +150,7 @@ def _initialize_app(project_dir: str):
 
     project = _get_current_project(project_dir)
 
-    if project.status == DCEProjectStatus.NOT_FOUND:
-        set_status(AppStatus.INITIALIZING, f"DCE project not found at {project_dir}. Set up DCE project to continue")
-        return
-
-    if project.status == DCEProjectStatus.NO_BUILD:
+    if project.dce_status == DCEProjectStatus.NO_BUILD:
         set_status(AppStatus.INITIALIZING, "Project needs build")
         return
 
@@ -179,9 +159,10 @@ def _initialize_app(project_dir: str):
         _load_persisted_state()
 
     with status_context(AppStatus.INITIALIZING, "Initializing agent..."):
-        _initialize_agent(project)
-    
-    set_status(AppStatus.READY)
+        agent = _initialize_agent(project)
+
+    if agent:
+        set_status(AppStatus.READY)
 
 
 def init_session_state() -> None:
@@ -374,26 +355,17 @@ def build_navigation() -> None:
     pg.run()
 
 
-def _get_current_project(project_dir: str) -> DCEProject:
+def _get_current_project(project_dir: str) -> DatabaoProject:
     """Get the current DCE project, auto-detecting if needed.
 
     This is called at app level to determine project status for all pages.
     """
-    from databao.dce.project import validate_project
-
-    project_path = Path(project_dir).expanduser().resolve()
-
     # 1. Return existing project if available
     if st.session_state.get("databao_project") is not None:
         return st.session_state.databao_project
 
-    # 2. Resolve the project path and check if it is a valid DCE project
-    resolved = project_path.resolve()
-
-    project = validate_project(resolved)
-
+    project = DatabaoProject(path=Path(project_dir))
     st.session_state.databao_project = project
-    st.session_state.databao_project_path = str(project.path)
 
     return project
 

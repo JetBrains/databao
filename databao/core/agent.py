@@ -30,6 +30,8 @@ class Agent(Protocol):
         stream_plot: bool | None = None,
         lazy: bool | None = None,
         auto_output_modality: bool | None = None,
+        cache_scope: str | None = None,
+        writer: TextIO | None = None,
     ) -> Thread:
         """Start a new thread in this agent."""
         ...
