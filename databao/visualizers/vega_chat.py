@@ -5,7 +5,7 @@ from typing import Any
 
 import altair
 import pandas as pd
-from edaplot.image_utils import vl_to_png_bytes, vl_to_png_base64
+from edaplot.image_utils import vl_to_png_base64, vl_to_png_bytes
 from edaplot.llms import LLMConfig as VegaLLMConfig
 from edaplot.vega import to_altair_chart
 from edaplot.vega_chat.vega_chat import MessageInfo, VegaChatConfig, VegaChatGraph, VegaChatState
