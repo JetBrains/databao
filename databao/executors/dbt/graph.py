@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
+import shutil
 import subprocess
+import tempfile
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -25,6 +28,22 @@ from databao.configs.llm import LLMConfig
 from databao.executors.dbt.utils import db_introspect
 
 
+def _sha256_file(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _snapshot_tree(root: Path) -> dict[Path, str]:
+    out: dict[Path, str] = {}
+    for p in sorted(root.rglob("*")):
+        if p.is_file():
+            out[p.relative_to(root)] = _sha256_file(p)
+    return out
+
+
 @dataclass(frozen=True)
 class DbtProjectContext:
     project_dir: Path
@@ -37,6 +56,8 @@ class DbtAgentState(TypedDict):
     context: DbtProjectContext
     tool_calls_log: list[dict[str, Any]]
     last_sql: str | None
+    last_dbt_returncode: int | None
+
 
 def _now() -> float:
     return time.time()
@@ -69,12 +90,14 @@ def _json_dumps(data: Any) -> str:
 class DbtProjectGraph:
     """
     Minimal, reusable tool-using graph for dbt project editing + dbt run.
-
-    Tool names/signatures are aligned with databao/executors/dbt/system_prompt.jinja.
+    Supports optional sandboxing for safe execution.
     """
 
     def __init__(self, *, db_conn_factory: DbConnFactory | None = None) -> None:
         self._db_conn_factory = db_conn_factory
+        self._source_project_dir: Path | None = None
+        self._staged_project_dir: Path | None = None
+        self._before_snapshot: dict[Path, str] | None = None
 
     def init_state(
         self,
@@ -89,10 +112,103 @@ class DbtProjectGraph:
             pre_existing_files=set(pre_existing_files),
             dbt_timeout_seconds=dbt_timeout_seconds,
         )
-        return DbtAgentState(messages=messages, context=ctx, tool_calls_log=[], last_sql=None)
+        return DbtAgentState(
+            messages=messages,
+            context=ctx,
+            tool_calls_log=[],
+            last_sql=None,
+            last_dbt_returncode=None,
+        )
+
+    def init_state_sandboxed(
+        self,
+        messages: list[BaseMessage],
+        *,
+        project_dir: Path | str,
+        dbt_timeout_seconds: int = 300,
+    ) -> DbtAgentState:
+        """Create sandbox copy and return state pointing to it."""
+        source_dir = Path(project_dir).resolve()
+
+        tmp_root = Path(tempfile.mkdtemp(prefix="databao_dbt_sandbox_"))
+        staged = tmp_root / source_dir.name
+        staged.mkdir(parents=True, exist_ok=True)
+
+        for entry in source_dir.iterdir():
+            dst = staged / entry.name
+            if entry.is_dir():
+                shutil.copytree(entry, dst)
+            else:
+                shutil.copy2(entry, dst)
+
+        self._source_project_dir = source_dir
+        self._staged_project_dir = staged
+        self._before_snapshot = _snapshot_tree(staged)
+
+        pre_existing_files = [str(p.resolve()) for p in staged.rglob("*") if p.is_file()]
+
+        ctx = DbtProjectContext(
+            project_dir=staged,
+            pre_existing_files=set(pre_existing_files),
+            dbt_timeout_seconds=dbt_timeout_seconds,
+        )
+        return DbtAgentState(
+            messages=messages,
+            context=ctx,
+            tool_calls_log=[],
+            last_sql=None,
+            last_dbt_returncode=None,
+        )
+
+    def should_commit_sandbox(self, state: DbtAgentState) -> bool:
+        """Check if sandbox should be committed based on last dbt run result."""
+        return state.get("last_dbt_returncode") == 0
+
+    def commit_sandbox(self) -> dict[str, Any]:
+        """Copy changed files from sandbox back to source directory."""
+        if not self._staged_project_dir or not self._source_project_dir or not self._before_snapshot:
+            raise RuntimeError("No active sandbox to commit.")
+
+        after_snapshot = _snapshot_tree(self._staged_project_dir)
+
+        before_paths = set(self._before_snapshot.keys())
+        after_paths = set(after_snapshot.keys())
+
+        added = sorted(after_paths - before_paths)
+        modified = [p for p in sorted(before_paths & after_paths) if self._before_snapshot[p] != after_snapshot[p]]
+
+        copied: list[str] = []
+        for rel in added + modified:
+            src_path = self._staged_project_dir / rel
+            dst_path = self._source_project_dir / rel
+            dst_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src_path, dst_path)
+            copied.append(str(rel))
+
+        result = {
+            "added": [str(p) for p in added],
+            "modified": [str(p) for p in modified],
+            "copied": copied,
+            "source_dir": str(self._source_project_dir),
+            "staged_dir": str(self._staged_project_dir),
+        }
+
+        self._clear_sandbox_state()
+        return result
+
+    def discard_sandbox(self) -> None:
+        """Discard sandbox without committing."""
+        self._clear_sandbox_state()
+
+    def _clear_sandbox_state(self) -> None:
+        self._source_project_dir = None
+        self._staged_project_dir = None
+        self._before_snapshot = None
 
     def get_result(self, state: DbtAgentState) -> dict[str, Any]:
-        last_ai: AIMessage | None = next((m for m in reversed(state["messages"]) if isinstance(m, AIMessage)), None)
+        last_ai: AIMessage | None = next(
+            (m for m in reversed(state["messages"]) if isinstance(m, AIMessage)), None
+        )
         return {
             "text": last_ai.text if last_ai else "",
             "code": state.get("last_sql"),
@@ -107,7 +223,7 @@ class DbtProjectGraph:
             Explore the provided database before any transformations.
 
             Args:
-                project_dir: The directory of the dbt project (provided for compatibility; the graph has its own context)
+                project_dir: The directory of the dbt project
 
             Returns:
                 A markdown representation of the schema of the provided database.
@@ -126,14 +242,14 @@ class DbtProjectGraph:
         @tool(parse_docstring=True)
         def run_sql(sql: str, sample_rows: int = 5) -> str:
             """
-            Run a SQL query against the DuckDB database and return a compact JSON summary.
+            Run a SQL query against the DuckDB database.
 
             Args:
                 sql: SQL query
                 sample_rows: number of rows to include in the sample
 
             Returns:
-                JSON with keys: schema (name+dtype), row_count, sample_rows (list), truncated (bool)
+                JSON with keys: schema, row_count, sample_rows, truncated
             """
             if self._db_conn_factory is None:
                 return _json_dumps({"error": "Database connection factory not provided."})
@@ -143,27 +259,29 @@ class DbtProjectGraph:
                 df = con.execute(sql).fetchdf()
                 schema = [{"name": c, "dtype": str(dt)} for c, dt in zip(df.columns, df.dtypes, strict=True)]
                 sample = df.head(sample_rows).to_dict(orient="records")
-                return _json_dumps(
-                    {
-                        "schema": schema,
-                        "row_count": int(len(df)),
-                        "sample_rows": sample,
-                        "truncated": bool(len(df) > sample_rows),
-                    }
-                )
+                return _json_dumps({
+                    "schema": schema,
+                    "row_count": int(len(df)),
+                    "sample_rows": sample,
+                    "truncated": bool(len(df) > sample_rows),
+                })
             except Exception as e:
                 return _json_dumps({"error": str(e)})
             finally:
                 con.close()
 
         @tool(parse_docstring=True)
-        def run_dbt(project_dir: str | None, timeout: int | None, graph_state: Annotated[DbtAgentState, InjectedState]) -> str:
+        def run_dbt(
+            project_dir: str | None,
+            timeout: int | None,
+            graph_state: Annotated[DbtAgentState, InjectedState],
+        ) -> str:
             """
-            Run a dbt project to update the state of the database and return a compact structured result.
+            Run a dbt project to update the database state.
 
             Args:
-                project_dir: Optional override; if omitted uses the graph context project_dir
-                timeout: Optional override; if omitted uses the graph context dbt_timeout_seconds
+                project_dir: Optional override; if omitted uses context project_dir
+                timeout: Optional override; if omitted uses context dbt_timeout_seconds
 
             Returns:
                 JSON with keys: returncode, stdout_tail, stderr_tail, timeout
@@ -184,22 +302,20 @@ class DbtProjectGraph:
             except subprocess.TimeoutExpired:
                 return _json_dumps({"timeout": True})
 
-            return _json_dumps(
-                {
-                    "returncode": int(proc.returncode),
-                    "stdout_tail": "\n".join((proc.stdout or "").splitlines()[-200:]),
-                    "stderr_tail": "\n".join((proc.stderr or "").splitlines()[-200:]),
-                    "timeout": False,
-                }
-            )
+            return _json_dumps({
+                "returncode": int(proc.returncode),
+                "stdout_tail": "\n".join((proc.stdout or "").splitlines()[-200:]),
+                "stderr_tail": "\n".join((proc.stderr or "").splitlines()[-200:]),
+                "timeout": False,
+            })
 
         @tool(parse_docstring=True)
         def dbt_deps(project_dir: str | None, graph_state: Annotated[DbtAgentState, InjectedState]) -> str:
             """
-            Run a dbt deps command to update dependencies of the dbt project.
+            Run dbt deps to install dependencies.
 
             Args:
-                project_dir: Optional override; if omitted uses the graph context project_dir
+                project_dir: Optional override
 
             Returns:
                 JSON with keys: returncode, stdout_tail, stderr_tail
@@ -218,24 +334,22 @@ class DbtProjectGraph:
             except Exception as e:
                 return _json_dumps({"error": str(e)})
 
-            return _json_dumps(
-                {
-                    "returncode": int(proc.returncode),
-                    "stdout_tail": "\n".join((proc.stdout or "").splitlines()[-20:]),
-                    "stderr_tail": "\n".join((proc.stderr or "").splitlines()[-20:]),
-                }
-            )
+            return _json_dumps({
+                "returncode": int(proc.returncode),
+                "stdout_tail": "\n".join((proc.stdout or "").splitlines()[-20:]),
+                "stderr_tail": "\n".join((proc.stderr or "").splitlines()[-20:]),
+            })
 
         @tool(parse_docstring=True)
         def read_tool(path: str, graph_state: Annotated[DbtAgentState, InjectedState]) -> str:
             """
-            Read a file (text).
+            Read a file.
 
             Args:
-                path: absolute path OR relative to the dbt project directory
+                path: absolute path OR relative to dbt project directory
 
             Returns:
-                A string containing the file content (truncated if too large)
+                File content (truncated if too large)
             """
             project_dir = graph_state["context"].project_dir
             p = Path(path)
@@ -255,11 +369,11 @@ class DbtProjectGraph:
             Write file.
 
             Args:
-                path: The path to write. Prefer absolute paths; relative paths are resolved from dbt project root.
-                content: The content to write
+                path: Path to write (absolute or relative to project root)
+                content: Content to write
 
             Returns:
-                A string containing the summary of the write operation.
+                Summary of the write operation
             """
             ctx = graph_state["context"]
             p = Path(path)
@@ -288,15 +402,15 @@ class DbtProjectGraph:
             graph_state: Annotated[DbtAgentState, InjectedState],
         ) -> str:
             """
-            Edit a file with a single replacement.
+            Edit a file with regex replacement.
 
             Args:
-                path: The path to edit (absolute or relative to project root)
-                original: The original string/pattern to replace (regex)
-                replacement: The replacement string
+                path: Path to edit
+                original: Original string/pattern (regex)
+                replacement: Replacement string
 
             Returns:
-                A string containing the summary of the edit operation
+                Summary of the edit operation
             """
             project_dir = graph_state["context"].project_dir
             p = Path(path)
@@ -323,13 +437,13 @@ class DbtProjectGraph:
         @tool(parse_docstring=True)
         def grep_tool(table_name: str, graph_state: Annotated[DbtAgentState, InjectedState]) -> str:
             """
-            Grep-like functionality to search for a pattern in all files in the project directory.
+            Search for a pattern in all project files.
 
             Args:
-                table_name: The pattern to grep
+                table_name: Pattern to grep
 
             Returns:
-                A string containing the matched lines with filename:line:text
+                Matched lines with filename:line:text
             """
             project_dir = graph_state["context"].project_dir
             try:
@@ -387,6 +501,7 @@ class DbtProjectGraph:
             out_messages: list[ToolMessage] = []
             tool_log = list(state.get("tool_calls_log", []))
             last_sql = state.get("last_sql")
+            last_dbt_returncode = state.get("last_dbt_returncode")
 
             for tc in last.tool_calls:
                 name = tc["name"]
@@ -409,6 +524,18 @@ class DbtProjectGraph:
                         result = tool_obj.invoke(args | {"graph_state": state})
                         ok = True
                         err = None
+
+                        # Track last dbt run result
+                        if name == "run_dbt":
+                            try:
+                                parsed = json.loads(result)
+                                if "returncode" in parsed:
+                                    last_dbt_returncode = parsed["returncode"]
+                                elif parsed.get("timeout"):
+                                    last_dbt_returncode = -1
+                            except (json.JSONDecodeError, TypeError):
+                                pass
+
                 except Exception as e:
                     result = f"ERROR: tool '{name}' failed: {e}"
                     ok = False
@@ -428,7 +555,12 @@ class DbtProjectGraph:
 
                 out_messages.append(ToolMessage(content=str(result), tool_call_id=tool_call_id))
 
-            return {"messages": out_messages, "tool_calls_log": tool_log, "last_sql": last_sql}
+            return {
+                "messages": out_messages,
+                "tool_calls_log": tool_log,
+                "last_sql": last_sql,
+                "last_dbt_returncode": last_dbt_returncode,
+            }
 
         def should_continue(state: DbtAgentState) -> Literal["tools", "end"]:
             last = state["messages"][-1]

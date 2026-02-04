@@ -68,14 +68,15 @@ class DbtProjectExecutor(GraphExecutor):
     - [ ] Any new models you created are building correctly
     """
 
-    def __init__(self, *, dbt_config: DbtConfig) -> None:
+    def __init__(self, *, dbt_config: DbtConfig, use_sandbox: bool = True) -> None:
         super().__init__()
         self._dbt_config = dbt_config
+        self._use_sandbox = use_sandbox
 
         self._prompt_template = self._read_prompt_template("system_prompt.jinja")
 
-        self._attached_db_paths: dict[str, str] = {}  # name -> path
-        self._registered_dfs: dict[str, Any] = {}  # name -> DataFrame
+        self._attached_db_paths: dict[str, str] = {}
+        self._registered_dfs: dict[str, Any] = {}
         self._db_conn_factory: DbConnFactory | None = None
         self._graph = DbtProjectGraph(db_conn_factory=self._get_connection)
         self._compiled_graph: CompiledStateGraph[Any] | None = None
@@ -153,7 +154,7 @@ class DbtProjectExecutor(GraphExecutor):
         llm_config: LLMConfig,
         sources: Sources,
         *,
-        rows_limit: int = 100,  # not used here; kept for interface compatibility
+        rows_limit: int = 100,
         stream: bool = True,
     ) -> ExecutionResult:
         compiled_graph = self._get_compiled_graph(llm_config)
@@ -170,23 +171,42 @@ class DbtProjectExecutor(GraphExecutor):
         cleaned_messages = clean_tool_history(all_messages_with_system, llm_config.max_tokens_before_cleaning)
 
         project_dir = self._dbt_config.project_dir.resolve()
-        pre_existing_files = [str(p.resolve()) for p in project_dir.rglob("*") if p.is_file()]
 
-        init_state = self._graph.init_state(
-            cleaned_messages,
-            project_dir=project_dir,
-            pre_existing_files=pre_existing_files,
-            dbt_timeout_seconds=self._dbt_config.dbt_timeout_seconds,
-        )
+        if self._use_sandbox:
+            init_state = self._graph.init_state_sandboxed(
+                cleaned_messages,
+                project_dir=project_dir,
+                dbt_timeout_seconds=self._dbt_config.dbt_timeout_seconds,
+            )
+        else:
+            pre_existing_files = [str(p.resolve()) for p in project_dir.rglob("*") if p.is_file()]
+            init_state = self._graph.init_state(
+                cleaned_messages,
+                project_dir=project_dir,
+                pre_existing_files=pre_existing_files,
+                dbt_timeout_seconds=self._dbt_config.dbt_timeout_seconds,
+            )
 
         invoke_config = RunnableConfig(recursion_limit=llm_config.agent_recursion_limit)
         last_state = self._invoke_graph_sync(compiled_graph, init_state, config=invoke_config, stream=stream)
 
         result = self._graph.get_result(last_state)
 
+        sandbox_result = None
+        if self._use_sandbox:
+            if self._graph.should_commit_sandbox(last_state):
+                sandbox_result = self._graph.commit_sandbox()
+                sandbox_result["committed"] = True
+            else:
+                self._graph.discard_sandbox()
+                sandbox_result = {
+                    "committed": False,
+                    "reason": f"Last dbt run failed (returncode={last_state.get('last_dbt_returncode')})",
+                }
+
         final_messages = last_state.get("messages", [])
         if final_messages:
-            new_messages = final_messages[len(cleaned_messages) :]
+            new_messages = final_messages[len(cleaned_messages):]
             all_messages = all_messages_with_system + new_messages
             all_messages_without_system = [m for m in all_messages if m.type != "system"]
             self._update_message_history(cache, all_messages_without_system)
@@ -199,6 +219,7 @@ class DbtProjectExecutor(GraphExecutor):
                 "messages": final_messages or [],
                 "tool_calls": result.get("tool_calls", []),
                 "dbt_project_dir": str(project_dir),
+                "sandbox_result": sandbox_result,
             },
         )
 
