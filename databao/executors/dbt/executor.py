@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, TextIO
 
 import duckdb
 import jinja2
@@ -156,6 +156,7 @@ class DbtProjectExecutor(GraphExecutor):
         *,
         rows_limit: int = 100,
         stream: bool = True,
+        writer: TextIO | None = None,
     ) -> ExecutionResult:
         compiled_graph = self._get_compiled_graph(llm_config)
         messages: list[BaseMessage] = self._process_opas(opas, cache)
@@ -187,8 +188,10 @@ class DbtProjectExecutor(GraphExecutor):
                 dbt_timeout_seconds=self._dbt_config.dbt_timeout_seconds,
             )
 
-        invoke_config = RunnableConfig(recursion_limit=llm_config.agent_recursion_limit)
-        last_state = self._invoke_graph_sync(compiled_graph, init_state, config=invoke_config, stream=stream)
+        invoke_config = RunnableConfig(recursion_limit=self._graph_recursion_limit or llm_config.agent_recursion_limit)
+        last_state = self._invoke_graph_sync(
+            compiled_graph, init_state, config=invoke_config, stream=stream, writer=writer or self._writer
+        )
 
         result = self._graph.get_result(last_state)
 
