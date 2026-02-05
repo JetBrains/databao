@@ -1,6 +1,7 @@
 """Widget module for displaying multimodal content in Jupyter notebooks."""
 
 import json
+import logging
 from collections.abc import Callable
 from enum import Enum
 from pathlib import Path
@@ -16,6 +17,8 @@ from databao.visualizers.vega_chat import VegaChatResult
 if TYPE_CHECKING:
     from databao.core.thread import Thread
 
+logger = logging.getLogger(__name__)
+
 
 WIDGET_ESM_PATH = Path(__file__).parent.parent.parent / "client" / "out" / "multimodal-jupyter" / "index.js"
 WIDGET_CSS_PATH = Path(__file__).parent.parent.parent / "client" / "out" / "multimodal-jupyter" / "style.css"
@@ -30,8 +33,6 @@ class MultimodalWidget(anywidget.AnyWidget):
 
     _esm = WIDGET_ESM_PATH
     _css = WIDGET_CSS_PATH if WIDGET_CSS_PATH.exists() else None
-
-    thread: "Thread"
 
     available_modalities = traitlets.List(["DATAFRAME", "DESCRIPTION", "CHART"]).tag(sync=True)
 
@@ -109,7 +110,7 @@ class MultimodalWidget(anywidget.AnyWidget):
 
             if df is None:
                 self.dataframe_html_content_status = "failed"
-                raise ValueError("Failed to generate data")
+                raise ValueError("Failed to generate dataframe")
 
             self.dataframe_html_content_status = "loaded"
             self.dataframe_html_content = dataframe_to_html(df)
@@ -125,20 +126,17 @@ class MultimodalWidget(anywidget.AnyWidget):
 
     def _on_client_message(
         self,
-        widget: "MultimodalWidget",
+        _widget: "MultimodalWidget",
         content: dict[str, Any],
-        buffers: list[memoryview],
+        _buffers: list[memoryview],
     ) -> None:
-        del widget
-        self._handle_client_message(content, buffers)
+        self._handle_client_message(content, _buffers)
 
     def _handle_client_message(
         self,
         content: dict[str, Any],
-        buffers: list[memoryview],
+        _buffers: list[memoryview],
     ) -> None:
-        del buffers
-
         action = content.get("action", {})
         action_type_str = action.get("type")
 
@@ -154,9 +152,9 @@ class MultimodalWidget(anywidget.AnyWidget):
                 action_payload = json.loads(raw_payload) if isinstance(raw_payload, str) and raw_payload else {}
                 handler(action_payload)
             else:
-                raise SystemError(f"No handler for action: {action_type.value}")
-        except (ValueError, json.JSONDecodeError):
-            pass
+                raise ValueError(f"No handler for action: {action_type.value}")
+        except (ValueError, json.JSONDecodeError) as e:
+            logger.debug(f"Failed to handle client message: {e}")
 
 
 def create_jupyter_widget(
