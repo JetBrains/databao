@@ -27,6 +27,7 @@ def convert_to_config(conn: DBConnectionRuntime) -> DBConnectionConfig:
             if config is None:
                 break
             return config
+
     raise ValueError("Cannot convert connection to DBConnectionConfig")
 
 
@@ -35,4 +36,5 @@ def register_in_duckdb(shared: DuckDBPyConnection, conn: DBConnectionConfig, nam
         if adapter.accept(conn):
             adapter.register_in_duckdb(shared, conn, name)
             return
-    raise ValueError("Cannot register connection in DuckDB")
+
+    # raise ValueError("Cannot register connection in DuckDB")
