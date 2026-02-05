@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import cast
 
 import streamlit as st
+import yaml
 
 import databao
 from databao.caches.disk_cache import DiskCache, DiskCacheConfig
@@ -99,6 +100,14 @@ def _initialize_agent(project: DatabaoProject) -> Agent | None:
 
     try:
         executor_type = st.session_state.get("executor_type", "lighthouse")
+
+        if executor_type == "dbt" or True:
+            # TODO proper integration from DCE side
+            dbt_config_path = project.layout.dbt_config
+            if dbt_config_path:
+                with open(dbt_config_path) as f:
+                    dbt_config = yaml.safe_load(f)
+                    dbt_target_folder_path = dbt_config["dbt_target_folder_path"]
 
         # Use DiskCache for persistence
         cache = _get_or_create_disk_cache()
