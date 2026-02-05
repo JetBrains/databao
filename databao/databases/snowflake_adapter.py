@@ -7,7 +7,7 @@ from sqlalchemy import Connection, Engine, make_url
 from databao.databases.database_adapter import DatabaseAdapter
 from databao.databases.database_connection import DBConnection, DBConnectionConfig, DBConnectionRuntime
 
-SNOWFLAKE_TYPE = DatasourceType(full_type="databases/snowflake")
+SNOWFLAKE_TYPE = DatasourceType(full_type="snowflake")
 
 USER_KEY = "user"
 PASSWORD_KEY = "password"
@@ -52,7 +52,7 @@ class SnowflakeAdapter(DatabaseAdapter):
         connection_string = cls._create_connection_string(config)
         shared_conn.execute("INSTALL snowflake FROM community;")
         shared_conn.execute("LOAD snowflake;")
-        shared_conn.execute(f"ATTACH '{connection_string}' AS {name} (TYPE snowflake, READ_ONLY);")
+        shared_conn.execute(f"ATTACH '{connection_string}' AS \"{name}\" (TYPE snowflake, READ_ONLY);")
 
     @staticmethod
     def _sql_string_literal(s: str) -> str:
@@ -61,10 +61,21 @@ class SnowflakeAdapter(DatabaseAdapter):
     @staticmethod
     def _create_connection_string(conn: DBConnectionConfig) -> str:
         content = conn.content
-        account = str(content.get(ACCOUNT_KEY))
-        database = str(content.get(DATABASE_KEY))
-        user = str(content.get(USER_KEY))
-        password = str(content.get(PASSWORD_KEY))
+        connection = content.get("connection")
+
+        if connection is None:
+            raise ValueError("Cannot find snowflake connection in config")
+
+        account = str(connection.get(ACCOUNT_KEY))
+        database = str(connection.get(DATABASE_KEY))
+        user = str(connection.get(USER_KEY))
+
+        auth = connection.get("auth")
+
+        if auth is None:
+            raise ValueError("Cannot find snowflake auth in config")
+
+        password = str(auth.get(PASSWORD_KEY))
 
         return (
             f"account={quote_plus(account)};"

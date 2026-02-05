@@ -28,7 +28,8 @@ dependencies = [
     "diskcache>=5.6.3",
     "sqlalchemy>=2.0.45",
     "snowflake-sqlalchemy>=1.8.2",
-    "databao-context-engine==0.1.3",
+    "databao-context-engine==0.1.6",
+    "watchdog>=6.0.0",
     "pandas-stubs~=2.3.3",
 ]
 
@@ -40,6 +41,12 @@ Source = "https://github.com/JetBrains/databao"
 examples = [
     "notebook>=7.4.7",
     "python-dotenv>=1.1.1",
+]
+ui = [
+    "streamlit>=1.53.0",
+    "click>=8.0.0",
+    "pyyaml>=6.0",
+    "uuid6>=2024.7.10",
 ]
 
 [build-system]
@@ -55,6 +62,9 @@ vcs = "git"
 style = "pep440"
 fallback-version = "0.0.0"  # https://github.com/ninoseki/uv-dynamic-versioning/blob/main/docs/tips.md
 bump = true
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.hatch.build.targets.sdist]
 include = ["/databao", "/client/out"]
@@ -131,7 +141,6 @@ select = [
 ban-relative-imports = "all"
 
 [tool.uv]
-# https://github.com/ninoseki/uv-dynamic-versioning/blob/main/docs/tips.md#build-caching-and-editable-installs
 cache-keys = [{ file = "pyproject.toml" }, { git = { commit = true, tags = true }}]
 
 [tool.pytest.ini_options]

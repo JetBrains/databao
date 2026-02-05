@@ -5,7 +5,7 @@ from sqlalchemy import URL, Connection, Engine, make_url
 from databao.databases.database_adapter import DatabaseAdapter
 from databao.databases.database_connection import DBConnection, DBConnectionConfig, DBConnectionRuntime
 
-POSTGRES_TYPE = DatasourceType(full_type="databases/postgres")
+POSTGRES_TYPE = DatasourceType(full_type="postgres")
 
 USER_KEY = "user"
 PASSWORD_KEY = "password"
