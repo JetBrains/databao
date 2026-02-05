@@ -1,6 +1,7 @@
 """Databao Streamlit Web Interface - Main Application with Multipage Navigation."""
 
 import argparse
+import gc
 import logging
 from pathlib import Path
 from typing import cast
@@ -128,6 +129,12 @@ def _initialize_agent(project: DatabaoProject) -> Agent | None:
 
         if executor_type == "dbt":
             import duckdb
+
+            try:
+                del st.session_state.agent
+                gc.collect()
+            except:
+                pass
 
             agent = new_agent(
                 executor_type=executor_type,
