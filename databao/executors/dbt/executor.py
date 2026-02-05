@@ -63,7 +63,7 @@ class DbtProjectExecutor(GraphExecutor):
     - [ ] `submit_answer` has been called with the final answer SQL
     """
 
-    def __init__(self, *, dbt_config: DbtConfig, use_sandbox: bool = True) -> None:
+    def __init__(self, *, dbt_config: DbtConfig, use_sandbox: bool = False) -> None:
         super().__init__()
         self._dbt_config = dbt_config
         self._use_sandbox = use_sandbox
