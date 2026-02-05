@@ -130,11 +130,11 @@ def _initialize_agent(project: DatabaoProject) -> Agent | None:
         if executor_type == "dbt":
             import duckdb
 
-            try:
+            # NOTE: safeguard when switching agents types -
+            #       - need to destroy existing object
+            if hasattr(st.session_state, "agent"):
                 del st.session_state.agent
                 gc.collect()
-            except:
-                pass
 
             agent = new_agent(
                 executor_type=executor_type,
