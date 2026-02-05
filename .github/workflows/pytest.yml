@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        python-version: ["3.12", "3.13", "3.14"]
 
     steps:
       - uses: actions/checkout@v5
@@ -41,6 +41,9 @@ jobs:
 
       - name: Install the project
         run: uv sync --locked --all-extras --dev
+
+      - name: Install DuckDB vss extension
+        run: uv run python -c "import duckdb; c = duckdb.connect(); c.execute('INSTALL vss'); c.execute('LOAD vss')"
 
       - name: Run pytest
         env:

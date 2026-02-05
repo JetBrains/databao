@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 
 import pandas as pd
-from duckdb import DuckDBPyConnection
-from sqlalchemy import Connection, Engine
+
+from databao.databases import DBConnection
 
 
 @dataclass
@@ -18,7 +18,7 @@ class DFDataSource(DataSource):
 
 @dataclass
 class DBDataSource(DataSource):
-    db_connection: DuckDBPyConnection | Engine | Connection
+    db_connection: DBConnection
 
 
 @dataclass

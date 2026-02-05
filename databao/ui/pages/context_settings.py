@@ -2,7 +2,8 @@
 
 import streamlit as st
 
-from databao.dce import DCEProject, DCEProjectStatus
+from databao import Agent
+from databao.ui.databao_project import DatabaoProject, DCEProjectStatus
 from databao.ui.app import _clear_all_chat_threads
 from databao.ui.components.sidebar import get_db_icon
 from databao.ui.components.status import AppStatus, set_status
@@ -18,7 +19,7 @@ def render_context_settings_page() -> None:
     # Current project section
     st.subheader("📊 DCE Project")
 
-    project: DCEProject | None = st.session_state.get("databao_project")
+    project: DatabaoProject | None = st.session_state.get("databao_project")
     reload_clicked = False
 
     if project is not None:
@@ -28,7 +29,6 @@ def render_context_settings_page() -> None:
 
     # Handle reload
     if reload_clicked:
-        # Clear project object but keep databao_project_path so it reloads from same location
         st.session_state.databao_project = None
         st.session_state.agent = None
         _clear_all_chat_threads()
@@ -44,7 +44,7 @@ def render_context_settings_page() -> None:
     if agent is None:
         if project is None:
             st.caption("Configure a project to see available sources.")
-        elif project.status == DCEProjectStatus.NO_BUILD:
+        elif project.dce_status == DCEProjectStatus.NO_BUILD:
             st.warning("Project needs to be built first. Run `nemory build`.")
         else:
             st.caption("Sources will appear after initialization.")
@@ -52,7 +52,7 @@ def render_context_settings_page() -> None:
         _render_sources(agent)
 
 
-def _render_project_info(project: DCEProject) -> bool:
+def _render_project_info(project: DatabaoProject) -> bool:
     """
     Render project information.
     
@@ -63,11 +63,9 @@ def _render_project_info(project: DCEProject) -> bool:
     st.code(str(project.path), language=None)
 
     # Status indicator
-    if project.status == DCEProjectStatus.VALID:
+    if project.dce_status == DCEProjectStatus.VALID:
         st.success("Project is ready", icon="✅")
-        if project.latest_run:
-            st.caption(f"Latest build: {project.latest_run}")
-    elif project.status == DCEProjectStatus.NO_BUILD:
+    elif project.dce_status == DCEProjectStatus.NO_BUILD:
         st.warning("Build required - run `nemory build`", icon="⚠️")
     else:
         st.error("Project not found", icon="❌")
@@ -77,7 +75,7 @@ def _render_project_info(project: DCEProject) -> bool:
     return reload_clicked
 
 
-def _render_sources(agent) -> None:
+def _render_sources(agent: Agent) -> None:
     """Render connected data sources."""
     dbs = agent.dbs
     dfs = agent.dfs
@@ -91,12 +89,15 @@ def _render_sources(agent) -> None:
         st.markdown("**Databases:**")
         for name, source in dbs.items():
             conn = source.db_connection
-            db_type = type(conn).__name__
+            from databao.databases import DBConnectionConfig
 
-            if "duckdb" in db_type.lower():
-                icon = get_db_icon("duckdb")
-                db_type = "DuckDB"
-            elif "engine" in db_type.lower():
+            if isinstance(conn, DBConnectionConfig):
+                # DBConnectionConfig - get type from config
+                db_type_str = conn.type.full_type
+                icon = get_db_icon(db_type_str)
+                db_type = db_type_str.capitalize()
+            elif hasattr(conn, "dialect"):
+                # SQLAlchemy Engine/Connection
                 try:
                     dialect = conn.dialect.name
                     icon = get_db_icon(dialect)
@@ -104,8 +105,12 @@ def _render_sources(agent) -> None:
                 except Exception:
                     icon = get_db_icon("default")
                     db_type = "Database"
+            elif "duckdb" in type(conn).__name__.lower():
+                icon = get_db_icon("duckdb")
+                db_type = "DuckDB"
             else:
                 icon = get_db_icon("default")
+                db_type = "Database"
 
             with st.container():
                 col1, col2 = st.columns([3, 1])
