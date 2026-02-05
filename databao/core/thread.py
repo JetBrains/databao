@@ -4,12 +4,15 @@ from typing import TYPE_CHECKING, Any, Self, TextIO
 
 from pandas import DataFrame
 
+from databao.core.env import in_jupyter_kernel
 from databao.core.executor import ExecutionResult, OutputModalityHints
 from databao.core.opa import Opa
 from databao.core.visualizer import VisualisationResult
 
 if TYPE_CHECKING:
     from databao.core.agent import Agent
+    from databao.core.visualizer import VisualisationResult
+    from databao.multimodal.jupyter_widget import MultimodalWidget
 
 
 class Thread:
@@ -166,18 +169,25 @@ class Thread:
         self._stream_plot = stream
         return self._materialize_visualization(request, rows_limit if rows_limit else self._data_materialized_rows)
 
-    def html(self) -> str:
-        """Generate HTML and open it in the browser.
+    def html(self) -> "str | MultimodalWidget":
+        """Render the thread as HTML.
 
-        This method creates a standalone HTML file with the Vega-Lite chart, dataframe, and text
-        and opens it in the default web browser.
+        Behavior:
+        - In Jupyter notebooks (IPython kernel): return a `MultimodalWidget` so it renders in the output cell.
+        - In terminal / scripts: generate standalone HTML and open it in the default web browser.
 
         Returns:
-            The URL that was opened in the browser.
+            - `MultimodalWidget` in Jupyter
+            - The URL that was opened in the browser otherwise
 
         Raises:
             ValueError: If visualization generation fails.
         """
+        if in_jupyter_kernel():
+            from databao.multimodal import create_jupyter_widget
+
+            return create_jupyter_widget(self)
+
         from databao.multimodal import open_html_content
 
         return open_html_content(self)

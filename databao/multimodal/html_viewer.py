@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 
 from edaplot.data_utils import spec_add_data
 
+from databao.multimodal.utils import dataframe_to_html
 from databao.visualizers.vega_chat import VegaChatResult
 
 if TYPE_CHECKING:
@@ -185,24 +186,6 @@ class MultimodalHTTPRequestHandler(BaseHTTPRequestHandler):
         return
 
 
-def _dataframe_to_html(df: "Any") -> str:
-    import pandas as pd
-
-    if len(df) > 20:
-        first_10 = df.head(10)
-        last_10 = df.tail(10)
-
-        separator_data = {col: "..." for col in df.columns}
-        separator_df = pd.DataFrame([separator_data], index=["..."])
-
-        truncated_df = pd.concat([first_10, separator_df, last_10])
-        html_result = truncated_df.to_html()
-    else:
-        html_result = df.to_html()
-
-    return html_result if html_result is not None else ""
-
-
 def open_html_content(thread: "Thread") -> str:
     """Create an HTML file with the embedded Vega spec and open it in the browser.
 
@@ -227,7 +210,7 @@ def open_html_content(thread: "Thread") -> str:
         )
 
     df = thread.df()
-    df_html = _dataframe_to_html(df) if df is not None else "<i>No data available</i>"
+    df_html = dataframe_to_html(df) if df is not None else "<i>No data available</i>"
 
     data_object = {"text": thread.text(), "dataframeHtmlContent": df_html}
     data_json = json.dumps(data_object)
