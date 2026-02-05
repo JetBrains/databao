@@ -133,9 +133,10 @@ def _initialize_agent(project: DatabaoProject) -> Agent | None:
                 executor_type=executor_type,
                 cache=cache,
                 dbt_config=DbtConfig(
-                    project_dir=dbt_target_folder_path,
+                    project_dir=Path(dbt_target_folder_path).parent, # NOTE: bc of "/target" on the end
                 ),
             )
+            agent.executor._duckdb_connection.close()
             conn = duckdb.connect(db_path)
             agent.add_db(conn)
         else:
