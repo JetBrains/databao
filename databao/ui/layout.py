@@ -1,6 +1,9 @@
 from dataclasses import dataclass
 from pathlib import Path
 
+import yaml
+
+
 # TODO: copypasted from databao-cli, needs to be imported or moved
 
 def get_databao_project_dir(project_dir: Path) -> Path:
@@ -29,6 +32,20 @@ class ProjectLayout:
         Root domain is the domain which is used by default unless domain parameter is specified
         """
         return self.domains_dir / "root"
+
+    @property
+    def dbt_config(self) -> Path | None:
+        src = self.root_domain_dir / "src"
+        if not src.exists() or not src.is_dir():
+            raise ValueError("src/ not found in root domain.")
+        for file in src.iterdir():
+            if file.suffix == ".yaml":
+                with open(file) as f:
+                    yml = yaml.safe_load(f)
+                    if yml.get('type', None) == "dbt":
+                        return file
+        return None
+
 
 
 def find_project(initial_dir: Path) -> ProjectLayout | None:
