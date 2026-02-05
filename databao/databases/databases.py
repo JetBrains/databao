@@ -37,4 +37,4 @@ def register_in_duckdb(shared: DuckDBPyConnection, conn: DBConnectionConfig, nam
             adapter.register_in_duckdb(shared, conn, name)
             return
 
-    raise ValueError("Cannot register connection in DuckDB")
+    # raise ValueError("Cannot register connection in DuckDB")
