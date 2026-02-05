@@ -63,8 +63,8 @@ class DbtProjectExecutor(GraphExecutor):
     - [ ] `submit_answer` has been called with the final answer SQL
     """
 
-    def __init__(self, *, dbt_config: DbtConfig, use_sandbox: bool = False) -> None:
-        super().__init__()
+    def __init__(self, *, dbt_config: DbtConfig, use_sandbox: bool = False, writer: TextIO | None = None) -> None:
+        super().__init__(writer=writer)
         self._dbt_config = dbt_config
         self._use_sandbox = use_sandbox
 
@@ -123,6 +123,26 @@ class DbtProjectExecutor(GraphExecutor):
             raise NotImplementedError("SQLAlchemy connections require a persistent connection; not yet supported with factory pattern.")
 
         raise ValueError("Only DuckDB or SQLAlchemy connections are supported.")
+
+    # def register_db(self, source: DBDataSource) -> None:
+    #     """Register DB in the DuckDB connection."""
+    #     connection = source.db_connection
+    #     if isinstance(connection, Connection):
+    #         connection = connection.engine
+    #
+    #     if isinstance(connection, duckdb.DuckDBPyConnection):
+    #         path = get_db_path(connection)
+    #         if path is not None:
+    #             connection.close()
+    #             self._duckdb_connection.execute(f"ATTACH '{path}' AS {source.name} (READ_ONLY)")
+    #         else:
+    #             raise RuntimeError("Memory-based DuckDB is not supported.")
+    #     elif isinstance(connection, Engine):
+    #         register_sqlalchemy(self._duckdb_connection, connection, source.name)
+    #     elif isinstance(connection, DBConnectionConfig):
+    #         register_in_duckdb(self._duckdb_connection, connection, source.name)
+    #     else:
+    #         raise ValueError("Only DuckDB or SQLAlchemy connections are supported.")
 
     def register_df(self, source: DFDataSource) -> None:
         self._registered_dfs[source.name] = source.df

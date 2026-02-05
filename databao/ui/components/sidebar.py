@@ -52,6 +52,7 @@ DB_ICONS = {
 EXECUTOR_TYPES = {
     "lighthouse": "LighthouseExecutor (recommended)",
     "react_duckdb": "ReactDuckDBExecutor (experimental)",
+    "dbt": "DbtExecutor",
 }
 
 

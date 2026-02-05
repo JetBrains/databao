@@ -9,6 +9,7 @@ from databao.ui.components.status import AppStatus, set_status
 EXECUTOR_TYPES = {
     "lighthouse": "LighthouseExecutor (recommended)",
     "react_duckdb": "ReactDuckDBExecutor (experimental)",
+    "dbt": "DbtExecutor",
 }
 
 

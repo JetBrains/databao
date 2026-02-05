@@ -7,6 +7,7 @@ from databao.core import Agent
 from databao.core.data_source import DBDataSource, DFDataSource, Sources
 from databao.core.thread import Thread
 from databao.core.v2.context import Context
+from databao.dbt import DbtConfig
 
 if TYPE_CHECKING:
     from databao.configs.llm import LLMConfig
@@ -32,6 +33,7 @@ class AgentV2(Agent):
         stream_plot: bool = False,
         lazy_threads: bool = False,
         auto_output_modality: bool = True,
+        dbt_config: DbtConfig | None = None,
     ):
         self.__name = name
         self.__llm = llm.new_chat_model()

@@ -11,6 +11,7 @@ import databao
 from databao.caches.disk_cache import DiskCache, DiskCacheConfig
 from databao.core.agent import Agent
 from databao.core.v2.context import Context
+from databao.dbt import DbtConfig
 from databao.ui.components.status import AppStatus, set_status, status_context
 from databao.ui.databao_project import DatabaoProject, DCEProjectStatus
 from databao.ui.models.chat_session import ChatSession
@@ -119,6 +120,8 @@ def _initialize_agent(project: DatabaoProject) -> Agent | None:
             context=context,
             executor_type=executor_type,
             cache=cache,
+            # add executor props new field for dbt
+            dbt_config=DbtConfig(project_dir=Path("/Users/andrei.gasparian/Documents/databao-agent/examples/shopify002"))
         )
 
         st.session_state.agent = agent

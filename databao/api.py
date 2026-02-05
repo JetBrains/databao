@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import TextIO
 
 from databao.caches.in_mem_cache import InMemCache
@@ -7,6 +8,7 @@ from databao.core import Agent, AgentV1, Cache, Executor, Visualizer
 from databao.core.v2.agent import AgentV2
 from databao.core.v2.context import Context
 from databao.dbt.config import DbtConfig
+from databao.executors.dbt.executor import DbtProjectExecutor
 from databao.executors.lighthouse.executor import LighthouseExecutor
 from databao.executors.react_duckdb.executor import ReactDuckDBExecutor
 from databao.visualizers.vega_chat import VegaChatVisualizer
@@ -125,6 +127,8 @@ def new_agent_v2(
                 data_executor = ReactDuckDBExecutor(writer=writer)
             case "lighthouse":
                 data_executor = LighthouseExecutor(writer=writer)
+            case "dbt":
+                data_executor = DbtProjectExecutor(dbt_config=dbt_config, writer=writer)
             case _:
                 raise ValueError(f"Invalid executor type: {executor_type}")
 
