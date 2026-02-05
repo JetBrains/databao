@@ -29,9 +29,10 @@ class CustomBuildHook(BuildHookInterface):
         print("Building frontend...", file=sys.stderr)
 
         if not shutil.which("pnpm"):
-            print("Error: pnpm not found. Please install pnpm to build the frontend.", file=sys.stderr)
-            print("You can install it with: npm install -g pnpm", file=sys.stderr)
-            raise FileNotFoundError("pnpm not found in PATH")
+            print("Warning: pnpm not found. Skipping frontend build.", file=sys.stderr)
+            print("The html() method may not work without the built frontend.", file=sys.stderr)
+            print("You can install pnpm with: npm install -g pnpm", file=sys.stderr)
+            return
 
         try:
             subprocess.run(
@@ -61,8 +62,4 @@ class CustomBuildHook(BuildHookInterface):
             print(f"Error building frontend: {e}", file=sys.stderr)
             print("stdout:", e.stdout.decode() if e.stdout else "", file=sys.stderr)
             print("stderr:", e.stderr.decode() if e.stderr else "", file=sys.stderr)
-            raise
-        except FileNotFoundError:
-            print("Error: pnpm not found. Please install pnpm to build the frontend.", file=sys.stderr)
-            print("You can install it with: npm install -g pnpm", file=sys.stderr)
             raise
