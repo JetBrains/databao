@@ -9,14 +9,16 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
 from sqlalchemy import Connection, Engine
 
+from databao.databases import DBConnectionConfig
 from databao.configs import LLMConfig
 from databao.configs.agent import AgentConfig
 from databao.core import Cache, ExecutionResult, Opa
 from databao.core.data_source import DBDataSource, DFDataSource, Sources
 from databao.core.executor import OutputModalityHints
+from databao.databases import register_in_duckdb
 from databao.dbt.config import DbtConfig
 from databao.duckdb.types import DbConnFactory
-from databao.duckdb.utils import get_db_path
+from databao.duckdb.utils import get_db_path, register_sqlalchemy
 from databao.executors.base import GraphExecutor
 from databao.executors.dbt.graph import DbtProjectGraph
 from databao.executors.lighthouse.history_cleaning import clean_tool_history
@@ -70,6 +72,7 @@ class DbtProjectExecutor(GraphExecutor):
 
         self._prompt_template = self._read_prompt_template("system_prompt.jinja")
 
+        self._duckdb_connection = duckdb.connect(":memory:")
         self._attached_db_paths: dict[str, str] = {}
         self._registered_dfs: dict[str, Any] = {}
         self._db_conn_factory: DbConnFactory | None = None
@@ -124,6 +127,7 @@ class DbtProjectExecutor(GraphExecutor):
 
         raise ValueError("Only DuckDB or SQLAlchemy connections are supported.")
 
+    # NOTE: for v2 only
     # def register_db(self, source: DBDataSource) -> None:
     #     """Register DB in the DuckDB connection."""
     #     connection = source.db_connection
@@ -131,12 +135,13 @@ class DbtProjectExecutor(GraphExecutor):
     #         connection = connection.engine
     #
     #     if isinstance(connection, duckdb.DuckDBPyConnection):
-    #         path = get_db_path(connection)
-    #         if path is not None:
+    #         if isinstance(connection, duckdb.DuckDBPyConnection):
+    #             path = get_db_path(connection)
+    #             if path is None:
+    #                 raise RuntimeError("Memory-based DuckDB is not supported.")
     #             connection.close()
-    #             self._duckdb_connection.execute(f"ATTACH '{path}' AS {source.name} (READ_ONLY)")
-    #         else:
-    #             raise RuntimeError("Memory-based DuckDB is not supported.")
+    #             self._attached_db_paths[source.name] = path
+    #             return
     #     elif isinstance(connection, Engine):
     #         register_sqlalchemy(self._duckdb_connection, connection, source.name)
     #     elif isinstance(connection, DBConnectionConfig):

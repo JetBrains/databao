@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 import hashlib
 import json
 import re
@@ -337,7 +338,8 @@ class DbtProjectGraph:
 
             try:
                 proc = subprocess.run(
-                    ["dbt", "run"],
+                    # ["dbt", "run"],
+                    [sys.executable, "-m", "dbt.cli.main", "run"],
                     cwd=project_dir_str,
                     capture_output=True,
                     text=True,
@@ -379,7 +381,8 @@ class DbtProjectGraph:
 
             try:
                 proc = subprocess.run(
-                    ["dbt", "deps"],
+                    # ["dbt", "deps"],
+                    [sys.executable, "-m", "dbt.cli.main", "deps"],
                     cwd=project_dir_str,
                     capture_output=True,
                     text=True,

@@ -8,10 +8,9 @@ from typing import cast
 import streamlit as st
 import yaml
 
-import databao
+from databao import new_agent
 from databao.caches.disk_cache import DiskCache, DiskCacheConfig
 from databao.core.agent import Agent
-from databao.core.v2.context import Context
 from databao.dbt import DbtConfig
 from databao.ui.components.status import AppStatus, set_status, status_context
 from databao.ui.databao_project import DatabaoProject, DCEProjectStatus
@@ -109,6 +108,11 @@ def _initialize_agent(project: DatabaoProject) -> Agent | None:
                 with open(dbt_config_path) as f:
                     dbt_config = yaml.safe_load(f)
                     dbt_target_folder_path = dbt_config["dbt_target_folder_path"]
+            db_config_path = project.layout.db_config
+            if db_config_path:
+                with open(db_config_path) as f:
+                    db_config = yaml.safe_load(f)
+                    db_path = db_config.get("connection", {}).get("database_path")
 
         # Use DiskCache for persistence
         cache = _get_or_create_disk_cache()
@@ -122,16 +126,27 @@ def _initialize_agent(project: DatabaoProject) -> Agent | None:
             set_status(AppStatus.ERROR, "No datasource connections found in DCE project.")
             return None
 
-        # Create AgentV2 with the context
-        from databao.api import new_agent_v2
+        if executor_type == "dbt":
+            import duckdb
 
-        agent = new_agent_v2(
-            context=context,
-            executor_type=executor_type,
-            cache=cache,
-            # add executor props new field for dbt
-            dbt_config=DbtConfig(project_dir=Path("/Users/andrei.gasparian/Documents/databao-agent/examples/shopify002"))
-        )
+            agent = new_agent(
+                executor_type=executor_type,
+                cache=cache,
+                dbt_config=DbtConfig(
+                    project_dir=dbt_target_folder_path,
+                ),
+            )
+            conn = duckdb.connect(db_path)
+            agent.add_db(conn)
+        else:
+            # Create AgentV2 with the context
+            from databao.api import new_agent_v2
+
+            agent = new_agent_v2(
+                context=context,
+                executor_type=executor_type,
+                cache=cache,
+            )
 
         st.session_state.agent = agent
 

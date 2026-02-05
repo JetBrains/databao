@@ -61,6 +61,8 @@ def new_agent(
                 data_executor = ReactDuckDBExecutor(writer=writer)
             case "lighthouse":
                 data_executor = LighthouseExecutor(writer=writer)
+            case "dbt":
+                data_executor = DbtProjectExecutor(dbt_config=dbt_config, writer=writer)
             case _:
                 raise ValueError(f"Invalid executor type: {executor_type}")
 
@@ -76,6 +78,7 @@ def new_agent(
         stream_plot=stream_plot,
         lazy_threads=lazy_threads,
         auto_output_modality=auto_output_modality,
+        dbt_config=dbt_config,
     )
 
 
