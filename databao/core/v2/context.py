@@ -42,7 +42,9 @@ class ContextBuilder:
         self._sources_manager = SourcesManager()
         self._dce_project = DatabaoContextApi.init_dce_project(project_dir)
 
-    def add_db(self, conn: DBConnection, *, name: str | None = None, context: str | Path | None = None) -> None:
+    def add_db(
+        self, conn: DBConnection, *, name: str | None = None, context: str | Path | None = None
+    ) -> ContextBuilder:
         if isinstance(conn, DBConnectionConfig):
             config = conn
         elif isinstance(conn, DBConnectionRuntime):
@@ -53,12 +55,18 @@ class ContextBuilder:
         db_source = self._sources_manager.add_db(config, name=name, context=context)
         self._dce_project.create_datasource_config(config.type, db_source.name, config.content)
 
-    def add_df(self, df: DataFrame, *, name: str | None = None, context: str | Path | None = None) -> None:
+        return self
+
+    def add_df(self, df: DataFrame, *, name: str | None = None, context: str | Path | None = None) -> ContextBuilder:
         self._sources_manager.add_df(df, name=name, context=context)
         # V0: don't pass it to DCE - only use it to initialize our DuckDB connection later
 
-    def add_context(self, context: str | Path) -> None:
+        return self
+
+    def add_context(self, context: str | Path) -> ContextBuilder:
         self._sources_manager.add_context(context)
+
+        return self
 
     def build(self) -> Context:
         self._dce_project.build_context()

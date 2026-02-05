@@ -6,11 +6,13 @@ from databao.databases.database_connection import DBConnectionConfig, DBConnecti
 from databao.databases.duckdb_adapter import DuckDBAdapter
 from databao.databases.mysql_adapter import MySQLAdapter
 from databao.databases.postgresql_adapter import PostgreSQLAdapter
+from databao.databases.snowflake_adapter import SnowflakeAdapter
 
 DATABASE_ADAPTERS: list[DatabaseAdapter] = [
     DuckDBAdapter(),
     MySQLAdapter(),
     PostgreSQLAdapter(),
+    SnowflakeAdapter(),
 ]
 
 
