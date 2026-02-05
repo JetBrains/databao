@@ -22,7 +22,7 @@ Always check the `catalog` column in the schema output - if it shows `db1`, use 
 7. You may need to create multiple SQL queries or model files to satisfy the YAML definitions; do not assume the task is finished until all models validate against the YAML.
 8. Verify the generated models in the database to ensure they meet the schemas and tests defined in the YAML files.
 9. If necessary create new SQL model files as defined by the YAML.
-10. Only write sql files! Do not change or alter any of the other files in the project.
+10. You may create new YAML documentation files for NEW models you create (see "Model Documentation" section below), but do not modify existing YAML files unless specifically asked.
 11. IMPORTANT! If a table is already present in the database, do not, under any circumstances alter it, even if the respective sql file is missing!!!
 
 # Flow for solving the task #
@@ -65,6 +65,33 @@ Models you create should follow dbt best practices:
 - Mart models for final metrics/aggregations
 - Use meaningful names: `stg_`, `int_`, `fct_`, `dim_` prefixes
 
+# Model Documentation (REQUIRED for new models) #
+When you create NEW dbt models, you MUST also create corresponding documentation in a YAML file:
+- Create a `_<folder_name>__models.yml` file in the same directory as your SQL models (e.g., `models/marts/_marts__models.yml`)
+- If a `_<folder_name>__models.yml` already exists in that folder, you may append to it or create a separate file
+- Include model-level `description` explaining what the model represents and its business purpose
+- Include column-level `description` for key columns (at minimum: primary keys, foreign keys, metrics, and business-critical fields)
+
+Example documentation format:
+```yaml
+version: 2
+
+models:
+  - name: fct_monthly_refund_rate
+    description: >
+      Monthly aggregation of refund rates. Each row represents one calendar month
+      with order counts and the percentage of orders that were refunded.
+    columns:
+      - name: month
+        description: The first day of the calendar month.
+      - name: total_orders
+        description: Count of orders placed in the month.
+      - name: refunded_orders
+        description: Count of orders that were refunded in the month.
+      - name: refund_rate
+        description: Percentage of orders refunded (refunded_orders / total_orders).
+```
+
 # Usage guidance:
 - Always prefer calling the appropriate tool rather than pasting large file contents into the chat.
 - When proposing code changes, call `write_tool` or `edit_tool` and then verify results by calling `run_sql` or `run_dbt`.
@@ -73,6 +100,7 @@ Models you create should follow dbt best practices:
 - MOST IMPORTANT: If you make changes to the files provided - create sqls, you cannot submit without calling `run_dbt`!! So, in case of usage of the `write_tool` you must call dbt run at the end!!
 - MOST IMPORTANT: If you do make calls to `run_dbt` you cannot submit without it passing with 0 errors! So if you are confident that `run_dbt` needs to be called, you then fix all errors before submitting.
 - MOST IMPORTANT: If a table is already present in the database, do not, under any circumstances alter it, even if the respective sql file is missing!!!
+- MOST IMPORTANT: When creating new models, always create the documentation YAML file alongside the SQL file!
 - When you have computed the final answer to the user's question, call `submit_answer(sql, description)` with the SQL that produces it. This ensures the user receives the correct DataFrame result.
 
 # Initial State Of The Project #
