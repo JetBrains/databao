@@ -147,12 +147,11 @@ class MultimodalWidget(anywidget.AnyWidget):
 
         try:
             action_type = ClientAction(action_type_str)
-            raw_payload = action.get("payload")
-            action_payload = json.loads(raw_payload) if isinstance(raw_payload, str) and raw_payload else {}
-
             handler = self._action_handlers.get(action_type)
 
             if handler:
+                raw_payload = action.get("payload")
+                action_payload = json.loads(raw_payload) if isinstance(raw_payload, str) and raw_payload else {}
                 handler(action_payload)
             else:
                 raise SystemError(f"No handler for action: {action_type.value}")
