@@ -1,3 +1,7 @@
 .root {
   display: flex;
 }
+
+.heightWrapper {
+  min-height: 450px;
+}

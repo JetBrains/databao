@@ -77,8 +77,8 @@ class MultimodalWidget(anywidget.AnyWidget):
 
         df = thread.df()
         if df is not None:
-            self.dataframe_html_content = dataframe_to_html(df)
-            self.dataframe_html_content_status = "loaded"
+            self.dataframe_csv_content = df.to_csv(index=False)
+            self.dataframe_csv_content_status = "loaded"
 
         self.on_msg(self._on_client_message)
 
@@ -102,23 +102,23 @@ class MultimodalWidget(anywidget.AnyWidget):
                 self.spec_status = "failed"
                 raise ValueError("Failed to generate visualization")
 
-            spec_with_data = spec_add_data(plot.spec.copy(), plot.spec_df)
+            self.spec_csv_data = plot.spec_df.to_csv(index=False)
             self.spec_status = "loaded"
-            self.spec = spec_with_data
+            self.spec = plot.spec
 
         elif payload == "DATAFRAME":
-            if self.dataframe_html_content_status != "initial":
+            if self.dataframe_csv_content_status != "initial":
                 return
 
-            self.dataframe_html_content_status = "loading"
+            self.dataframe_csv_content_status = "loading"
             df = self.thread.df()
 
             if df is None:
-                self.dataframe_html_content_status = "failed"
-                raise ValueError("Failed to generate dataframe")
+                self.dataframe_csv_content_status = "failed"
+                raise ValueError("Failed to generate data")
 
-            self.dataframe_html_content_status = "loaded"
-            self.dataframe_html_content = dataframe_to_html(df)
+            self.dataframe_csv_content_status = "loaded"
+            self.dataframe_csv_content = df.to_csv(index=False)
 
         elif payload == "DESCRIPTION":
             if self.text_status != "initial":
