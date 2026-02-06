@@ -207,6 +207,10 @@ class AgentV1(Agent):
         """
         if not self.__sources.dbs and not self.__sources.dfs:
             raise ValueError("No databases or dataframes registered in this agent.")
+        # paranoia | flip the flag to start new thread with db explore
+        self.executor._graph._db_explored = False
+        if self.executor._compiled_graph is not None:
+            self.executor._compiled_graph._db_explored = False
         # noinspection PyTypeChecker
         return Thread(
             cast(Agent, self),
