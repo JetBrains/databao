@@ -4,71 +4,41 @@ import {
   VegaChart,
   Tabs,
 } from "@databao/multimodal-tabs";
-import { Spinner, Text, Theme } from "@radix-ui/themes";
-import { useEffect, useState } from "react";
+import { Sprite } from "@jetbrains/drt";
+import { Text, Theme } from "@radix-ui/themes";
 
 import styles from "./App.module.css";
-import { subscribeOnSpecGeneration } from "./communication/communication";
-
-type ConnectionStatus = "initial" | "loading" | "failed" | "loaded";
+import { useSpecGeneration } from "./hooks/useSpecGeneration";
 
 function App() {
   const data = window.__DATA__;
+  const { specConfig, specCsvData, specGenerationStatus } = useSpecGeneration();
 
-  const [spec, setSpec] = useState<object | null>(null);
-  const [specStatus, setSpecStatus] = useState<ConnectionStatus>("initial");
-
-  useEffect(() => {
-    setSpecStatus("loading");
-
-    const onSuccess = (data: Record<string, unknown>) => {
-      setSpec(data);
-      setSpecStatus("loaded");
-    };
-
-    const onError = (e: Error) => {
-      setSpecStatus("failed");
-      console.error(e.message);
-    };
-
-    const unsubscribe = subscribeOnSpecGeneration(onSuccess, onError);
-
-    return () => {
-      unsubscribe();
-    };
-  }, []);
-
-  const renderChart = (spec: object | null) => {
-    if (specStatus === "initial" || specStatus === "loading") {
-      return (
-        <div className={styles.loader}>
-          <Spinner />
-          <Text color="gray">Generating...</Text>
-        </div>
-      );
-    }
-
-    if (specStatus === "failed") {
-      return <Text color="gray">Failed to get chart...</Text>;
-    }
-
-    if (specStatus === "loaded" && spec) {
-      return <VegaChart spec={spec} />;
-    }
-
-    return <Text color="gray">No chart available</Text>;
+  const renderChart = () => {
+    return (
+      <VegaChart
+        status={specGenerationStatus}
+        specData={specCsvData}
+        specConfig={specConfig}
+      />
+    );
   };
 
-  const renderDescription = (text?: string) => {
-    if (text) {
-      return <Text color="gray">{text}</Text>;
+  const renderDescription = () => {
+    if (data?.text) {
+      return <Text color="gray">{data.text}</Text>;
     }
     return <Text color="gray">No description available</Text>;
   };
 
-  const renderTable = (dataframeHtmlContent?: string) => {
-    if (dataframeHtmlContent) {
-      return <DataframeTable htmlContent={dataframeHtmlContent} />;
+  const renderTable = () => {
+    if (data?.dataframeCsvContent) {
+      return (
+        <DataframeTable
+          status={"loaded"}
+          dataframeCsvData={data?.dataframeCsvContent}
+        />
+      );
     }
     return <Text color="gray">No data available</Text>;
   };
@@ -77,26 +47,37 @@ function App() {
     {
       type: "TABLE",
       title: "Data",
-      content: () => renderTable(data?.dataframeHtmlContent),
+      content: () => renderTable(),
     },
     {
       type: "CHART",
       title: "Chart",
-      content: () => renderChart(spec),
+      content: () => renderChart(),
     },
     {
       type: "DESCRIPTION",
       title: "Description",
-      content: () => renderDescription(data?.text),
+      content: () => renderDescription(),
     },
   ];
 
   return (
-    <Theme>
-      <div className={styles.appContainer}>
-        <Tabs tabs={tabs} />
+    <>
+      <div
+        style={{
+          height: "0",
+          width: "0",
+          overflow: "hidden",
+        }}
+      >
+        <Sprite />
       </div>
-    </Theme>
+      <Theme>
+        <div className={styles.appContainer}>
+          <Tabs tabs={tabs} />
+        </div>
+      </Theme>
+    </>
   );
 }
 

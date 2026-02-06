@@ -1,12 +1,12 @@
 import { Spinner, Text } from "@radix-ui/themes";
 import { ReactElement } from "react";
 
-import type { Status } from "../types";
+import type { Status } from "@/types";
 
 import styles from "./statusRenderer.module.css";
 
 export type StatusRendererProps<T> = {
-  status: Status;
+  getStatus: () => Status;
   value: T | null | undefined;
   renderValue: (value: T) => ReactElement;
   empty: ReactElement;
@@ -15,14 +15,14 @@ export type StatusRendererProps<T> = {
 };
 
 export function StatusRenderer<T>({
-  status,
+  getStatus,
   value,
   renderValue,
   empty,
   failed,
   loadingText = "Generating...",
 }: StatusRendererProps<T>): ReactElement {
-  if (status === "initial" || status === "loading") {
+  if (getStatus() === "initial" || getStatus() === "loading") {
     return (
       <div className={styles.loader}>
         <Spinner />
@@ -31,11 +31,11 @@ export function StatusRenderer<T>({
     );
   }
 
-  if (status === "failed") {
+  if (getStatus() === "failed") {
     return failed;
   }
 
-  if (status === "loaded" && value != null) {
+  if (getStatus() === "loaded" && value != null) {
     return renderValue(value);
   }
 
