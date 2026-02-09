@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import TextIO
 
 from databao.caches.in_mem_cache import InMemCache
@@ -7,7 +6,7 @@ from databao.configs.llm import LLMConfig, LLMConfigDirectory
 from databao.core import Agent, AgentV1, Cache, Executor, Visualizer
 from databao.core.v2.agent import AgentV2
 from databao.core.v2.context import Context
-from databao.dbt.config import DbtConfig
+from databao.executors.dbt.config import DbtConfig
 from databao.executors.dbt.executor import DbtProjectExecutor
 from databao.executors.lighthouse.executor import LighthouseExecutor
 from databao.executors.react_duckdb.executor import ReactDuckDBExecutor

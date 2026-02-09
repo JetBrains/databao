@@ -9,16 +9,14 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
 from sqlalchemy import Connection, Engine
 
-from databao.databases import DBConnectionConfig
 from databao.configs import LLMConfig
 from databao.configs.agent import AgentConfig
 from databao.core import Cache, ExecutionResult, Opa
 from databao.core.data_source import DBDataSource, DFDataSource, Sources
 from databao.core.executor import OutputModalityHints
-from databao.databases import register_in_duckdb
-from databao.dbt.config import DbtConfig
+from databao.executors.dbt.config import DbtConfig
 from databao.duckdb.types import DbConnFactory
-from databao.duckdb.utils import get_db_path, register_sqlalchemy
+from databao.duckdb.utils import get_db_path
 from databao.executors.base import GraphExecutor
 from databao.executors.dbt.graph import DbtProjectGraph
 from databao.executors.lighthouse.history_cleaning import clean_tool_history
@@ -98,7 +96,7 @@ class DbtProjectExecutor(GraphExecutor):
         return env.get_template(template_name)
 
     def render_system_prompt(self) -> str:
-        from databao.dbt.agent import assemble_dbt_project_summary
+        from databao.executors.dbt.v2.agent import assemble_dbt_project_summary
 
         project_dir = self._dbt_config.project_dir.resolve()
         dbt_overview = assemble_dbt_project_summary(project_dir)

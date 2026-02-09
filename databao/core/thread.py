@@ -6,8 +6,8 @@ from typing_extensions import Self
 
 from databao.core.executor import ExecutionResult, OutputModalityHints
 from databao.core.opa import Opa
-from databao.dbt.errors import DbtNotEnabledError
-from databao.dbt.plan import DbtPlan
+from databao.executors.dbt.errors import DbtNotEnabledError
+from databao.executors.dbt.v2.plan import DbtPlan
 
 if TYPE_CHECKING:
     from databao.core.agent import Agent

@@ -8,7 +8,7 @@ from sqlalchemy import Connection, Engine
 
 from databao.core.data_source import DBDataSource, DFDataSource, Sources
 from databao.core.thread import Thread
-from databao.dbt.config import DbtConfig
+from databao.executors.dbt.config import DbtConfig
 from databao.duckdb.types import DbConnFactory
 
 if TYPE_CHECKING:

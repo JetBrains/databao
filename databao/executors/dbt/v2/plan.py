@@ -7,9 +7,9 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from databao.dbt.config import DbtConfig
-from databao.dbt.agent import DbtAgent
-from databao.dbt.errors import DbtPlanNotReadyError, DbtApplyNotAllowedError
+from databao.executors.dbt.config import DbtConfig
+from databao.executors.dbt.v2.agent import DbtAgent
+from databao.executors.dbt.errors import DbtPlanNotReadyError, DbtApplyNotAllowedError
 
 
 def _sha256_file(path: Path) -> str:
