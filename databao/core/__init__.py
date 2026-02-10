@@ -1,4 +1,4 @@
-from databao.core.agent import Agent, AgentV1
+from databao.core.agent import Agent
 from databao.core.cache import Cache
 from databao.core.context import Context, ContextBuilder
 from databao.core.executor import ExecutionResult, Executor
@@ -9,13 +9,14 @@ from databao.core.visualizer import VisualisationResult, Visualizer
 
 __all__ = [
     "Agent",
-    "AgentV1",
     "Cache",
-   "Context",
-    "ContextBuilder", "ExecutionResult",
+    "Context",
+    "ContextBuilder",
+    "ExecutionResult",
     "Executor",
     "Opa",
-   "SourcesManager", "Thread",
+    "SourcesManager",
+    "Thread",
     "VisualisationResult",
     "Visualizer",
 ]
