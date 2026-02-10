@@ -1,11 +1,14 @@
+import {
+  DataframeTable,
+  TabModel,
+  VegaChart,
+  Tabs,
+} from "@databao/multimodal-tabs";
 import { Spinner, Text, Theme } from "@radix-ui/themes";
 import { useEffect, useState } from "react";
 
 import styles from "./App.module.css";
 import { subscribeOnSpecGeneration } from "./communication/communication";
-import { DataframeTable } from "./components/DataframeTable";
-import { Tabs, TabModel } from "./components/Tabs";
-import { VegaChart } from "./components/VegaChart";
 
 type ConnectionStatus = "initial" | "loading" | "failed" | "loaded";
 

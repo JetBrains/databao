@@ -1,4 +1,8 @@
 import logging
+import shutil
+import uuid
+from collections.abc import Generator
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -7,6 +11,28 @@ from sqlalchemy.engine import Engine
 
 import databao
 from databao import LLMConfig
+from databao.core.context import Context, ContextBuilder
+
+
+@pytest.fixture(params=["static", "dynamic"])
+def builder(request: pytest.FixtureRequest) -> Generator[ContextBuilder, None, None]:
+    mode = request.param
+
+    if mode == "dynamic":
+        yield Context.builder()
+        return
+
+    root = Path(request.config.rootpath)
+    base = root / "tests/.pytest-artifacts"
+    base.mkdir(parents=True, exist_ok=True)
+
+    path = base / f"context-{request.node.name}-{uuid.uuid4().hex}"
+    path.mkdir(parents=True, exist_ok=False)
+
+    builder = Context.builder(path)
+    yield builder
+
+    shutil.rmtree(path, ignore_errors=True)
 
 
 @pytest.fixture
@@ -19,7 +45,7 @@ def db_engine() -> Engine:
 
 
 @pytest.mark.apikey
-def test_demo_smoke(db_engine: Engine) -> None:
+def test_demo_smoke(builder: ContextBuilder, db_engine: Engine) -> None:
     """Smoke test to ensure demo.py steps execute without exceptions."""
     # Configure logging
     logging.basicConfig(level=logging.INFO)
@@ -36,17 +62,18 @@ def test_demo_smoke(db_engine: Engine) -> None:
     assert df is not None
     assert len(df) > 0, "Expected to get some results from the database query"
 
-    # Step 2: Create a databao agent
-    agent = databao.new_agent("test_agent", LLMConfig(name="gpt-5"))
-    assert agent is not None
+    # Step 2: Add database to context
+    builder.add_db(db_engine)
 
-    # Step 3: Add database to agent
-    agent.add_db(db_engine)
-
-    # Step 4: Create and add DataFrame to agent
+    # Step 3: Create and add DataFrame to context
     data = {"show_id": ["s706", "s1032", "s1253"], "cancelled": [True, True, False]}
     df = pd.DataFrame(data)
-    agent.add_df(df)
+    builder.add_df(df)
+
+    # Step 4: Builder a context and create a databao agent
+    context = builder.build()
+    agent = databao.agent(context, "test_agent", LLMConfig(name="gpt-5"))
+    assert agent is not None
 
     # Step 5: Ask a question and get results
     ask = agent.thread().ask("count cancelled shows by directors")
@@ -67,22 +94,23 @@ def test_demo_smoke(db_engine: Engine) -> None:
 
 
 @pytest.mark.apikey
-def test_consecutive_ask_calls(db_engine: Engine) -> None:
+def test_consecutive_ask_calls(builder: ContextBuilder, db_engine: Engine) -> None:
     """Test consecutive ask calls return different results."""
     # Configure logging
     logging.basicConfig(level=logging.INFO)
 
-    # Step 1: Create databao agent
-    agent = databao.new_agent("test_consecutive_agent", LLMConfig(name="gpt-5"))
-    assert agent is not None
+    # Step 1: Add database to context
+    builder.add_db(db_engine)
 
-    # Step 2: Add database to agent
-    agent.add_db(db_engine)
-
-    # Step 3: Create and add DataFrame to agent
+    # Step 2: Create and add DataFrame to context
     data = {"show_id": ["s706", "s1032", "s1253"], "cancelled": [True, True, False]}
     df = pd.DataFrame(data)
-    agent.add_df(df)
+    builder.add_df(df)
+
+    # Step 3: Builder a context and create a databao agent
+    context = builder.build()
+    agent = databao.agent(context, "test_consecutive_agent", LLMConfig(name="gpt-5"))
+    assert agent is not None
 
     # Step 4: First ask - count cancelled shows by directors
     ask1 = agent.thread().ask("count cancelled shows by directors")

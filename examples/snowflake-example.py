@@ -45,7 +45,7 @@ def main() -> None:
     else:
         context = databao.Context.load(project_dir)
 
-    agent = databao.new_agent_v2(context=context, name="my_agent", llm_config=LLMConfig(name="gpt-5.1", temperature=0))
+    agent = databao.agent(context=context, name="my_agent", llm_config=LLMConfig(name="gpt-5.1", temperature=0))
 
     agent.thread().ask("How many accidents occurred in total?")
 

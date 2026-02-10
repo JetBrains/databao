@@ -5,21 +5,25 @@ import duckdb
 import pandas as pd
 
 import databao
+from databao import Context
 
 file_path = Path(__file__).parent
 
 
 def run_scenario() -> bool:
+    context_builder = Context.builder()
+
     db_path = file_path / "web_shop_orders/data/web_shop.duckdb"
     conn = duckdb.connect(db_path, read_only=True)
+    context_builder.add_db(conn)
 
     llm_config = databao.LLMConfig.from_yaml(file_path / "configs/gpt-oss-20b-ollama.yaml")
     # llm_config = databao.LLMConfig(name="claude-sonnet-4-5")
 
     # llm_config = databao.LLMConfig.from_yaml("configs/qwen3-8b-ollama.yaml")  # Use a custom config file
     # llm_config = databao.LLMConfigDirectory.QWEN3_8B_OLLAMA  # Use one of the preconfigured configs
-    agent = databao.new_agent("my_agent", llm_config=llm_config, stream_ask=False)
-    agent.add_db(conn)
+    context = context_builder.build()
+    agent = databao.agent(context, "my_agent", llm_config=llm_config, stream_ask=False)
 
     thread = agent.thread(lazy=True)
     thread.ask(

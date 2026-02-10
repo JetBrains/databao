@@ -13,7 +13,13 @@ class CustomBuildHook(BuildHookInterface):
 
     def initialize(self, version: str, build_data: dict) -> None:
         root = Path(self.root)
-        client_dir = root / "client" / "multimodal"
+        client_dir = root / "client"
+        client_package_json = client_dir / "package.json"
+
+        # Skip build if we don't have the full client source (building from sdist)
+        if not client_package_json.exists():
+            print("Building from sdist: skipping frontend build (using pre-built client/out).", file=sys.stderr)
+            return
 
         if not client_dir.exists():
             print("Warning: client/ directory not found. Skipping frontend build.", file=sys.stderr)

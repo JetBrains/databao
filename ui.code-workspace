@@ -10,10 +10,10 @@
 			"path": "../../../databao-context-engine/_experiments"
 		},
 		{
-			"path": "../../../databao-cli/ykhudyakov/agents-cli"
+			"path": "../../arodionova/dce"
 		},
 		{
-			"path": "../../arodionova/dce"
+			"path": "../../../databao-cli/main"
 		}
 	],
 	"settings": {}

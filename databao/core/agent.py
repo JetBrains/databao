@@ -1,11 +1,8 @@
-from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, TextIO, cast
 
-from duckdb import DuckDBPyConnection
 from langchain_core.language_models.chat_models import BaseChatModel
-from pandas import DataFrame
-from sqlalchemy import Connection, Engine
 
+from databao.core.context import Context
 from databao.core.data_source import DBDataSource, DFDataSource, Sources
 from databao.core.thread import Thread
 
@@ -17,6 +14,7 @@ if TYPE_CHECKING:
     from databao.core.visualizer import Visualizer
 
 
+# TODO (dce): use Context.search_context
 class Agent(Protocol):
     """An agent manages all databases and Dataframes as well as the context for them.
     Agent determines what LLM to use, what executor to use and how to visualize data for all threads.
@@ -73,6 +71,7 @@ class Agent(Protocol):
 class AgentV1(Agent):
     def __init__(
         self,
+        context: Context,
         llm: "LLMConfig",
         agent_config: "AgentConfig",
         data_executor: "Executor",
@@ -91,7 +90,7 @@ class AgentV1(Agent):
         self.__llm_config = llm
         self.__agent_config = agent_config
 
-        self.__sources: Sources = Sources(dfs={}, dbs={}, additional_context=[])
+        self.__sources: Sources = context.sources
 
         self.__executor = data_executor
         self.__visualizer = visualizer
@@ -104,76 +103,13 @@ class AgentV1(Agent):
         self.__stream_ask = stream_ask
         self.__stream_plot = stream_plot
 
-    def _parse_context_arg(self, context: str | Path | None) -> str | None:
-        if context is None:
-            return None
-        if isinstance(context, Path):
-            return context.read_text()
-        return context
+        self._init_executor()
 
-    def add_db(
-        self,
-        connection: DuckDBPyConnection | Engine | Connection,
-        *,
-        name: str | None = None,
-        context: str | Path | None = None,
-    ) -> None:
-        """
-        Add a database connection to the internal collection and optionally associate it
-        with a specific context for query execution. Supports integration with SQLAlchemy
-        engines and direct DuckDB connections.
-
-        Args:
-            connection (DuckDBPyConnection | Engine | Connection): The database connection to be added.
-                Can be an SQLAlchemy engine or connection or a native DuckDB connection.
-            name (str | None): Optional name to assign to the database connection. If
-                not provided, a default name such as 'db1', 'db2', etc., will be
-                generated dynamically based on the collection size.
-            context (str | Path | None): Optional context for the database connection. It can
-                be either the path to a file whose content will be used as the context or
-                the direct context as a string.
-        """
-        if not isinstance(connection, (DuckDBPyConnection, Engine, Connection)):
-            raise ValueError("Connection must be a DuckDB connection or SQLAlchemy engine.")
-
-        conn_name = name or f"db{len(self.__sources.dbs) + 1}"
-
-        context_text = self._parse_context_arg(context) or ""
-
-        source = DBDataSource(name=conn_name, context=context_text, db_connection=connection)
-        self.__sources.dbs[conn_name] = source
-        self.executor.register_db(source)
-
-    def add_df(self, df: DataFrame, *, name: str | None = None, context: str | Path | None = None) -> None:
-        """Register a DataFrame in this agent and in the agent's DuckDB.
-
-        Args:
-            df: DataFrame to expose to executors/executors/SQL.
-            name: Optional name; defaults to df1/df2/...
-            context: Optional text or path to a file describing this dataset for the LLM.
-        """
-        df_name = name or f"df{len(self.__sources.dfs) + 1}"
-
-        context_text = self._parse_context_arg(context) or ""
-
-        source = DFDataSource(name=df_name, context=context_text, df=df)
-        self.__sources.dfs[df_name] = source
-
-        self.executor.register_df(source)
-
-    def add_context(self, context: str | Path) -> None:
-        """Add additional context to help models understand your data.
-
-        Use this method to add general information that might not be associated with a specific data source.
-        If the information is specific to a data source, use the `context` argument of `add_db` and `add_df`.
-
-        Args:
-            context: The string or the path to a file containing the additional context.
-        """
-        text = self._parse_context_arg(context)
-        if text is None:
-            raise ValueError("Invalid context provided.")
-        self.__sources.additional_context.append(text)
+    def _init_executor(self) -> None:
+        for db_source in self.__sources.dbs.values():
+            self.executor.register_db(db_source)
+        for df_source in self.__sources.dfs.values():
+            self.executor.register_df(df_source)
 
     def thread(
         self,
