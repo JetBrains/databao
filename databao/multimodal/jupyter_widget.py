@@ -23,6 +23,8 @@ logger = logging.getLogger(__name__)
 WIDGET_ESM_PATH = Path(__file__).parent.parent.parent / "client" / "out" / "multimodal-jupyter" / "index.js"
 WIDGET_CSS_PATH = Path(__file__).parent.parent.parent / "client" / "out" / "multimodal-jupyter" / "style.css"
 
+LOADING_STATUS_VALUES = ("initial", "loading", "loaded", "failed")
+
 
 class ClientAction(Enum):
     SELECT_MODALITY = "SELECT_MODALITY"
@@ -37,19 +39,13 @@ class MultimodalWidget(anywidget.AnyWidget):
     available_modalities = traitlets.List(["DATAFRAME", "DESCRIPTION", "CHART"]).tag(sync=True)
 
     spec = traitlets.Dict(default_value=None, allow_none=True).tag(sync=True)
-    spec_status = traitlets.Enum(values=["initial", "loading", "loaded", "failed"], default_value="initial").tag(
-        sync=True
-    )
+    spec_status = traitlets.Enum(values=LOADING_STATUS_VALUES, default_value="initial").tag(sync=True)
 
     text = traitlets.Unicode("").tag(sync=True)
-    text_status = traitlets.Enum(values=["initial", "loading", "loaded", "failed"], default_value="initial").tag(
-        sync=True
-    )
+    text_status = traitlets.Enum(values=LOADING_STATUS_VALUES, default_value="initial").tag(sync=True)
 
     dataframe_html_content = traitlets.Unicode("").tag(sync=True)
-    dataframe_html_content_status = traitlets.Enum(
-        values=["initial", "loading", "loaded", "failed"], default_value="initial"
-    ).tag(sync=True)
+    dataframe_html_content_status = traitlets.Enum(values=LOADING_STATUS_VALUES, default_value="initial").tag(sync=True)
 
     def __init__(
         self,
