@@ -10,6 +10,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from databao.multimodal.utils import dataframe_to_csv
 from databao.visualizers.vega_chat import VegaChatResult
 
 if TYPE_CHECKING:
@@ -186,11 +187,6 @@ class MultimodalHTTPRequestHandler(BaseHTTPRequestHandler):
         return
 
 
-def _dataframe_to_csv(df: "Any") -> str:
-    csv_result = df.to_csv(index=False)
-    return csv_result if csv_result is not None else ""
-
-
 def open_html_content(thread: "Thread") -> str:
     """Create an HTML file with the embedded Vega spec and open it in the browser.
 
@@ -215,7 +211,7 @@ def open_html_content(thread: "Thread") -> str:
         )
 
     df = thread.df()
-    df_csv = _dataframe_to_csv(df) if df is not None else ""
+    df_csv = dataframe_to_csv(df) if df is not None else ""
 
     data_object = {"text": thread.text(), "dataframeCsvContent": df_csv}
     data_json = json.dumps(data_object)
