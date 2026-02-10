@@ -99,14 +99,6 @@ def _initialize_agent(project: DatabaoProject) -> Agent | None:
     try:
         executor_type = st.session_state.get("executor_type", "lighthouse")
 
-        if executor_type == "dbt" or True:
-            # TODO proper integration from DCE side
-            dbt_config_path = project.layout.dbt_config
-            if dbt_config_path:
-                with open(dbt_config_path) as f:
-                    dbt_config = yaml.safe_load(f)
-                    dbt_target_folder_path = dbt_config["dbt_target_folder_path"]
-
         # Use DiskCache for persistence
         cache = _get_or_create_disk_cache()
 
@@ -119,10 +111,9 @@ def _initialize_agent(project: DatabaoProject) -> Agent | None:
             set_status(AppStatus.ERROR, "No datasource connections found in DCE project.")
             return None
 
-        # Create AgentV2 with the context
-        from databao.api import new_agent_v2
+        from databao.api import agent
 
-        agent = new_agent_v2(
+        agent = agent(
             context=context,
             executor_type=executor_type,
             cache=cache,

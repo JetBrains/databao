@@ -72,6 +72,7 @@ class Agent:
         stream_plot: bool | None = None,
         lazy: bool | None = None,
         auto_output_modality: bool | None = None,
+        cache_scope: str | None = None,
         writer: TextIO | None = None,
     ) -> Thread:
         """Start a new thread in this agent."""
@@ -86,6 +87,7 @@ class Agent:
             auto_output_modality=auto_output_modality
             if auto_output_modality is not None
             else self.__auto_output_modality,
+            cache_scope=cache_scope,
             writer=writer or self.__writer,
         )
 

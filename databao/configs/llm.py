@@ -181,7 +181,7 @@ class LLMConfigDirectory:
     def list_all(cls) -> list[LLMConfig]:
         return [config for name, config in vars(cls).items() if name.isupper()]
 
-    DEFAULT = LLMConfig(name="claude-sonnet-4-5")
+    DEFAULT = LLMConfig(name="gpt-5-mini")
 
     GPT_OSS_20B = LLMConfig(
         name="ollama:gpt-oss:20b",
