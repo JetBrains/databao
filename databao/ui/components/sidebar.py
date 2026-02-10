@@ -2,9 +2,9 @@
 
 import streamlit as st
 
-from databao.ui.databao_project import DatabaoProject, DCEProjectStatus
 from databao.ui.app import _clear_all_chat_threads
 from databao.ui.components.status import AppStatus, render_status_fragment, set_status
+from databao.ui.databao_project import DatabaoProject, DCEProjectStatus
 from databao.ui.suggestions import reset_suggestions_state
 
 

@@ -3,7 +3,6 @@ from pathlib import Path
 
 import yaml
 
-
 # TODO: copypasted from databao-cli, needs to be imported or moved
 
 def get_databao_project_dir(project_dir: Path) -> Path:

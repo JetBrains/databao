@@ -7,11 +7,11 @@ import streamlit as st
 
 from databao.core.agent import Agent
 from databao.core.thread import Thread
-from databao.ui.databao_project import DatabaoProject, DCEProjectStatus
 from databao.ui.app import _clear_all_chat_threads
 from databao.ui.components.chat import render_chat_interface
 from databao.ui.components.sidebar import render_sidebar_chat_content
 from databao.ui.components.status import AppStatus, set_status
+from databao.ui.databao_project import DatabaoProject, DCEProjectStatus
 from databao.ui.models.chat_session import ChatSession
 from databao.ui.services.chat_persistence import save_chat
 from databao.ui.services.chat_title import check_title_completion, trigger_title_generation

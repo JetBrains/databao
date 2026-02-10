@@ -10,7 +10,6 @@ from databao.ui.components.chat import ChatMessage
 
 if TYPE_CHECKING:
     from databao.core.thread import Thread
-
     from databao.ui.streaming import StreamingWriter
 
 # Re-export ChatMessage for consumers of this module

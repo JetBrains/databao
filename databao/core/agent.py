@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import TYPE_CHECKING, TextIO, Protocol, cast
+from typing import TYPE_CHECKING, Protocol, TextIO, cast
 
 from duckdb import DuckDBPyConnection
 from langchain_core.language_models.chat_models import BaseChatModel

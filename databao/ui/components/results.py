@@ -9,7 +9,6 @@ from databao.ui.services.chat_persistence import save_current_chat
 if TYPE_CHECKING:
     from databao.core.executor import ExecutionResult
     from databao.core.thread import Thread
-
     from databao.ui.models.chat_session import ChatSession
 
 
