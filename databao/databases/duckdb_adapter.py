@@ -37,7 +37,7 @@ class DuckDBAdapter(DatabaseAdapter):
     @classmethod
     def register_in_duckdb(cls, shared_conn: DuckDBPyConnection, config: DBConnectionConfig, name: str) -> None:
         database = config.content.get("connection", {}).get(DATABASE_KEY)
-        shared_conn.execute(f"ATTACH '{database}' AS {name} (READ_ONLY);")
+        shared_conn.execute(f"ATTACH '{database}' AS \"{name}\" (READ_ONLY);")
 
     @staticmethod
     def _get_database(conn: DuckDBPyConnection) -> str | None:
