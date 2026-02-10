@@ -17,7 +17,7 @@ except ImportError as e:
     ) from e
 from edaplot.data_utils import spec_add_data
 
-from databao.agent.multimodal.utils import dataframe_to_html
+from databao.agent.multimodal.utils import dataframe_to_csv
 from databao.agent.visualizers.vega_chat import VegaChatResult
 
 if TYPE_CHECKING:
@@ -77,7 +77,7 @@ class MultimodalWidget(anywidget.AnyWidget):
 
         df = thread.df()
         if df is not None:
-            self.dataframe_csv_content = df.to_csv(index=False)
+            self.dataframe_csv_content = dataframe_to_csv(df)
             self.dataframe_csv_content_status = "loaded"
 
         self.on_msg(self._on_client_message)
@@ -118,7 +118,7 @@ class MultimodalWidget(anywidget.AnyWidget):
                 raise ValueError("Failed to generate data")
 
             self.dataframe_csv_content_status = "loaded"
-            self.dataframe_csv_content = df.to_csv(index=False)
+            self.dataframe_csv_content = dataframe_to_csv(df)
 
         elif payload == "DESCRIPTION":
             if self.text_status != "initial":
