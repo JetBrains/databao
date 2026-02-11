@@ -5,29 +5,25 @@ from sqlalchemy import URL, Connection, Engine, make_url
 from databao.databases.database_adapter import DatabaseAdapter
 from databao.databases.database_connection import DBConnection, DBConnectionConfig, DBConnectionRuntime
 
-MYSQL_TYPE = DatasourceType(full_type="mysql")
+SQLITE_TYPE = DatasourceType(full_type="sqlite")
 
-USER_KEY = "user"
-PASSWORD_KEY = "password"
-HOST_KEY = "host"
-PORT_KEY = "port"
-DATABASE_KEY = "database"
+DATABASE_KEY = "database_path"
 
-EXCLUDED_QUERY_KEYS = {USER_KEY, PASSWORD_KEY, HOST_KEY, PORT_KEY, DATABASE_KEY}
+EXCLUDED_QUERY_KEYS = {DATABASE_KEY}
 
 
-class MySQLAdapter(DatabaseAdapter):
+class SQLiteAdapter(DatabaseAdapter):
     @classmethod
     def type(cls) -> DatasourceType:
-        return MYSQL_TYPE
+        return SQLITE_TYPE
 
     @classmethod
-    def accept(cls, conn: DBConnection) -> bool:
+    def accept(self, conn: DBConnection) -> bool:
         if isinstance(conn, (Engine, Connection)):
             dialect = conn.dialect
-            return dialect.name.startswith(("mysql", "mariadb"))
+            return dialect.name.startswith("sqlite")
         if isinstance(conn, DBConnectionConfig):
-            return conn.type == MYSQL_TYPE  # type: ignore[no-any-return]
+            return conn.type == SQLITE_TYPE  # type: ignore[no-any-return]
         return False
 
     @classmethod
@@ -37,32 +33,29 @@ class MySQLAdapter(DatabaseAdapter):
 
         engine = run_conn if isinstance(run_conn, Engine) else run_conn.engine
         dialect = engine.dialect
-        if not dialect.name.startswith(("mysql", "mariadb")):
+        if not dialect.name.startswith("sqlite"):
             return None
 
         sa_url_str = engine.url.render_as_string(hide_password=False)
         sa_url = make_url(sa_url_str)
+        database = sa_url.database
+        if database == ":memory:":
+            raise RuntimeError("Memory-based SQLite is not supported.")
         content = dict(dialect.create_connect_args(sa_url)[1])
 
-        return DBConnectionConfig(type=MYSQL_TYPE, content=content)
+        return DBConnectionConfig(SQLITE_TYPE, content)
 
     @classmethod
     def register_in_duckdb(cls, shared_conn: DuckDBPyConnection, config: DBConnectionConfig, name: str) -> None:
-        url = cls._create_url(config)
-        shared_conn.execute("INSTALL mysql;")
-        shared_conn.execute("LOAD mysql;")
-        shared_conn.execute(f"ATTACH '{url}' AS \"{name}\" (TYPE MYSQL);")
+        database = config.content.get(DATABASE_KEY)
+        shared_conn.execute(f"ATTACH '{database}' AS \"{name}\" (TYPE SQLITE);")
 
     @staticmethod
     def _create_url(conn: DBConnectionConfig) -> str:
         content = conn.content
 
         url = URL.create(
-            drivername="mysql",
-            username=content.get(USER_KEY),
-            password=content.get(PASSWORD_KEY),
-            host=content.get(HOST_KEY),
-            port=content.get(PORT_KEY),
+            drivername="sqlite",
             database=content.get(DATABASE_KEY),
             query={k: v for k, v in content.items() if k not in EXCLUDED_QUERY_KEYS},
         )

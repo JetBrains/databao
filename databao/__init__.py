@@ -6,16 +6,24 @@ except importlib.metadata.PackageNotFoundError:
     __version__ = "0.0.0"  # Fallback for development mode
 
 
-from databao.api import new_agent, new_agent_v2
+from databao.api import agent
 from databao.configs.llm import LLMConfig
-from databao.core import Agent, AgentV1, ExecutionResult, Executor, Opa, Thread, VisualisationResult, Visualizer
-from databao.core.v2 import AgentV2, Context, ContextBuilder
+from databao.core import (
+    Agent,
+    Context,
+    ContextBuilder,
+    ExecutionResult,
+    Executor,
+    Opa,
+    SourcesManager,
+    Thread,
+    VisualisationResult,
+    Visualizer,
+)
 from databao.databases import DBConnection, DBConnectionConfig, DBConnectionRuntime, supported_db_types
 
 __all__ = [
     "Agent",
-    "AgentV1",
-    "AgentV2",
     "Context",
     "ContextBuilder",
     "DBConnection",
@@ -25,11 +33,11 @@ __all__ = [
     "Executor",
     "LLMConfig",
     "Opa",
+    "SourcesManager",
     "Thread",
     "VisualisationResult",
     "Visualizer",
     "__version__",
-    "new_agent",
-    "new_agent_v2",
+    "agent",
     "supported_db_types",
 ]

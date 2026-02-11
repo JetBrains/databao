@@ -1,8 +1,7 @@
 import uuid
-from typing import TYPE_CHECKING, Any, TextIO
+from typing import TYPE_CHECKING, Any, TextIO, Self
 
 from pandas import DataFrame
-from typing_extensions import Self
 
 from databao.core.executor import ExecutionResult, OutputModalityHints
 from databao.core.opa import Opa
@@ -62,8 +61,7 @@ class Thread:
         self._meta: dict[str, Any] = {}
 
         # A unique cache scope so executors can store per-thread state (e.g., message history)
-        # If cache_scope is provided, use it to restore a previous session
-        self._cache_scope = cache_scope if cache_scope else f"{self._agent.name}/{uuid.uuid4()}"
+        self._cache_scope = f"{self._agent.name}/{uuid.uuid4()}"
 
         # Optional per-thread writer for streaming output
         self._writer = writer

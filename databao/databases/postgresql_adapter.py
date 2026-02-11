@@ -51,7 +51,7 @@ class PostgreSQLAdapter(DatabaseAdapter):
         url = cls._create_url(config)
         shared_conn.execute("INSTALL postgres;")
         shared_conn.execute("LOAD postgres;")
-        shared_conn.execute(f"ATTACH '{url}' AS {name} (TYPE POSTGRES);")
+        shared_conn.execute(f"ATTACH '{url}' AS \"{name}\" (TYPE POSTGRES);")
 
     @staticmethod
     def _create_url(conn: DBConnectionConfig) -> str:
