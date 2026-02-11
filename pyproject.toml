@@ -28,7 +28,7 @@ dependencies = [
     "diskcache>=5.6.3",
     "sqlalchemy>=2.0.45",
     "snowflake-sqlalchemy>=1.8.2",
-    "databao-context-engine==0.1.6",
+    "databao-context-engine~=0.1.6",
     "watchdog>=6.0.0",
     "pandas-stubs~=2.3.3",
 ]
