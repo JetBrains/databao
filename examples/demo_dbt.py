@@ -3,7 +3,7 @@ from pathlib import Path
 
 import duckdb
 import databao
-from databao import LLMConfig
+from databao import LLMConfig, Context
 from databao.configs.agent import AgentConfig
 from databao.executors.dbt import DbtConfig, DbtProjectExecutor
 
@@ -15,7 +15,15 @@ DBT_PROJ_PATH = Path("/Users/andrei.gasparian/Documents/databao-agent/examples/s
 llm_config = LLMConfig(name="gpt-5", temperature=0)
 agent_config = AgentConfig(recursion_limit=100, parallel_tool_calls=True)
 
-agent = databao.new_agent(
+context_builder = Context.builder()
+
+engine = duckdb.connect(DB_PATH)
+context_builder.add_db(engine)
+
+context = context_builder.build()
+
+agent = databao.agent(
+    context=context,
     name="demo-dbt-executor",
     llm_config=llm_config,
     agent_config=agent_config,
@@ -26,9 +34,6 @@ agent = databao.new_agent(
         use_sandbox=True,
     ),
 )
-
-conn = duckdb.connect(DB_PATH)
-agent.add_db(conn)
 
 thread = agent.thread(stream_ask=True)
 

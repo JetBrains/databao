@@ -1,19 +1,19 @@
 from abc import ABC
 from typing import Any, TextIO
 
+import duckdb
 from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
+from sqlalchemy import Connection, Engine
 
 from databao.core import Cache
+from databao.core.data_source import DBDataSource, DFDataSource
 from databao.core.executor import ExecutionResult, Executor, OutputModalityHints
 from databao.core.opa import Opa
+from databao.databases import DBConnectionConfig, register_in_duckdb
+from databao.duckdb.utils import get_db_path, register_sqlalchemy
 from databao.executors.frontend.text_frontend import TextStreamFrontend
-
-try:
-    from duckdb import DuckDBPyConnection
-except ImportError:
-    DuckDBPyConnection = Any  # type: ignore
 
 
 class GraphExecutor(Executor, ABC):
@@ -31,6 +31,34 @@ class GraphExecutor(Executor, ABC):
         """
         self._graph_recursion_limit = 50
         self._writer = writer
+        self._duckdb_connection: duckdb.DuckDBPyConnection = duckdb.connect(":memory:")
+        self._attached_db_paths: dict[str, str] = {}
+        self._registered_dfs: dict[str, Any] = {}
+
+    def register_db(self, source: DBDataSource) -> None:
+        """Register a database source into the shared DuckDB connection."""
+        connection = source.db_connection
+        if isinstance(connection, Connection):
+            connection = connection.engine
+
+        if isinstance(connection, duckdb.DuckDBPyConnection):
+            path = get_db_path(connection)
+            if path is None:
+                raise RuntimeError("Memory-based DuckDB is not supported.")
+            connection.close()
+            self._attached_db_paths[source.name] = path
+            self._duckdb_connection.execute(f"ATTACH '{path}' AS \"{source.name}\" (READ_ONLY)")
+        elif isinstance(connection, Engine):
+            register_sqlalchemy(self._duckdb_connection, connection, source.name)
+        elif isinstance(connection, DBConnectionConfig):
+            register_in_duckdb(self._duckdb_connection, connection, source.name)
+        else:
+            raise ValueError(f"Unsupported connection type: {type(connection)}")
+
+    def register_df(self, source: DFDataSource) -> None:
+        """Register a DataFrame source into the shared DuckDB connection."""
+        self._registered_dfs[source.name] = source.df
+        self._duckdb_connection.register(source.name, source.df)
 
     def _process_opas(self, opas: list[Opa], cache: Cache) -> list[Any]:
         """

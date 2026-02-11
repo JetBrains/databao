@@ -7,16 +7,20 @@ import jinja2
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
-from sqlalchemy import Connection, Engine
 
 from databao.configs import LLMConfig
 from databao.configs.agent import AgentConfig
 from databao.core import Cache, ExecutionResult, Opa
-from databao.core.data_source import DBDataSource, DFDataSource, Sources
+from databao.core.data_source import Sources
 from databao.core.executor import OutputModalityHints
 from databao.executors.dbt.config import DbtConfig
-from databao.duckdb.types import DbConnFactory
-from databao.duckdb.utils import get_db_path
+from databao.executors.dbt.dbt_runner import (
+    duckdb_post_run_hook,
+    noop_post_run_hook,
+    PostDbtRunHook,
+    assemble_dbt_project_summary,
+)
+from databao.executors.dbt.sql_executor import DuckDbSqlExecutor
 from databao.executors.base import GraphExecutor
 from databao.executors.dbt.graph import DbtProjectGraph
 from databao.executors.lighthouse.history_cleaning import clean_tool_history
@@ -63,28 +67,43 @@ class DbtProjectExecutor(GraphExecutor):
     - [ ] `submit_answer` has been called with the final answer SQL
     """
 
-    def __init__(self, *, dbt_config: DbtConfig, use_sandbox: bool = False, writer: TextIO | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        dbt_config: DbtConfig,
+        use_sandbox: bool = False,
+        post_dbt_run_hook: PostDbtRunHook | None = None,
+        writer: TextIO | None = None,
+    ) -> None:
         super().__init__(writer=writer)
         self._dbt_config = dbt_config
         self._use_sandbox = use_sandbox
 
         self._prompt_template = self._read_prompt_template("system_prompt.jinja")
 
-        self._duckdb_connection = duckdb.connect(":memory:")
-        self._attached_db_paths: dict[str, str] = {}
-        self._registered_dfs: dict[str, Any] = {}
-        self._db_conn_factory: DbConnFactory | None = None
-        self._graph = DbtProjectGraph(db_conn_factory=self._get_connection)
+        # Auto-detect post-run hook: DuckDB projects need checkpoint, others don't.
+        # Can be overridden explicitly via constructor.
+        self._post_dbt_run_hook = post_dbt_run_hook if post_dbt_run_hook is not None else duckdb_post_run_hook
+
+        self._graph = DbtProjectGraph(
+            sql_executor_factory=self._make_sql_executor,
+            post_dbt_run_hook=self._post_dbt_run_hook,
+        )
         self._compiled_graph: CompiledStateGraph[Any] | None = None
 
-    def _get_connection(self) -> duckdb.DuckDBPyConnection:
+    def _make_sql_executor(self) -> DuckDbSqlExecutor:
+        """Create a short-lived DuckDB read-only executor from the shared connection state.
+
+        Uses the base class's shared DuckDB connection metadata (attached paths + registered DFs)
+        to build a fresh read-only connection. This ensures dbt's writes are visible after each run.
+        """
         con = duckdb.connect(":memory:")
         for name, path in self._attached_db_paths.items():
             actual_path = self._graph._db_path_remaps.get(path, path)
-            con.execute(f"ATTACH '{actual_path}' AS {name} (READ_ONLY)")
+            con.execute(f"ATTACH '{actual_path}' AS \"{name}\" (READ_ONLY)")
         for name, df in self._registered_dfs.items():
             con.register(name, df)
-        return con
+        return DuckDbSqlExecutor(con)
 
     @staticmethod
     def _read_prompt_template(template_name: str) -> jinja2.Template:
@@ -96,8 +115,6 @@ class DbtProjectExecutor(GraphExecutor):
         return env.get_template(template_name)
 
     def render_system_prompt(self) -> str:
-        from databao.executors.dbt.v2.agent import assemble_dbt_project_summary
-
         project_dir = self._dbt_config.project_dir.resolve()
         dbt_overview = assemble_dbt_project_summary(project_dir)
 
@@ -106,49 +123,6 @@ class DbtProjectExecutor(GraphExecutor):
             dbt_directory=project_dir.absolute(),
         )
         return system_prompt.strip()
-
-    def register_db(self, source: DBDataSource) -> None:
-        connection = source.db_connection
-        if isinstance(connection, Connection):
-            connection = connection.engine
-
-        if isinstance(connection, duckdb.DuckDBPyConnection):
-            path = get_db_path(connection)
-            if path is None:
-                raise RuntimeError("Memory-based DuckDB is not supported.")
-            connection.close()
-            self._attached_db_paths[source.name] = path
-            return
-
-        if isinstance(connection, Engine):
-            raise NotImplementedError("SQLAlchemy connections require a persistent connection; not yet supported with factory pattern.")
-
-        raise ValueError("Only DuckDB or SQLAlchemy connections are supported.")
-
-    # NOTE: for v2 only
-    # def register_db(self, source: DBDataSource) -> None:
-    #     """Register DB in the DuckDB connection."""
-    #     connection = source.db_connection
-    #     if isinstance(connection, Connection):
-    #         connection = connection.engine
-    #
-    #     if isinstance(connection, duckdb.DuckDBPyConnection):
-    #         if isinstance(connection, duckdb.DuckDBPyConnection):
-    #             path = get_db_path(connection)
-    #             if path is None:
-    #                 raise RuntimeError("Memory-based DuckDB is not supported.")
-    #             connection.close()
-    #             self._attached_db_paths[source.name] = path
-    #             return
-    #     elif isinstance(connection, Engine):
-    #         register_sqlalchemy(self._duckdb_connection, connection, source.name)
-    #     elif isinstance(connection, DBConnectionConfig):
-    #         register_in_duckdb(self._duckdb_connection, connection, source.name)
-    #     else:
-    #         raise ValueError("Only DuckDB or SQLAlchemy connections are supported.")
-
-    def register_df(self, source: DFDataSource) -> None:
-        self._registered_dfs[source.name] = source.df
 
     def _get_compiled_graph(self, llm_config: LLMConfig, agent_config: AgentConfig) -> CompiledStateGraph[Any]:
         compiled_graph = self._compiled_graph or self._graph.compile(llm_config, agent_config)

@@ -1,19 +1,16 @@
 from pathlib import Path
 from typing import Any, TextIO
 
-import duckdb
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
-from sqlalchemy import Connection, Engine
 
 from databao.configs import LLMConfig
 from databao.configs.agent import AgentConfig
 from databao.core import Cache, ExecutionResult, Opa
-from databao.core.data_source import DBDataSource, DFDataSource, Sources
+from databao.core.data_source import Sources
 from databao.core.executor import OutputModalityHints
-from databao.databases import DBConnectionConfig, register_in_duckdb
-from databao.duckdb.utils import describe_duckdb_schema, get_db_path, register_sqlalchemy
+from databao.duckdb.utils import describe_duckdb_schema
 from databao.executors.base import GraphExecutor
 from databao.executors.lighthouse.graph import ExecuteSubmit
 from databao.executors.lighthouse.history_cleaning import clean_tool_history
@@ -24,9 +21,6 @@ class LighthouseExecutor(GraphExecutor):
     def __init__(self, writer: Any = None) -> None:
         super().__init__(writer=writer)
         self._prompt_template = read_prompt_template(Path("system_prompt.jinja"))
-
-        # Create a DuckDB connection for the agent
-        self._duckdb_connection = duckdb.connect(":memory:")
         self._graph: ExecuteSubmit = ExecuteSubmit(self._duckdb_connection)
         self._compiled_graph: CompiledStateGraph[Any] | None = None
 
@@ -57,29 +51,6 @@ class LighthouseExecutor(GraphExecutor):
         )
 
         return prompt.strip()
-
-    def register_db(self, source: DBDataSource) -> None:
-        """Register DB in the DuckDB connection."""
-        connection = source.db_connection
-        if isinstance(connection, Connection):
-            connection = connection.engine
-
-        if isinstance(connection, duckdb.DuckDBPyConnection):
-            path = get_db_path(connection)
-            if path is not None:
-                connection.close()
-                self._duckdb_connection.execute(f"ATTACH '{path}' AS {source.name} (READ_ONLY)")
-            else:
-                raise RuntimeError("Memory-based DuckDB is not supported.")
-        elif isinstance(connection, Engine):
-            register_sqlalchemy(self._duckdb_connection, connection, source.name)
-        elif isinstance(connection, DBConnectionConfig):
-            register_in_duckdb(self._duckdb_connection, connection, source.name)
-        else:
-            raise ValueError("Only DuckDB or SQLAlchemy connections are supported.")
-
-    def register_df(self, source: DFDataSource) -> None:
-        self._duckdb_connection.register(source.name, source.df)
 
     def _get_compiled_graph(self, llm_config: LLMConfig, agent_config: AgentConfig) -> CompiledStateGraph[Any]:
         """Get compiled graph."""

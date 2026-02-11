@@ -8,7 +8,6 @@ from databao.core.context import Context
 from databao.executors.dbt.config import DbtConfig
 from databao.executors.dbt.executor import DbtProjectExecutor
 from databao.executors.lighthouse.executor import LighthouseExecutor
-from databao.executors.react_duckdb.executor import ReactDuckDBExecutor
 from databao.visualizers.vega_chat import VegaChatVisualizer
 
 
@@ -38,8 +37,6 @@ def agent(
     # Create executor if not provided
     if data_executor is None:
         match executor_type:
-            case "react_duckdb":
-                data_executor = ReactDuckDBExecutor(writer=writer)
             case "lighthouse":
                 data_executor = LighthouseExecutor(writer=writer)
             case "dbt":
@@ -48,10 +45,11 @@ def agent(
                 raise ValueError(f"Invalid executor type: {executor_type}")
 
     return Agent(
+        context,
         llm_config,
         agent_config,
         name=name or "default_agent",
-        data_executor=data_executor,
+        data_executor=data_executor or LighthouseExecutor(),
         visualizer=visualizer or VegaChatVisualizer(llm_config),
         cache=cache or InMemCache(),
         rows_limit=rows_limit,

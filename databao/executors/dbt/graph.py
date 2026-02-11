@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-import sys
 import hashlib
 import json
 import re
 import shutil
-import subprocess
 import tempfile
 import time
 from collections.abc import Sequence
@@ -13,7 +11,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-import duckdb
 import pandas as pd
 from langchain_core.language_models import BaseChatModel, LanguageModelInput
 from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
@@ -27,9 +24,13 @@ from langgraph.prebuilt import InjectedState
 from typing_extensions import TypedDict
 
 from databao.configs.agent import AgentConfig
-from databao.duckdb.types import DbConnFactory
 from databao.configs.llm import LLMConfig
-from databao.executors.dbt.utils import db_introspect
+from databao.executors.dbt.dbt_runner import (
+    PostDbtRunHook,
+    noop_post_run_hook,
+    run_dbt_subprocess,
+)
+from databao.executors.dbt.sql_executor import SqlExecutorFactory
 
 
 def _sha256_file(path: Path) -> str:
@@ -100,8 +101,14 @@ class DbtProjectGraph:
     Supports optional sandboxing for safe execution.
     """
 
-    def __init__(self, *, db_conn_factory: DbConnFactory | None = None) -> None:
-        self._db_conn_factory = db_conn_factory
+    def __init__(
+        self,
+        *,
+        sql_executor_factory: SqlExecutorFactory | None = None,
+        post_dbt_run_hook: PostDbtRunHook = noop_post_run_hook,
+    ) -> None:
+        self._sql_executor_factory = sql_executor_factory
+        self._post_dbt_run_hook = post_dbt_run_hook
         self._source_project_dir: Path | None = None
         self._staged_project_dir: Path | None = None
         self._before_snapshot: dict[Path, str] | None = None
@@ -189,13 +196,7 @@ class DbtProjectGraph:
         if not self._staged_project_dir or not self._source_project_dir or not self._before_snapshot:
             raise RuntimeError("No active sandbox to commit.")
 
-        for db_file in self._staged_project_dir.rglob("*.duckdb"):
-            try:
-                con = duckdb.connect(str(db_file))
-                con.execute("CHECKPOINT")
-                con.close()
-            except Exception:
-                pass
+        self._post_dbt_run_hook(self._staged_project_dir)
 
         after_snapshot = _snapshot_tree(self._staged_project_dir)
 
@@ -269,24 +270,24 @@ class DbtProjectGraph:
                     "Use run_sql('SELECT * FROM table LIMIT 5') to explore specific tables."
                 )
 
-            if self._db_conn_factory is None:
-                return _json_dumps({"error": "Database connection factory not provided."})
+            if self._sql_executor_factory is None:
+                return _json_dumps({"error": "SQL executor factory not provided."})
 
-            con = self._db_conn_factory()
+            executor = self._sql_executor_factory()
             try:
-                schema_df = db_introspect(con)
+                schema_df = executor.introspect()
                 result = schema_df.to_markdown(index=False)
                 self._db_explored = True
                 return result
             except Exception as e:
                 return f"ERROR: could not introspect database: {e}"
             finally:
-                con.close()
+                executor.close()
 
         @tool(parse_docstring=True)
         def run_sql(sql: str, sample_rows: int = 5) -> dict[str, Any]:
             """
-            Run a SQL query against the DuckDB database.
+            Run a SQL query against the database.
 
             Args:
                 sql: SQL query
@@ -295,12 +296,12 @@ class DbtProjectGraph:
             Returns:
                 JSON with keys: schema, row_count, sample_rows, truncated
             """
-            if self._db_conn_factory is None:
-                return {"error": "Database connection factory not provided."}
+            if self._sql_executor_factory is None:
+                return {"error": "SQL executor factory not provided."}
 
-            con = self._db_conn_factory()
+            executor = self._sql_executor_factory()
             try:
-                df = con.execute(sql).fetchdf()
+                df = executor.execute_to_df(sql)
                 schema = [{"name": c, "dtype": str(dt)} for c, dt in zip(df.columns, df.dtypes, strict=True)]
                 sample = df.head(sample_rows).to_dict(orient="records")
                 return {
@@ -314,7 +315,7 @@ class DbtProjectGraph:
             except Exception as e:
                 return {"error": str(e)}
             finally:
-                con.close()
+                executor.close()
 
         @tool(parse_docstring=True)
         def run_dbt(
@@ -336,34 +337,13 @@ class DbtProjectGraph:
             project_dir_str = str(ctx.project_dir if project_dir is None else Path(project_dir))
             timeout_val = ctx.dbt_timeout_seconds if timeout is None else int(timeout)
 
-            try:
-                proc = subprocess.run(
-                    # ["dbt", "run"],
-                    [sys.executable, "-m", "dbt.cli.main", "run"],
-                    cwd=project_dir_str,
-                    capture_output=True,
-                    text=True,
-                    timeout=timeout_val,
-                    check=False,
-                )
-            except subprocess.TimeoutExpired:
-                return _json_dumps({"timeout": True})
-
-            project_path = Path(project_dir_str)
-            for db_file in project_path.rglob("*.duckdb"):
-                try:
-                    con = duckdb.connect(str(db_file))
-                    con.execute("CHECKPOINT")
-                    con.close()
-                except Exception:
-                    pass  # Best effort
-
-            return _json_dumps({
-                "returncode": int(proc.returncode),
-                "stdout_tail": "\n".join((proc.stdout or "").splitlines()[-200:]),
-                "stderr_tail": "\n".join((proc.stderr or "").splitlines()[-200:]),
-                "timeout": False,
-            })
+            result = run_dbt_subprocess(
+                command="run",
+                project_dir=project_dir_str,
+                timeout=timeout_val,
+                post_run_hook=self._post_dbt_run_hook,
+            )
+            return _json_dumps(result)
 
         @tool(parse_docstring=True)
         def dbt_deps(project_dir: str | None, graph_state: Annotated[DbtAgentState, InjectedState]) -> str:
@@ -379,23 +359,14 @@ class DbtProjectGraph:
             ctx = graph_state["context"]
             project_dir_str = str(ctx.project_dir if project_dir is None else Path(project_dir))
 
-            try:
-                proc = subprocess.run(
-                    # ["dbt", "deps"],
-                    [sys.executable, "-m", "dbt.cli.main", "deps"],
-                    cwd=project_dir_str,
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                )
-            except Exception as e:
-                return _json_dumps({"error": str(e)})
-
-            return _json_dumps({
-                "returncode": int(proc.returncode),
-                "stdout_tail": "\n".join((proc.stdout or "").splitlines()[-20:]),
-                "stderr_tail": "\n".join((proc.stderr or "").splitlines()[-20:]),
-            })
+            result = run_dbt_subprocess(
+                command="deps",
+                project_dir=project_dir_str,
+                post_run_hook=noop_post_run_hook,
+                stdout_tail_lines=20,
+                stderr_tail_lines=20,
+            )
+            return _json_dumps(result)
 
         @tool(parse_docstring=True)
         def read_tool(path: str, graph_state: Annotated[DbtAgentState, InjectedState]) -> str:
@@ -546,12 +517,12 @@ class DbtProjectGraph:
             Returns:
                 Confirmation with result summary
             """
-            if self._db_conn_factory is None:
-                return {"_submit_answer": False, "error": "Database connection factory not provided."}
+            if self._sql_executor_factory is None:
+                return {"_submit_answer": False, "error": "SQL executor factory not provided."}
 
-            con = self._db_conn_factory()
+            executor = self._sql_executor_factory()
             try:
-                df = con.execute(sql).fetchdf()
+                df = executor.execute_to_df(sql)
                 return {
                     "_submit_answer": True,
                     "sql": sql,
@@ -567,7 +538,7 @@ class DbtProjectGraph:
                     "error": str(e),
                 }
             finally:
-                con.close()
+                executor.close()
 
         return [
             run_database_explore,
