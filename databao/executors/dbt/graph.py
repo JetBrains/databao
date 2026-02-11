@@ -299,6 +299,11 @@ class DbtProjectGraph:
             if self._sql_executor_factory is None:
                 return {"error": "SQL executor factory not provided."}
 
+            # Guard: reject ATTACH / multi-statement SQL that could break the connection
+            sql_stripped = sql.strip().rstrip(";")
+            if re.search(r"\bATTACH\b", sql_stripped, re.IGNORECASE):
+                return {"error": "Do NOT use ATTACH in run_sql. The database is already attached. Use fully qualified table names from run_database_explore."}
+
             executor = self._sql_executor_factory()
             try:
                 df = executor.execute_to_df(sql)

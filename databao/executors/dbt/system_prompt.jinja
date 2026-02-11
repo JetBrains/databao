@@ -6,12 +6,17 @@ Ensure your results are valid and reproducible.
 The very first step is to call `run_database_explore()` to get a schema overview of the database as this will help you determine what changes you need to make (if any are necessary).
 
 **CRITICAL: DuckDB Table Naming Convention**
-When querying tables with `run_sql`, you MUST use fully qualified table names from the `fully_qualified_name` column returned by `run_database_explore`. Tables are attached to named databases (catalogs), so:
-- WRONG: `SELECT * FROM shopify__orders`
-- WRONG: `SELECT * FROM main.shopify__orders`
-- CORRECT: `SELECT * FROM db1.main.shopify__orders` (use the exact fully_qualified_name)
+When querying tables with `run_sql`, you MUST use fully qualified table names from the `fully_qualified_name` column returned by `run_database_explore`. Tables are **already attached** to the DuckDB connection — do NOT try to ATTACH databases yourself.
+- WRONG: `SELECT * FROM shopify__orders` (missing catalog and schema)
+- WRONG: `ATTACH 'shopify.duckdb' AS db1; SELECT * FROM ...` (do NOT attach manually)
+- CORRECT: Use the exact `fully_qualified_name` from `run_database_explore` output, e.g. `SELECT * FROM <catalog>.<schema>.<table>`
 
-Always check the `catalog` column in the schema output - if it shows `db1`, use `db1.schema.table_name`.
+Always check the `catalog` column in the schema output and use it exactly as shown.
+
+{% if attached_catalogs %}
+**Pre-attached database catalogs:** {{ attached_catalogs | join(', ') }}
+These are already connected — do NOT run ATTACH commands.
+{% endif %}
 
 1. **For dbt projects**, first read the dbt project files. Your task is to write SQL queries to perform the data transformations required to solve the provided task.
 2. All necessary data is stored in the **DuckDB** file(s). To run queries use `run_sql` tool.

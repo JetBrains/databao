@@ -117,10 +117,12 @@ class DbtProjectExecutor(GraphExecutor):
     def render_system_prompt(self) -> str:
         project_dir = self._dbt_config.project_dir.resolve()
         dbt_overview = assemble_dbt_project_summary(project_dir)
+        attached_catalogs = list(self._attached_db_paths.keys()) or []
 
         system_prompt = self._prompt_template.render(
             dbt_overview=dbt_overview,
             dbt_directory=project_dir.absolute(),
+            attached_catalogs=attached_catalogs,
         )
         return system_prompt.strip()
 
