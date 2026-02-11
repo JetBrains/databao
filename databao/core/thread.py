@@ -6,6 +6,7 @@ from typing_extensions import Self
 
 from databao.core.executor import ExecutionResult, OutputModalityHints
 from databao.core.opa import Opa
+# TODO: (@gas) move to core under the new dbt package?
 from databao.executors.dbt.errors import DbtNotEnabledError
 from databao.executors.dbt.v2.plan import DbtPlan
 

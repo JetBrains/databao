@@ -5,8 +5,7 @@ import duckdb
 import databao
 from databao import LLMConfig
 from databao.configs.agent import AgentConfig
-from databao.dbt import DbtConfig
-from databao.executors.dbt.executor import DbtProjectExecutor
+from databao.executors.dbt import DbtConfig, DbtProjectExecutor
 
 logging.basicConfig(level=logging.INFO)
 
@@ -24,6 +23,7 @@ agent = databao.new_agent(
         dbt_config=DbtConfig(
             project_dir=DBT_PROJ_PATH,
         ),
+        use_sandbox=True,
     ),
 )
 
