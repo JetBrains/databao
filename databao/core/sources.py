@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Any
 
-from databao_context_engine.datasources.types import PreparedConfig, PreparedDatasource
+from databao_context_engine import ConfiguredDatasource
 from pandas import DataFrame
 
 from databao.core.data_source import DBDataSource, DFDataSource, Sources
@@ -9,21 +9,19 @@ from databao.databases import DBConnectionConfig
 
 
 class SourcesManager:
-    def __init__(self, prepared_data_sources: list[PreparedDatasource] | None = None):
+    def __init__(self, prepared_data_sources: list[ConfiguredDatasource] | None = None):
         self._sources: Sources = Sources(dfs={}, dbs={}, additional_context=[])
         self._add_prepared_ds(prepared_data_sources)
 
-    def _add_prepared_ds(self, prepared_data_sources: list[PreparedDatasource] | None) -> None:
+    def _add_prepared_ds(self, prepared_data_sources: list[ConfiguredDatasource] | None) -> None:
         if prepared_data_sources is None:
             return
         for ds in prepared_data_sources:
-            if isinstance(ds, PreparedConfig):
-                type = ds.datasource_type
-                content = self._get_config_content(ds)
-                name = ds.datasource_name
-                self.add_db(DBConnectionConfig(type, content), name=name)
+            content = ds.config
+            if content:
+                self.add_db(DBConnectionConfig(ds.datasource.type, content))
             else:
-                raise ValueError("Only PreparedConfig is supported")
+                raise ValueError("Only configurable datasources are supported")
 
     def add_db(
         self, config: DBConnectionConfig, *, name: str | None = None, context: str | Path | None = None
@@ -53,10 +51,6 @@ class SourcesManager:
     @property
     def sources(self) -> Sources:
         return self._sources
-
-    @staticmethod
-    def _get_config_content(ds: PreparedConfig) -> dict[str, Any]:
-        return {str(k): v for k, v in ds.config.items()}
 
     @staticmethod
     def _parse_context_arg(context: str | Path | None) -> str | None:
