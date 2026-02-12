@@ -40,6 +40,4 @@ __all__ = [
     "__version__",
     "agent",
     "supported_db_types",
-    "new_agent_v2",
-    "supported_db_types",
 ]
