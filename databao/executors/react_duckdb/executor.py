@@ -2,14 +2,13 @@ import logging
 from typing import Any, TextIO
 
 import duckdb
+from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
 from sqlalchemy import Connection, Engine
 
 from databao.configs.agent import AgentConfig
 from databao.configs.llm import LLMConfig
-from langchain_core.messages import HumanMessage
-
 from databao.core import Cache, ExecutionResult, Opa
 from databao.core.data_source import DBDataSource, DFDataSource, Sources
 from databao.core.executor import OutputModalityHints

@@ -31,6 +31,7 @@ class GraphExecutor(Executor, ABC):
         """
         self._graph_recursion_limit = 50
         self._writer = writer
+
     def _process_opas(self, opas: list[Opa], cache: Cache) -> list[Any]:
         """
         Process a single opa and convert it to a message, appending to message history.
