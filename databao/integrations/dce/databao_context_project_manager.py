@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Any
 
 from databao_context_engine import (
-    BuildContextResult,
+    BuildDatasourceResult,
     ConfiguredDatasource,
     DatabaoContextProjectManager,
     DatasourceType,
@@ -22,7 +22,7 @@ class DatabaoContextProjectManagerApi:
     def get_prepared_datasource_list(self) -> list[ConfiguredDatasource]:
         return self._delegate.get_configured_datasource_list()
 
-    def build_context(self) -> list[BuildContextResult]:
+    def build_context(self) -> list[BuildDatasourceResult]:
         return self._delegate.build_context()
 
     @property

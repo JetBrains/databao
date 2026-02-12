@@ -662,7 +662,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "click", marker = "extra == 'ui'", specifier = ">=8.0.0" },
-    { name = "databao-context-engine", specifier = ">=0.2.0" },
+    { name = "databao-context-engine", specifier = ">=0.2.1" },
     { name = "diskcache", specifier = ">=5.6.3" },
     { name = "duckdb", specifier = ">=1.3.0" },
     { name = "edaplot-vl", specifier = "~=0.1.4" },
@@ -703,7 +703,7 @@ dev = [
 
 [[package]]
 name = "databao-context-engine"
-version = "0.2.0"
+version = "0.2.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
@@ -714,9 +714,9 @@ dependencies = [
     { name = "pyyaml" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d4/f2/c3a9296a2544aae20350e3a4bcca0767f46bdeeb5d30870d4d06586ae3ca/databao_context_engine-0.2.0.tar.gz", hash = "sha256:56ca01a95ef1decce5f9c1ce133ee9424f3614e05dc8722019bccf6202a524b0", size = 81567, upload-time = "2026-02-11T09:07:55.772Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/4c/14/cfd2b7195f23f4b9f2df745317dff8695ebd874d1b0235de36c5d32268eb/databao_context_engine-0.2.1.tar.gz", hash = "sha256:65b0d5c3f161f649eb232d4b90f61474721d72d1969e4236797a3a3c9d9ceb7a", size = 87594, upload-time = "2026-02-12T12:40:23.42Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bd/fa/771c7676fc234814e1a1d54a61b913fdf67cd6cbe53618c2c0c3c8e01967/databao_context_engine-0.2.0-py3-none-any.whl", hash = "sha256:0e9039062311113e7c7ebc3073c7129844e8137833f1709d1215f3f66e41ca5c", size = 141280, upload-time = "2026-02-11T09:07:54.822Z" },
+    { url = "https://files.pythonhosted.org/packages/0a/be/de174b9828773a1a91819f76e2ed5f4280b1a07fc4c894b588a5ec66fb94/databao_context_engine-0.2.1-py3-none-any.whl", hash = "sha256:f50ed159ce49c7dc036c282fad123ad66416664364dde3037d7c493b886d7069", size = 148082, upload-time = "2026-02-12T12:40:21.71Z" },
 ]
 
 [[package]]
