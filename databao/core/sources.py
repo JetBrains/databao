@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Any
 
 from databao_context_engine import ConfiguredDatasource
 from pandas import DataFrame
