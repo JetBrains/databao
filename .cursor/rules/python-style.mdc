@@ -1,0 +1,40 @@
+---
+description: Python code style and formatting standards
+globs: "**/*.py"
+alwaysApply: false
+---
+
+# Python Code Style
+
+## String Formatting
+
+Always use f-strings for string formatting.
+
+```python
+# BAD
+"Hello, %s" % name
+"Hello, {}".format(name)
+
+# GOOD
+f"Hello, {name}"
+```
+
+## Comments and Docstrings
+
+- Never leave inline comments explaining how the code works.
+- Do write docstrings for modules, classes, and functions where it adds clarity.
+
+```python
+# BAD
+x = x + 1  # increment x by one
+result = fetch_data(url)  # fetches data from the url
+
+# GOOD
+def fetch_data(url: str) -> dict:
+    """Fetch JSON data from the given URL."""
+    ...
+```
+
+## Linting
+
+After finishing changes, run `ruff check` on all modified Python files to verify linting and style compliance.
