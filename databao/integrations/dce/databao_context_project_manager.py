@@ -4,6 +4,7 @@ from typing import Any
 from databao_context_engine import (
     BuildContextResult,
     DatabaoContextProjectManager,
+    Datasource,
     DatasourceConfigFile,
     DatasourceType,
 )
@@ -20,6 +21,9 @@ class DatabaoContextProjectManagerApi:
         self, datasource_type: DatasourceType, datasource_name: str, config_content: dict[str, Any]
     ) -> DatasourceConfigFile:
         return self._delegate.create_datasource_config(datasource_type, datasource_name, config_content)
+
+    def get_configured_datasource_list(self) -> list[Datasource]:
+        return self._delegate.get_configured_datasource_list()
 
     # TODO (dce): should be implemented on the DCE side
     def get_prepared_datasource_list(self) -> list[PreparedDatasource]:
