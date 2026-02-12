@@ -23,7 +23,7 @@ class LLMConfig(BaseModel):
     max_tokens: int = 8192
     """Maximum number of tokens to generate."""
     reasoning_effort: str = "medium"
-    """Reasoning effort is used for OpenAI reasoning models only. 
+    """Reasoning effort is used for OpenAI reasoning models only.
     Warning: reasoning can use a lot of tokens! OpenAI recommends at least 25000 tokens"""
     cache_system_prompt: bool = True
     """Cache system prompt with prompt caching. Only used for Anthropic models."""
@@ -33,13 +33,13 @@ class LLMConfig(BaseModel):
     """Number of tokens to start history cleaning. Each Executor has it's own cleaning strategy."""
 
     timeout: int | None | Literal["auto"] = "auto"
-    """Timeout in seconds for LLM calls. If None, use the LLM provider's defaults. 
+    """Timeout in seconds for LLM calls. If None, use the LLM provider's defaults.
     If 'auto', use a default timeout (60s) that increases for reasoning models."""
 
     api_base_url: str | None = None
     """Base URL for an OpenAI-compatible API like 'http://localhost:8080/v1'. Mostly used for running local models."""
     use_responses_api: bool = True
-    """Use the [responses API](https://platform.openai.com/docs/guides/migrate-to-responses) for OpenAI models. 
+    """Use the [responses API](https://platform.openai.com/docs/guides/migrate-to-responses) for OpenAI models.
     If False, use the old Chat Completions API (useful for local models that don't support the new responses API)."""
 
     ollama_pull_model: bool = True

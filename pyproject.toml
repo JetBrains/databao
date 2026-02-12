@@ -116,6 +116,8 @@ extend-exclude = ["*.ipynb"]
 select = [
     # pycodestyle
     "E",
+    # pycodestyle warnings
+    "W",
     # Pyflakes
     "F",
     # pyupgrade
