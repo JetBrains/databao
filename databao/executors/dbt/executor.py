@@ -72,13 +72,11 @@ class DbtProjectExecutor(GraphExecutor):
         self,
         *,
         dbt_config: DbtConfig,
-        use_sandbox: bool = False,
         post_dbt_run_hook: PostDbtRunHook | None = None,
         writer: TextIO | None = None,
     ) -> None:
         super().__init__(writer=writer)
         self._dbt_config = dbt_config
-        self._use_sandbox = use_sandbox
 
         self._prompt_template = self._read_prompt_template("system_prompt.jinja")
 
@@ -176,20 +174,13 @@ class DbtProjectExecutor(GraphExecutor):
 
         project_dir = self._dbt_config.project_dir.resolve()
 
-        if self._use_sandbox:
-            init_state = self._graph.init_state_sandboxed(
-                cleaned_messages,
-                project_dir=project_dir,
-                dbt_timeout_seconds=self._dbt_config.dbt_timeout_seconds,
-            )
-        else:
-            pre_existing_files = [str(p.resolve()) for p in project_dir.rglob("*") if p.is_file()]
-            init_state = self._graph.init_state(
-                cleaned_messages,
-                project_dir=project_dir,
-                pre_existing_files=pre_existing_files,
-                dbt_timeout_seconds=self._dbt_config.dbt_timeout_seconds,
-            )
+        pre_existing_files = [str(p.resolve()) for p in project_dir.rglob("*") if p.is_file()]
+        init_state = self._graph.init_state(
+            cleaned_messages,
+            project_dir=project_dir,
+            pre_existing_files=pre_existing_files,
+            dbt_timeout_seconds=self._dbt_config.dbt_timeout_seconds,
+        )
 
         invoke_config = RunnableConfig(recursion_limit=self._graph_recursion_limit or agent_config.recursion_limit)
         last_state = self._invoke_graph_sync(
@@ -197,18 +188,6 @@ class DbtProjectExecutor(GraphExecutor):
         )
 
         result = self._graph.get_result(last_state)
-
-        sandbox_result = None
-        if self._use_sandbox:
-            if self._graph.should_commit_sandbox(last_state):
-                sandbox_result = self._graph.commit_sandbox()
-                sandbox_result["committed"] = True
-            else:
-                self._graph.discard_sandbox()
-                sandbox_result = {
-                    "committed": False,
-                    "reason": f"Last dbt run failed (returncode={last_state.get('last_dbt_returncode')})",
-                }
 
         final_messages = last_state.get("messages", [])
         if final_messages:
@@ -225,7 +204,6 @@ class DbtProjectExecutor(GraphExecutor):
                 "messages": final_messages or [],
                 "tool_calls": result.get("tool_calls", []),
                 "dbt_project_dir": str(project_dir),
-                "sandbox_result": sandbox_result,
             },
         )
 

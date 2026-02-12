@@ -1,10 +1,7 @@
 from __future__ import annotations
 
-import hashlib
 import json
 import re
-import shutil
-import tempfile
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -31,22 +28,6 @@ from databao.executors.dbt.dbt_runner import (
     run_dbt_subprocess,
 )
 from databao.executors.dbt.sql_executor import SqlExecutorFactory
-
-
-def _sha256_file(path: Path) -> str:
-    h = hashlib.sha256()
-    with path.open("rb") as f:
-        for chunk in iter(lambda: f.read(1024 * 1024), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-
-def _snapshot_tree(root: Path) -> dict[Path, str]:
-    out: dict[Path, str] = {}
-    for p in sorted(root.rglob("*")):
-        if p.is_file():
-            out[p.relative_to(root)] = _sha256_file(p)
-    return out
 
 
 @dataclass(frozen=True)
@@ -98,7 +79,6 @@ def _json_dumps(data: Any) -> str:
 class DbtProjectGraph:
     """
     Minimal, reusable tool-using graph for dbt project editing + dbt run.
-    Supports optional sandboxing for safe execution.
     """
 
     def __init__(
@@ -138,102 +118,6 @@ class DbtProjectGraph:
             answer_sql=None,
             answer_df=None,
         )
-
-    def init_state_sandboxed(
-        self,
-        messages: list[BaseMessage],
-        *,
-        project_dir: Path | str,
-        dbt_timeout_seconds: int = 300,
-    ) -> DbtAgentState:
-        """Create sandbox copy and return state pointing to it."""
-        source_dir = Path(project_dir).resolve()
-
-        tmp_root = Path(tempfile.mkdtemp(prefix="databao_dbt_sandbox_"))
-        staged = tmp_root / source_dir.name
-        staged.mkdir(parents=True, exist_ok=True)
-
-        for entry in source_dir.iterdir():
-            dst = staged / entry.name
-            if entry.is_dir():
-                shutil.copytree(entry, dst)
-            else:
-                shutil.copy2(entry, dst)
-
-        self._source_project_dir = source_dir
-        self._staged_project_dir = staged
-        self._before_snapshot = _snapshot_tree(staged)
-
-        self._db_path_remaps = {}
-        for db_file in staged.rglob("*.duckdb"):
-            original_path = source_dir / db_file.relative_to(staged)
-            self._db_path_remaps[str(original_path.resolve())] = str(db_file)
-
-        pre_existing_files = [str(p.resolve()) for p in staged.rglob("*") if p.is_file()]
-
-        ctx = DbtProjectContext(
-            project_dir=staged,
-            pre_existing_files=set(pre_existing_files),
-            dbt_timeout_seconds=dbt_timeout_seconds,
-        )
-        return DbtAgentState(
-            messages=messages,
-            context=ctx,
-            tool_calls_log=[],
-            last_sql=None,
-            last_df=None,
-            last_dbt_returncode=None,
-            answer_sql=None,
-            answer_df=None,
-        )
-
-    def should_commit_sandbox(self, state: DbtAgentState) -> bool:
-        """Check if sandbox should be committed based on last dbt run result."""
-        return state.get("last_dbt_returncode") == 0
-
-    def commit_sandbox(self) -> dict[str, Any]:
-        """Copy changed files from sandbox back to source directory."""
-        if not self._staged_project_dir or not self._source_project_dir or not self._before_snapshot:
-            raise RuntimeError("No active sandbox to commit.")
-
-        self._post_dbt_run_hook(self._staged_project_dir)
-
-        after_snapshot = _snapshot_tree(self._staged_project_dir)
-
-        before_paths = set(self._before_snapshot.keys())
-        after_paths = set(after_snapshot.keys())
-
-        added = sorted(after_paths - before_paths)
-        modified = [p for p in sorted(before_paths & after_paths) if self._before_snapshot[p] != after_snapshot[p]]
-
-        copied: list[str] = []
-        for rel in added + modified:
-            src_path = self._staged_project_dir / rel
-            dst_path = self._source_project_dir / rel
-            dst_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src_path, dst_path)
-            copied.append(str(rel))
-
-        result = {
-            "added": [str(p) for p in added],
-            "modified": [str(p) for p in modified],
-            "copied": copied,
-            "source_dir": str(self._source_project_dir),
-            "staged_dir": str(self._staged_project_dir),
-        }
-
-        self._clear_sandbox_state()
-        return result
-
-    def discard_sandbox(self) -> None:
-        """Discard sandbox without committing."""
-        self._clear_sandbox_state()
-
-    def _clear_sandbox_state(self) -> None:
-        self._source_project_dir = None
-        self._staged_project_dir = None
-        self._before_snapshot = None
-        self._db_path_remaps = {}
 
     def get_result(self, state: DbtAgentState) -> dict[str, Any]:
         last_ai: AIMessage | None = next(

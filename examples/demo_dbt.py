@@ -31,7 +31,6 @@ agent = databao.agent(
         dbt_config=DbtConfig(
             project_dir=DBT_PROJ_PATH,
         ),
-        use_sandbox=True,
     ),
 )
 

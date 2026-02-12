@@ -9,10 +9,10 @@ from typing import cast
 import streamlit as st
 import yaml
 
-from databao import new_agent
+import databao
 from databao.caches.disk_cache import DiskCache, DiskCacheConfig
 from databao.core.agent import Agent
-from databao.dbt import DbtConfig
+from databao.executors.dbt import DbtConfig
 from databao.ui.components.status import AppStatus, set_status, status_context
 from databao.ui.databao_project import DatabaoProject, DCEProjectStatus
 from databao.ui.models.chat_session import ChatSession
@@ -128,29 +128,16 @@ def _initialize_agent(project: DatabaoProject) -> Agent | None:
             return None
 
         if executor_type == "dbt":
-            import duckdb
-
-            # NOTE: safeguard when switching agents types -
-            #       - need to destroy existing object
-            if hasattr(st.session_state, "agent"):
-                del st.session_state.agent
-                gc.collect()
-
-            agent = new_agent(
+            agent = databao.agent(
+                context=context,
                 executor_type=executor_type,
                 cache=cache,
                 dbt_config=DbtConfig(
                     project_dir=Path(dbt_target_folder_path).parent, # NOTE: bc of "/target" on the end
                 ),
             )
-            agent.executor._duckdb_connection.close()
-            conn = duckdb.connect(db_path)
-            agent.add_db(conn)
         else:
-            # Create AgentV2 with the context
-            from databao.api import new_agent_v2
-
-            agent = new_agent_v2(
+            agent = databao.agent(
                 context=context,
                 executor_type=executor_type,
                 cache=cache,
