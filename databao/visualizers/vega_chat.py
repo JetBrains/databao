@@ -5,7 +5,7 @@ from typing import Any
 
 import altair
 import pandas as pd
-from edaplot.image_utils import vl_to_png_bytes
+from edaplot.image_utils import vl_to_png_base64, vl_to_png_bytes
 from edaplot.llms import LLMConfig as VegaLLMConfig
 from edaplot.vega import to_altair_chart
 from edaplot.vega_chat.vega_chat import MessageInfo, VegaChatConfig, VegaChatGraph, VegaChatState
@@ -43,11 +43,23 @@ class VegaChatResult(VisualisationResult):
 
     def image(self) -> Image.Image | None:
         """Return a static PIL.Image.Image."""
-        if self.spec is None or self.spec_df is None:
-            return None
-        if (png_bytes := vl_to_png_bytes(self.spec, self.spec_df)) is not None:
+        png_bytes = self.png_bytes()
+        if png_bytes is not None:
             return Image.open(io.BytesIO(png_bytes))
         return None
+
+    def png_bytes(self) -> bytes | None:
+        """Return a PNG image as bytes."""
+        if self.spec is None or self.spec_df is None:
+            return None
+        return vl_to_png_bytes(self.spec, self.spec_df)
+
+    def png_base64(self) -> str | None:
+        """Return a PNG image as base64 encoded string."""
+        if self.spec is None or self.spec_df is None:
+            return None
+        res = vl_to_png_base64(self.spec, self.spec_df)
+        return res
 
 
 def _convert_llm_config(llm_config: LLMConfig) -> VegaLLMConfig:
