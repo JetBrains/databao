@@ -17,3 +17,6 @@ dist/
 
 # Client build artifacts
 client/out
+
+# Test artifacts
+tests/.pytest-artifacts/
