@@ -37,6 +37,15 @@ class GraphExecutor(Executor, ABC):
 
     def register_db(self, source: DBDataSource) -> None:
         """Register a database source into the shared DuckDB connection."""
+        if not source.connectable:
+            import logging
+            logging.getLogger(__name__).debug(
+                "Skipping non-connectable datasource '%s' (type: %s)",
+                source.name,
+                getattr(source.db_connection, 'type', type(source.db_connection).__name__),
+            )
+            return
+
         connection = source.db_connection
         if isinstance(connection, Connection):
             connection = connection.engine
@@ -53,6 +62,8 @@ class GraphExecutor(Executor, ABC):
         elif isinstance(connection, DBConnectionConfig):
             register_in_duckdb(self._duckdb_connection, connection, source.name)
             db_path = connection.content.get("database_path")
+            if db_path is None:
+                db_path = connection.content.get("connection", {}).get("database_path")
             if db_path is not None:
                 self._attached_db_paths[source.name] = db_path
         else:

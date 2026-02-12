@@ -20,6 +20,11 @@ def supported_db_types() -> list[DatasourceType]:
     return [adapter.type() for adapter in DATABASE_ADAPTERS]
 
 
+def is_connectable(datasource_type: DatasourceType) -> bool:
+    """Check whether a datasource type has a registered adapter that can open a connection."""
+    return any(adapter.type() == datasource_type for adapter in DATABASE_ADAPTERS)
+
+
 def convert_to_config(conn: DBConnectionRuntime) -> DBConnectionConfig:
     for adapter in DATABASE_ADAPTERS:
         if adapter.accept(conn):
@@ -37,4 +42,4 @@ def register_in_duckdb(shared: DuckDBPyConnection, conn: DBConnectionConfig, nam
             adapter.register_in_duckdb(shared, conn, name)
             return
 
-    # raise ValueError("Cannot register connection in DuckDB")
+    raise ValueError(f"Cannot register connection of type '{conn.type}' in DuckDB — no matching adapter found")

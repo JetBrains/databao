@@ -37,6 +37,14 @@ class DuckDBAdapter(DatabaseAdapter):
     @classmethod
     def register_in_duckdb(cls, shared_conn: DuckDBPyConnection, config: DBConnectionConfig, name: str) -> None:
         database = config.content.get(DATABASE_KEY)
+        if database is None:
+            # DCE configs nest the path under a "connection" key
+            database = config.content.get("connection", {}).get(DATABASE_KEY)
+        if database is None:
+            raise ValueError(
+                f"DuckDB config for '{name}' is missing '{DATABASE_KEY}'. "
+                f"Available keys: {list(config.content.keys())}"
+            )
         shared_conn.execute(f"ATTACH '{database}' AS \"{name}\" (READ_ONLY);")
 
     @staticmethod

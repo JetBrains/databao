@@ -109,11 +109,6 @@ def _initialize_agent(project: DatabaoProject) -> Agent | None:
                 with open(dbt_config_path) as f:
                     dbt_config = yaml.safe_load(f)
                     dbt_target_folder_path = dbt_config["dbt_target_folder_path"]
-            db_config_path = project.layout.db_config
-            if db_config_path:
-                with open(db_config_path) as f:
-                    db_config = yaml.safe_load(f)
-                    db_path = db_config.get("connection", {}).get("database_path")
 
         # Use DiskCache for persistence
         cache = _get_or_create_disk_cache()

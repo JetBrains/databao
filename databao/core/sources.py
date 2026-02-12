@@ -5,7 +5,7 @@ from databao_context_engine.datasources.types import PreparedConfig, PreparedDat
 from pandas import DataFrame
 
 from databao.core.data_source import DBDataSource, DFDataSource, Sources
-from databao.databases import DBConnectionConfig
+from databao.databases import DBConnectionConfig, is_connectable
 
 
 class SourcesManager:
@@ -18,20 +18,29 @@ class SourcesManager:
             return
         for ds in prepared_data_sources:
             if isinstance(ds, PreparedConfig):
-                type = ds.datasource_type
+                ds_type = ds.datasource_type
                 content = self._get_config_content(ds)
                 name = ds.datasource_name
-                self.add_db(DBConnectionConfig(type, content), name=name)
+                self.add_db(
+                    DBConnectionConfig(ds_type, content),
+                    name=name,
+                    connectable=is_connectable(ds_type),
+                )
             else:
                 raise ValueError("Only PreparedConfig is supported")
 
     def add_db(
-        self, config: DBConnectionConfig, *, name: str | None = None, context: str | Path | None = None
+        self,
+        config: DBConnectionConfig,
+        *,
+        name: str | None = None,
+        context: str | Path | None = None,
+        connectable: bool = True,
     ) -> DBDataSource:
         name = name or f"db{len(self._sources.dbs) + 1}"
         context_text = self._parse_context_arg(context) or ""
 
-        source = DBDataSource(name=name, context=context_text, db_connection=config)
+        source = DBDataSource(name=name, context=context_text, db_connection=config, connectable=connectable)
         self._sources.dbs[name] = source
         return source
 

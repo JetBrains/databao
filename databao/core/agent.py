@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TextIO
 
 from langchain_core.language_models.chat_models import BaseChatModel
 
@@ -59,7 +59,8 @@ class Agent:
 
     def _init_executor(self) -> None:
         for db_source in self.__sources.dbs.values():
-            self.executor.register_db(db_source)
+            if db_source.connectable:
+                self.executor.register_db(db_source)
         for df_source in self.__sources.dfs.values():
             self.executor.register_df(df_source)
 
@@ -70,6 +71,8 @@ class Agent:
         stream_plot: bool | None = None,
         lazy: bool | None = None,
         auto_output_modality: bool | None = None,
+        cache_scope: str | None = None,
+        writer: "TextIO | None" = None,
     ) -> Thread:
         """Start a new thread in this agent."""
         if not self.__sources.dbs and not self.__sources.dfs:
@@ -83,6 +86,8 @@ class Agent:
             auto_output_modality=auto_output_modality
             if auto_output_modality is not None
             else self.__auto_output_modality,
+            cache_scope=cache_scope,
+            writer=writer,
         )
 
     @property
