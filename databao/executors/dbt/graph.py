@@ -167,7 +167,7 @@ class DbtProjectGraph:
         self._db_path_remaps = {}
         for db_file in staged.rglob("*.duckdb"):
             original_path = source_dir / db_file.relative_to(staged)
-            self._db_path_remaps[str(original_path)] = str(db_file)
+            self._db_path_remaps[str(original_path.resolve())] = str(db_file)
 
         pre_existing_files = [str(p.resolve()) for p in staged.rglob("*") if p.is_file()]
 

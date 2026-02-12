@@ -52,6 +52,9 @@ class GraphExecutor(Executor, ABC):
             register_sqlalchemy(self._duckdb_connection, connection, source.name)
         elif isinstance(connection, DBConnectionConfig):
             register_in_duckdb(self._duckdb_connection, connection, source.name)
+            db_path = connection.content.get("database_path")
+            if db_path is not None:
+                self._attached_db_paths[source.name] = db_path
         else:
             raise ValueError(f"Unsupported connection type: {type(connection)}")
 

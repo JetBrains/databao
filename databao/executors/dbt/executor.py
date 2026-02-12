@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, TextIO
 
 import duckdb
@@ -98,11 +99,17 @@ class DbtProjectExecutor(GraphExecutor):
         to build a fresh read-only connection. This ensures dbt's writes are visible after each run.
         """
         con = duckdb.connect(":memory:")
+        first_db_name: str | None = None
         for name, path in self._attached_db_paths.items():
-            actual_path = self._graph._db_path_remaps.get(path, path)
+            resolved_path = str(Path(path).resolve())
+            actual_path = self._graph._db_path_remaps.get(resolved_path, path)
             con.execute(f"ATTACH '{actual_path}' AS \"{name}\" (READ_ONLY)")
+            if first_db_name is None:
+                first_db_name = name
         for name, df in self._registered_dfs.items():
             con.register(name, df)
+        if first_db_name is not None:
+            con.execute(f'USE "{first_db_name}"')
         return DuckDbSqlExecutor(con)
 
     @staticmethod
