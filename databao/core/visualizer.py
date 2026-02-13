@@ -1,12 +1,25 @@
 import logging
 from abc import ABC, abstractmethod
+from enum import Enum
 from typing import Any
 
+from langchain_core.messages import BaseMessage
 from pydantic import BaseModel, ConfigDict, Field
 
 from databao.core.executor import ExecutionResult
 
 _logger = logging.getLogger(__name__)
+
+
+class HistoryMode(str, Enum):
+    """Controls how much conversation history is passed to the visualization agent."""
+
+    NONE = "none"
+    """No history: only the current visualization request (default)."""
+    LAST = "last"
+    """Messages from the last HumanMessage to the end of the conversation."""
+    FULL = "full"
+    """All messages (excluding the SystemMessage)."""
 
 
 class VisualisationResult(BaseModel):
@@ -94,12 +107,76 @@ class VisualisationResult(BaseModel):
 class Visualizer(ABC):
     """Abstract interface for converting data into plots using natural language."""
 
-    @abstractmethod
+    def __init__(self, *, history_mode: HistoryMode = HistoryMode.NONE):
+        self.history_mode = history_mode
+
     def visualize(self, request: str | None, data: ExecutionResult, *, stream: bool = False) -> VisualisationResult:
-        """Produce a visualization for the given data and optional user request."""
+        """Produce a visualization for the given data and optional user request.
+
+        Extracts conversation history from *data* based on :attr:`history_mode` and
+        delegates to :meth:`_visualize`.
+        """
+        history = self._extract_history(data)
+        return self._visualize(request, data, history=history, stream=stream)
+
+    @abstractmethod
+    def _visualize(
+        self,
+        request: str | None,
+        data: ExecutionResult,
+        *,
+        history: list[BaseMessage],
+        stream: bool = False,
+    ) -> VisualisationResult:
+        """Produce a visualization for the given data and optional user request.
+
+        Args:
+            request: Natural-language visualization request.
+            data: The execution result containing the dataframe and metadata.
+            history: Conversation history as a list of LangChain ``BaseMessage``
+                objects, already filtered according to :attr:`history_mode`.
+            stream: Whether to stream LLM output.
+        """
         pass
 
     @abstractmethod
     def edit(self, request: str, visualization: VisualisationResult, *, stream: bool = False) -> VisualisationResult:
         """Refine a prior visualization with a natural language request."""
         pass
+
+    def _extract_history(self, data: ExecutionResult) -> list[BaseMessage]:
+        """Extract conversation messages from executor results according to :attr:`history_mode`.
+
+        Returns a (possibly empty) list of LangChain ``BaseMessage`` objects.
+
+        - ``NONE``  -- empty list
+        - ``LAST``  -- messages from the last ``HumanMessage`` to the end
+        - ``FULL``  -- all messages, excluding the ``SystemMessage``
+        """
+        if self.history_mode == HistoryMode.NONE:
+            return []
+
+        raw_messages: list[Any] = data.meta.get("messages", [])
+        if not raw_messages:
+            return []
+
+        # Lazy import to avoid a hard dependency on langchain in core
+        from langchain_core.messages import HumanMessage, SystemMessage
+
+        # Filter out SystemMessage (there might be none)
+        messages: list[BaseMessage] = [m for m in raw_messages if not isinstance(m, SystemMessage)]
+
+        if self.history_mode == HistoryMode.FULL:
+            return messages
+
+        # LAST: from the last HumanMessage to the end
+        last_human_idx = None
+        for i in range(len(messages) - 1, -1, -1):
+            if isinstance(messages[i], HumanMessage):
+                last_human_idx = i
+                break
+
+        if last_human_idx is not None:
+            return messages[last_human_idx:]
+
+        return messages

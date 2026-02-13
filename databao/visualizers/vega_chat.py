@@ -7,13 +7,15 @@ import altair
 import pandas as pd
 from edaplot.image_utils import vl_to_png_base64, vl_to_png_bytes
 from edaplot.llms import LLMConfig as VegaLLMConfig
-from edaplot.vega import to_altair_chart
+from edaplot.vega import MessageType, to_altair_chart
 from edaplot.vega_chat.vega_chat import MessageInfo, VegaChatConfig, VegaChatGraph, VegaChatState
+from langchain_core.messages import BaseMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
 from PIL import Image
 
 from databao.configs.llm import LLMConfig
 from databao.core import ExecutionResult, VisualisationResult, Visualizer
+from databao.core.visualizer import HistoryMode
 from databao.executors.base import GraphExecutor
 from databao.visualizers.vega_vis_tool import VegaVisTool
 
@@ -79,7 +81,14 @@ def _convert_llm_config(llm_config: LLMConfig) -> VegaLLMConfig:
 
 
 class VegaChatVisualizer(Visualizer):
-    def __init__(self, llm_config: LLMConfig, *, return_interactive_chart: bool = False):
+    def __init__(
+        self,
+        llm_config: LLMConfig,
+        *,
+        return_interactive_chart: bool = False,
+        history_mode: HistoryMode = HistoryMode.NONE,
+    ):
+        super().__init__(history_mode=history_mode)
         vega_llm = _convert_llm_config(llm_config)
         self._vega_config = VegaChatConfig(
             llm_config=vega_llm,
@@ -91,7 +100,7 @@ class VegaChatVisualizer(Visualizer):
         # Use the possibly transformed dataframe tied to the generated spec
         model_out = state["messages"][-1]
         text = model_out.message.text
-        meta = {"messages": state["messages"]}  # Full history. Also used for edit follow ups.
+        meta = {"plot_messages": state["messages"]}  # Full VegaChat history. Also used for edit follow ups.
         spec = model_out.spec
         spec_json = json.dumps(spec, indent=2) if spec is not None else None
         if spec is None or not model_out.is_drawable or model_out.is_empty_chart:
@@ -141,9 +150,24 @@ class VegaChatVisualizer(Visualizer):
         )
 
     def _run_vega_chat(
-        self, request: str, df: pd.DataFrame, *, messages: list[MessageInfo] | None = None, stream: bool = False
+        self,
+        request: str,
+        df: pd.DataFrame,
+        *,
+        messages: list[MessageInfo] | None = None,
+        history: list[BaseMessage] | None = None,
+        stream: bool = False,
     ) -> VegaChatResult:
         vega_chat = VegaChatGraph(self._vega_config, df=df)
+
+        # If conversation history is provided (list of BaseMessage from the executor),
+        # prepend it after the VegaChat system prompt so the visualization LLM has context.
+        if history and messages is None:
+            messages = vega_chat.get_start_messages()  # [SystemMessage for VegaChat]
+            for msg in history:
+                msg_type = MessageType.USER if isinstance(msg, HumanMessage) else MessageType.AI_RESPONSE_VALID
+                messages.append(MessageInfo(message=msg, message_type=msg_type))
+
         start_state = vega_chat.get_start_state(request, messages=messages)
         compiled_graph = vega_chat.compile_graph(is_async=False)
         # Use an empty `config` instead of `None` due to a bug in the "AI Agents Debugger" PyCharm plugin.
@@ -153,21 +177,28 @@ class VegaChatVisualizer(Visualizer):
         processed_df = vega_chat.dataframe
         return self._process_result(final_state, processed_df)
 
-    def visualize(self, request: str | None, data: ExecutionResult, *, stream: bool = False) -> VegaChatResult:
+    def _visualize(
+        self,
+        request: str | None,
+        data: ExecutionResult,
+        *,
+        history: list[BaseMessage],
+        stream: bool = False,
+    ) -> VegaChatResult:
         if data.df is None:
             return VegaChatResult(text="Nothing to visualize", meta={}, plot=None, code=None, visualizer=self)
         if request is None:
             # We could also call the ChartRecommender module, but since we want a
             # single output plot, we'll just use a simple prompt.
             request = "I don't know what the data is about. Show me an interesting plot."
-        return self._run_vega_chat(request, data.df, stream=stream)
+        return self._run_vega_chat(request, data.df, history=history or None, stream=stream)
 
     def edit(self, request: str, visualization: VisualisationResult, *, stream: bool = False) -> VegaChatResult:
         if not isinstance(visualization, VegaChatResult):
             raise ValueError(f"{self.__class__.__name__} can only edit {VegaChatResult.__name__} objects")
         if visualization.spec_df is None:
             raise ValueError("No dataframe found in the provided visualization")
-        messages = visualization.meta.get("messages", None)
+        messages = visualization.meta.get("plot_messages", None)
         if messages is None:
-            raise ValueError("No message history found in the provided visualization")
+            raise ValueError("No plot message history found in the provided visualization")
         return self._run_vega_chat(request, visualization.spec_df, messages=messages, stream=stream)

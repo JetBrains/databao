@@ -1,4 +1,5 @@
 import uuid
+from copy import copy
 from typing import TYPE_CHECKING, Any, Self
 
 from pandas import DataFrame
@@ -95,8 +96,8 @@ class Thread:
             for key, value in self._visualization_result.meta.items():
                 # We don't want to override existing metadata keys
                 self._meta.setdefault(key, value)
-            if "messages" in self._visualization_result.meta:
-                self._meta["plot_messages"] = [m.message for m in self._visualization_result.meta["messages"]]
+            if "plot_messages" in self._visualization_result.meta:
+                self._meta["plot_messages"] = copy(self._visualization_result.meta["plot_messages"])
             self._meta["plot_code"] = self._visualization_result.code  # maybe worth to expand as a property later
         if self._visualization_result is None:
             raise RuntimeError("_visualization_result is None after materialization")
