@@ -46,6 +46,7 @@ class DbtAgentState(TypedDict):
     last_dbt_returncode: int | None
     answer_sql: str | None
     answer_df: pd.DataFrame | None
+    dbt_dirty: bool
 
 
 def _now() -> float:
@@ -101,6 +102,7 @@ class DbtProjectGraph:
         project_dir: Path | str,
         pre_existing_files: Sequence[str],
         dbt_timeout_seconds: int = 300,
+        dbt_dirty: bool = True,
     ) -> DbtAgentState:
         ctx = DbtProjectContext(
             project_dir=Path(project_dir),
@@ -116,6 +118,7 @@ class DbtProjectGraph:
             last_dbt_returncode=None,
             answer_sql=None,
             answer_df=None,
+            dbt_dirty=dbt_dirty,
         )
 
     def get_result(self, state: DbtAgentState) -> dict[str, Any]:
@@ -464,6 +467,7 @@ class DbtProjectGraph:
             last_dbt_returncode = state.get("last_dbt_returncode")
             answer_sql = state.get("answer_sql")
             answer_df = state.get("answer_df")
+            dbt_dirty = state.get("dbt_dirty", True)
 
             for tc in last.tool_calls:
                 name = tc["name"]
@@ -477,6 +481,16 @@ class DbtProjectGraph:
                         result = f"ERROR: unknown tool '{name}'"
                         ok = False
                         err = result
+                    elif name == "run_dbt" and not dbt_dirty:
+                        result = _json_dumps(
+                            {
+                                "returncode": 0,
+                                "skipped": True,
+                                "message": "dbt run skipped — no file changes since last successful run.",
+                            }
+                        )
+                        ok = True
+                        err = None
                     else:
                         result = tool_obj.invoke(args | {"graph_state": state})
                         ok = True
@@ -497,11 +511,18 @@ class DbtProjectGraph:
                             answer_sql = result.get("sql")
                             answer_df = result.pop("df")
 
+                        if name in ("write_tool", "edit_tool"):
+                            dbt_dirty = True
+
                         if name == "run_dbt":
                             try:
                                 parsed = json.loads(result) if isinstance(result, str) else result
-                                if "returncode" in parsed:
+                                if parsed.get("skipped"):
+                                    pass  # already clean, keep dbt_dirty as-is
+                                elif "returncode" in parsed:
                                     last_dbt_returncode = parsed["returncode"]
+                                    if parsed["returncode"] == 0:
+                                        dbt_dirty = False
                                 elif parsed.get("timeout"):
                                     last_dbt_returncode = -1
                             except (json.JSONDecodeError, TypeError):
@@ -539,6 +560,7 @@ class DbtProjectGraph:
                 "last_dbt_returncode": last_dbt_returncode,
                 "answer_sql": answer_sql,
                 "answer_df": answer_df,
+                "dbt_dirty": dbt_dirty,
             }
 
         def should_continue(state: DbtAgentState) -> Literal["tools", "end"]:

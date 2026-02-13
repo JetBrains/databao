@@ -1,8 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-import yaml
-
 # TODO: copypasted from databao-cli, needs to be imported or moved
 
 

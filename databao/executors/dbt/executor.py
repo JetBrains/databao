@@ -89,6 +89,7 @@ class DbtProjectExecutor(GraphExecutor):
         )
         self._compiled_graph: CompiledStateGraph[Any] | None = None
         self._current_cache_scope: str | None = None
+        self._dbt_dirty: bool = True
 
     def _make_sql_executor(self) -> DuckDbSqlExecutor:
         """Create a short-lived DuckDB read-only executor from the shared connection state.
@@ -186,12 +187,16 @@ class DbtProjectExecutor(GraphExecutor):
             project_dir=project_dir,
             pre_existing_files=pre_existing_files,
             dbt_timeout_seconds=self._dbt_config.dbt_timeout_seconds,
+            dbt_dirty=self._dbt_dirty,
         )
 
         invoke_config = RunnableConfig(recursion_limit=self._graph_recursion_limit or agent_config.recursion_limit)
         last_state = self._invoke_graph_sync(
             compiled_graph, init_state, config=invoke_config, stream=stream, writer=writer or self._writer
         )
+
+        # Persist dbt_dirty flag across execute() calls
+        self._dbt_dirty = last_state.get("dbt_dirty", True)
 
         result = self._graph.get_result(last_state)
 
