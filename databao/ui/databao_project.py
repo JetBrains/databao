@@ -2,7 +2,8 @@ from enum import Enum
 from functools import cached_property
 from pathlib import Path
 
-from databao import Context
+from databao import Context, DBConnectionConfig
+from databao.core.data_source import Sources
 from databao.ui.layout import ProjectLayout
 
 DEFAULT_DOMAIN_NAME = "root"
@@ -51,3 +52,11 @@ class DatabaoProject:
     @cached_property
     def context(self) -> Context:
         return Context.load(self._current_domain_path)
+
+
+def get_dbt_target_folder_path(sources: Sources) -> str | None:
+    for db_source in sources.dbs.values():
+        conn = db_source.db_connection
+        if isinstance(conn, DBConnectionConfig) and conn.type.full_type == "dbt":
+            return conn.content.get("dbt_target_folder_path")
+    return None

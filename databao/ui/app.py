@@ -7,14 +7,13 @@ from pathlib import Path
 from typing import Any, cast
 
 import streamlit as st
-import yaml
 
 import databao
 from databao.caches.disk_cache import DiskCache, DiskCacheConfig
 from databao.core.agent import Agent
 from databao.executors.dbt import DbtConfig
 from databao.ui.components.status import AppStatus, set_status, status_context
-from databao.ui.databao_project import DatabaoProject, DCEProjectStatus
+from databao.ui.databao_project import DatabaoProject, DCEProjectStatus, get_dbt_target_folder_path
 from databao.ui.models.chat_session import ChatSession
 from databao.ui.services.storage import get_cache_dir
 
@@ -103,14 +102,6 @@ def _initialize_agent(project: DatabaoProject) -> Agent | None:
     try:
         executor_type = st.session_state.get("executor_type", "lighthouse")
 
-        if executor_type == "dbt":
-            # TODO proper integration from DCE side
-            dbt_config_path = project.layout.dbt_config
-            if dbt_config_path:
-                with open(dbt_config_path) as f:
-                    dbt_config = yaml.safe_load(f)
-                    dbt_target_folder_path = dbt_config["dbt_target_folder_path"]
-
         # Use DiskCache for persistence
         cache = _get_or_create_disk_cache()
 
@@ -124,6 +115,10 @@ def _initialize_agent(project: DatabaoProject) -> Agent | None:
             return None
 
         if executor_type == "dbt":
+            dbt_target_folder_path = get_dbt_target_folder_path(context.sources)
+            if dbt_target_folder_path is None:
+                set_status(AppStatus.ERROR, "No dbt datasource with dbt_target_folder_path found.")
+                return None
             agent = databao.agent(
                 context=context,
                 executor_type=executor_type,

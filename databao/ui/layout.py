@@ -33,19 +33,6 @@ class ProjectLayout:
         """
         return self.domains_dir / "root"
 
-    @property
-    def dbt_config(self) -> Path | None:
-        src = self.root_domain_dir / "src"
-        if not src.exists() or not src.is_dir():
-            raise ValueError("src/ not found in root domain.")
-        for file in src.iterdir():
-            if file.suffix == ".yaml":
-                with open(file) as f:
-                    yml = yaml.safe_load(f)
-                    if yml.get("type", None) == "dbt":
-                        return file
-        return None
-
 
 def find_project(initial_dir: Path) -> ProjectLayout | None:
     dirs_to_check = [initial_dir, *list(initial_dir.parents)]

@@ -181,8 +181,6 @@ class LLMConfigDirectory:
     def list_all(cls) -> list[LLMConfig]:
         return [config for name, config in vars(cls).items() if name.isupper()]
 
-    # TODO: (@gas) keep the previous default and change the model through UI
-    # DEFAULT = LLMConfig(name="claude-sonnet-4-5")
     DEFAULT = LLMConfig(name="gpt-5-mini")
 
     GPT_OSS_20B = LLMConfig(
