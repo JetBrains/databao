@@ -89,9 +89,10 @@ class DbtProjectGraph:
     ) -> None:
         self._sql_executor_factory = sql_executor_factory
         self._post_dbt_run_hook = post_dbt_run_hook
-        self._source_project_dir: Path | None = None
-        self._staged_project_dir: Path | None = None
-        self._db_path_remaps: dict[str, str] = {}
+        self._introspect_cache: pd.DataFrame | None = None
+
+    def invalidate_introspect_cache(self) -> None:
+        self._introspect_cache = None
 
     def init_state(
         self,
@@ -146,9 +147,14 @@ class DbtProjectGraph:
             if self._sql_executor_factory is None:
                 return _json_dumps({"error": "SQL executor factory not provided."})
 
+            # Return cached introspection if available (once per thread/graph lifetime)
+            if self._introspect_cache is not None:
+                return self._introspect_cache.to_markdown(index=False)
+
             executor = self._sql_executor_factory()
             try:
                 schema_df = executor.introspect()
+                self._introspect_cache = schema_df
                 result = schema_df.to_markdown(index=False)
                 return result
             except Exception as e:

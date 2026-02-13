@@ -88,6 +88,7 @@ class DbtProjectExecutor(GraphExecutor):
             post_dbt_run_hook=self._post_dbt_run_hook,
         )
         self._compiled_graph: CompiledStateGraph[Any] | None = None
+        self._current_cache_scope: int | None = None
 
     def _make_sql_executor(self) -> DuckDbSqlExecutor:
         """Create a short-lived DuckDB read-only executor from the shared connection state.
@@ -99,8 +100,7 @@ class DbtProjectExecutor(GraphExecutor):
         first_db_name: str | None = None
         for name, path in self._attached_db_paths.items():
             resolved_path = str(Path(path).resolve())
-            actual_path = self._graph._db_path_remaps.get(resolved_path, path)
-            con.execute(f"ATTACH '{actual_path}' AS \"{name}\" (READ_ONLY)")
+            con.execute(f"ATTACH '{resolved_path}' AS \"{name}\" (READ_ONLY)")
             if first_db_name is None:
                 first_db_name = name
         for name, df in self._registered_dfs.items():
@@ -158,6 +158,13 @@ class DbtProjectExecutor(GraphExecutor):
         stream: bool = True,
         writer: TextIO | None = None,
     ) -> ExecutionResult:
+        # Detect thread switch via cache identity and invalidate introspection cache
+        # TODO: (@gas) revisit after integrating with DCE
+        cache_id = id(cache)
+        if cache_id != self._current_cache_scope:
+            self._current_cache_scope = cache_id
+            self._graph.invalidate_introspect_cache()
+
         compiled_graph = self._get_compiled_graph(llm_config, agent_config)
         messages: list[BaseMessage] = self._process_opas(opas, cache)
 
