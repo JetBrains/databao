@@ -21,8 +21,8 @@ from databao.executors.lighthouse.utils import get_today_date_str, read_prompt_t
 
 
 class LighthouseExecutor(GraphExecutor):
-    def __init__(self, writer: Any = None) -> None:
-        super().__init__(writer=writer)
+    def __init__(self) -> None:
+        super().__init__()
         self._prompt_template = read_prompt_template(Path("system_prompt.jinja"))
 
         # Create a DuckDB connection for the agent
@@ -129,7 +129,7 @@ class LighthouseExecutor(GraphExecutor):
         init_state = self._graph.init_state(cleaned_messages, limit_max_rows=rows_limit)
         invoke_config = RunnableConfig(recursion_limit=agent_config.recursion_limit)
         last_state = self._invoke_graph_sync(
-            compiled_graph, init_state, config=invoke_config, stream=stream, writer=writer or self._writer
+            compiled_graph, init_state, config=invoke_config, stream=stream, writer=writer
         )
         execution_result = self._graph.get_result(last_state)
 

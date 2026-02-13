@@ -22,15 +22,9 @@ class GraphExecutor(Executor, ABC):
     Provides common functionality for graph caching, message handling, and OPA processing.
     """
 
-    def __init__(self, writer: TextIO | None = None) -> None:
-        """Initialize agent with graph caching infrastructure.
-
-        Args:
-            writer: Optional TextIO for streaming output. If provided, streaming
-                    output will be written to this writer instead of stdout.
-        """
+    def __init__(self) -> None:
+        """Initialize agent with graph caching infrastructure."""
         self._graph_recursion_limit = 50
-        self._writer = writer
 
     def _process_opas(self, opas: list[Opa], cache: Cache) -> list[Any]:
         """
@@ -68,11 +62,7 @@ class GraphExecutor(Executor, ABC):
         writer: TextIO | None = None,
         **kwargs: Any,
     ) -> Any:
-        """Invoke the graph with the given start state and return the output state.
-
-        Can be called as static method or instance method. When called as instance method,
-        pass writer=self._writer to use the executor's writer.
-        """
+        """Invoke the graph with the given start state and return the output state."""
         if stream:
             return GraphExecutor._execute_stream_sync(
                 compiled_graph, start_state, config=config, writer=writer, **kwargs

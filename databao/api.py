@@ -1,12 +1,9 @@
-from typing import TextIO
-
 from databao.caches.in_mem_cache import InMemCache
 from databao.configs.agent import DEFAULT_AGENT_CONFIG, AgentConfig
 from databao.configs.llm import LLMConfig, LLMConfigDirectory
 from databao.core import Agent, Cache, Executor, Visualizer
 from databao.core.context import Context
 from databao.executors.lighthouse.executor import LighthouseExecutor
-from databao.executors.react_duckdb.executor import ReactDuckDBExecutor
 from databao.visualizers.vega_chat import VegaChatVisualizer
 
 
@@ -23,23 +20,13 @@ def agent(
     stream_plot: bool = False,
     lazy_threads: bool = False,
     auto_output_modality: bool = True,
-    writer: TextIO | None = None,
-    executor_type: str = "lighthouse",
 ) -> Agent:
     """This is an entry point for users to create a new agent.
     Agent can't be modified after it's created. Only new data sources can be added.
     """
     llm_config = llm_config if llm_config else LLMConfigDirectory.DEFAULT
     agent_config = agent_config if agent_config else DEFAULT_AGENT_CONFIG
-
-    if data_executor is None:
-        match executor_type:
-            case "react_duckdb":
-                data_executor = ReactDuckDBExecutor(writer=writer)
-            case "lighthouse":
-                data_executor = LighthouseExecutor(writer=writer)
-            case _:
-                raise ValueError(f"Invalid executor type: {executor_type}")
+    data_executor = data_executor or LighthouseExecutor()
 
     return Agent(
         context,
