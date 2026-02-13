@@ -9,8 +9,8 @@ from sqlalchemy import Connection, Engine
 
 from databao.configs import LLMConfig
 from databao.configs.agent import AgentConfig
-from databao.core import Cache, ExecutionResult, Opa
-from databao.core.data_source import DBDataSource, DFDataSource, Sources
+from databao.core import Cache, Context, ExecutionResult, Opa
+from databao.core.data_source import DBDataSource, DFDataSource
 from databao.core.executor import OutputModalityHints
 from databao.databases import DBConnectionConfig, register_in_duckdb
 from databao.duckdb.utils import describe_duckdb_schema, get_db_path, register_sqlalchemy
@@ -33,27 +33,28 @@ class LighthouseExecutor(GraphExecutor):
     def render_system_prompt(
         self,
         data_connection: Any,
-        sources: Sources,
+        context: Context,
         recursion_limit: int = 50,
     ) -> str:
         """Render system prompt with database schema."""
         db_schema = describe_duckdb_schema(data_connection)
 
-        context = ""
+        sources = context.sources
+        context_text = ""
         for db_name, source in sources.dbs.items():
             if source.context:
-                context += f"## Context for DB {db_name}\n\n{source.context}\n\n"
+                context_text += f"## Context for DB {db_name}\n\n{source.context}\n\n"
         for df_name, source in sources.dfs.items():
             if source.context:
-                context += (
+                context_text += (
                     f"## Context for DF {df_name} (fully qualified name 'temp.main.{df_name}')\n\n{source.context}\n\n"
                 )
         for idx, add_ctx in enumerate(sources.additional_context, start=1):
-            context += f"## General information {idx}\n\n{add_ctx.strip()}\n\n"
-        context = context.strip()
+            context_text += f"## General information {idx}\n\n{add_ctx.strip()}\n\n"
+        context_text = context_text.strip()
 
         prompt = self._prompt_template.render(
-            date=get_today_date_str(), db_schema=db_schema, context=context, tool_limit=recursion_limit // 2
+            date=get_today_date_str(), db_schema=db_schema, context=context_text, tool_limit=recursion_limit // 2
         )
 
         return prompt.strip()
@@ -81,9 +82,11 @@ class LighthouseExecutor(GraphExecutor):
     def register_df(self, source: DFDataSource) -> None:
         self._duckdb_connection.register(source.name, source.df)
 
-    def _get_compiled_graph(self, llm_config: LLMConfig, agent_config: AgentConfig) -> CompiledStateGraph[Any]:
+    def _get_compiled_graph(
+        self, llm_config: LLMConfig, agent_config: AgentConfig, context: Context
+    ) -> CompiledStateGraph[Any]:
         """Get compiled graph."""
-        compiled_graph = self._compiled_graph or self._graph.compile(llm_config, agent_config)
+        compiled_graph = self._compiled_graph or self._graph.compile(llm_config, agent_config, context)
         self._compiled_graph = compiled_graph
 
         return compiled_graph
@@ -106,13 +109,13 @@ class LighthouseExecutor(GraphExecutor):
         cache: Cache,
         llm_config: LLMConfig,
         agent_config: AgentConfig,
-        sources: Sources,
+        context: Context,
         *,
         rows_limit: int = 100,
         stream: bool = True,
         writer: TextIO | None = None,
     ) -> ExecutionResult:
-        compiled_graph = self._get_compiled_graph(llm_config, agent_config)
+        compiled_graph = self._get_compiled_graph(llm_config, agent_config, context)
         messages: list[BaseMessage] = self._process_opas(opas, cache)
 
         # Prepend system message if not present
@@ -120,7 +123,7 @@ class LighthouseExecutor(GraphExecutor):
         if not all_messages_with_system or all_messages_with_system[0].type != "system":
             all_messages_with_system = [
                 SystemMessage(
-                    self.render_system_prompt(self._duckdb_connection, sources, agent_config.recursion_limit)
+                    self.render_system_prompt(self._duckdb_connection, context, agent_config.recursion_limit)
                 ),
                 *all_messages_with_system,
             ]

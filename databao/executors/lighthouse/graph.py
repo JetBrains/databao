@@ -17,10 +17,11 @@ from typing_extensions import TypedDict
 from databao.configs import llm
 from databao.configs.agent import AgentConfig
 from databao.configs.llm import LLMConfig
-from databao.core import ExecutionResult
+from databao.core import Context, ExecutionResult
 from databao.duckdb.react_tools import execute_duckdb_sql
 from databao.executors.frontend.text_frontend import dataframe_to_markdown
 from databao.executors.lighthouse.utils import exception_to_string
+from databao.executors.tools import make_search_context_tool
 
 
 class AgentState(TypedDict):
@@ -109,7 +110,7 @@ class ExecuteSubmit:
             )
         return result
 
-    def make_tools(self) -> list[BaseTool]:
+    def make_tools(self, context: Context) -> list[BaseTool]:
         @tool(parse_docstring=True)
         def run_sql_query(sql: str, graph_state: Annotated[AgentState, InjectedState]) -> dict[str, Any]:
             """
@@ -152,10 +153,14 @@ class ExecuteSubmit:
             return f"Query {query_id} submitted successfully. Your response is now visible to the user."
 
         tools = [run_sql_query, submit_result]
+        search_context_tool = make_search_context_tool(context)
+        if search_context_tool is not None:
+            tools.append(search_context_tool)
+
         return tools
 
-    def compile(self, model_config: LLMConfig, agent_config: AgentConfig) -> CompiledStateGraph[Any]:
-        tools = self.make_tools()
+    def compile(self, model_config: LLMConfig, agent_config: AgentConfig, context: Context) -> CompiledStateGraph[Any]:
+        tools = self.make_tools(context)
         llm_model = model_config.new_chat_model()
 
         if llm.is_openai_model(model_config.name):

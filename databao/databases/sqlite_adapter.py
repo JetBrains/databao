@@ -11,11 +11,17 @@ DATABASE_KEY = "database_path"
 
 EXCLUDED_QUERY_KEYS = {DATABASE_KEY}
 
+MAIN_KEYS = {DATABASE_KEY}
+
 
 class SQLiteAdapter(DatabaseAdapter):
     @classmethod
     def type(cls) -> DatasourceType:
         return SQLITE_TYPE
+
+    @classmethod
+    def main_property_keys(cls) -> set[str]:
+        return MAIN_KEYS
 
     @classmethod
     def accept(self, conn: DBConnection) -> bool:
@@ -42,6 +48,8 @@ class SQLiteAdapter(DatabaseAdapter):
         if database == ":memory:":
             raise RuntimeError("Memory-based SQLite is not supported.")
         content = dict(dialect.create_connect_args(sa_url)[1])
+        content[DATABASE_KEY] = database
+        content.pop("check_same_thread", None)
 
         return DBConnectionConfig(SQLITE_TYPE, content)
 

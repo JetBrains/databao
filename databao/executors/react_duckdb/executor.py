@@ -9,8 +9,8 @@ from sqlalchemy import Connection, Engine
 
 from databao.configs.agent import AgentConfig
 from databao.configs.llm import LLMConfig
-from databao.core import Cache, ExecutionResult, Opa
-from databao.core.data_source import DBDataSource, DFDataSource, Sources
+from databao.core import Cache, Context, ExecutionResult, Opa
+from databao.core.data_source import DBDataSource, DFDataSource
 from databao.core.executor import OutputModalityHints
 from databao.databases import DBConnectionConfig, register_in_duckdb
 from databao.duckdb import register_sqlalchemy
@@ -28,9 +28,9 @@ class ReactDuckDBExecutor(GraphExecutor):
         self._duckdb_connection = duckdb.connect(":memory:")
         self._compiled_graph: CompiledStateGraph[Any] | None = None
 
-    def _create_graph(self, data_connection: Any, llm_config: LLMConfig) -> CompiledStateGraph[Any]:
+    def _create_graph(self, data_connection: Any, llm_config: LLMConfig, context: Context) -> CompiledStateGraph[Any]:
         """Create and compile the ReAct DuckDB agent graph."""
-        return make_react_duckdb_agent(data_connection, llm_config.new_chat_model())
+        return make_react_duckdb_agent(data_connection, llm_config.new_chat_model(), context)
 
     def register_db(self, source: DBDataSource) -> None:
         """Register DB in the DuckDB connection."""
@@ -73,14 +73,14 @@ class ReactDuckDBExecutor(GraphExecutor):
         cache: Cache,
         llm_config: LLMConfig,
         agent_config: AgentConfig,
-        sources: Sources,
+        context: Context,
         *,
         rows_limit: int = 100,
         stream: bool = True,
         writer: TextIO | None = None,
     ) -> ExecutionResult:
         # Get or create graph (cached after first use)
-        compiled_graph = self._compiled_graph or self._create_graph(self._duckdb_connection, llm_config)
+        compiled_graph = self._compiled_graph or self._create_graph(self._duckdb_connection, llm_config, context)
 
         # Process the opa and get messages
         messages = self._process_opas(opas, cache)

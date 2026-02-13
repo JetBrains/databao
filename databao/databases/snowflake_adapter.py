@@ -12,14 +12,19 @@ SNOWFLAKE_TYPE = DatasourceType(full_type="snowflake")
 USER_KEY = "user"
 PASSWORD_KEY = "password"
 ACCOUNT_KEY = "account"
-PORT_KEY = "port"
 DATABASE_KEY = "database"
+
+MAIN_KEYS = {USER_KEY, PASSWORD_KEY, ACCOUNT_KEY, DATABASE_KEY}
 
 
 class SnowflakeAdapter(DatabaseAdapter):
     @classmethod
     def type(cls) -> DatasourceType:
         return SNOWFLAKE_TYPE
+
+    @classmethod
+    def main_property_keys(cls) -> set[str]:
+        return MAIN_KEYS
 
     @classmethod
     def accept(cls, conn: DBConnection) -> bool:
@@ -43,6 +48,8 @@ class SnowflakeAdapter(DatabaseAdapter):
         sa_url_str = engine.url.render_as_string(hide_password=False)
         sa_url = make_url(sa_url_str)
         content = dict(dialect.create_connect_args(sa_url)[1])
+        if "dbname" in content and "database" not in content:
+            content["database"] = content.pop("dbname")
 
         return DBConnectionConfig(type=SNOWFLAKE_TYPE, content=content)
 

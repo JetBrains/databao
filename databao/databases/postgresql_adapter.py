@@ -13,13 +13,17 @@ HOST_KEY = "host"
 PORT_KEY = "port"
 DATABASE_KEY = "database"
 
-EXCLUDED_QUERY_KEYS = {USER_KEY, PASSWORD_KEY, HOST_KEY, PORT_KEY, DATABASE_KEY}
+MAIN_KEYS = {USER_KEY, PASSWORD_KEY, HOST_KEY, PORT_KEY, DATABASE_KEY}
 
 
 class PostgreSQLAdapter(DatabaseAdapter):
     @classmethod
     def type(cls) -> DatasourceType:
         return POSTGRES_TYPE
+
+    @classmethod
+    def main_property_keys(cls) -> set[str]:
+        return MAIN_KEYS
 
     @classmethod
     def accept(self, conn: DBConnection) -> bool:
@@ -43,6 +47,8 @@ class PostgreSQLAdapter(DatabaseAdapter):
         sa_url_str = engine.url.render_as_string(hide_password=False)
         sa_url = make_url(sa_url_str)
         content = dict(dialect.create_connect_args(sa_url)[1])
+        if "dbname" in content and "database" not in content:
+            content["database"] = content.pop("dbname")
 
         return DBConnectionConfig(type=POSTGRES_TYPE, content=content)
 
@@ -64,7 +70,7 @@ class PostgreSQLAdapter(DatabaseAdapter):
             host=content.get(HOST_KEY),
             port=content.get(PORT_KEY),
             database=content.get(DATABASE_KEY),
-            query={k: v for k, v in content.items() if k not in EXCLUDED_QUERY_KEYS},
+            query={k: v for k, v in content.items() if k not in MAIN_KEYS},
         )
 
         return url.render_as_string(hide_password=False)
