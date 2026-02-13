@@ -86,7 +86,7 @@ class VegaChatVisualizer(Visualizer):
         llm_config: LLMConfig,
         *,
         return_interactive_chart: bool = False,
-        history_mode: HistoryMode = HistoryMode.NONE,
+        history_mode: HistoryMode = HistoryMode.LAST_QUESTION,
     ):
         super().__init__(history_mode=history_mode)
         vega_llm = _convert_llm_config(llm_config)

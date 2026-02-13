@@ -12,14 +12,23 @@ _logger = logging.getLogger(__name__)
 
 
 class HistoryMode(str, Enum):
-    """Controls how much conversation history is passed to the visualization agent."""
+    """Controls how much conversation history is passed to the Visualizer.
+
+    The DataFrame from final answer and the visualization request (if any) is always passed into the Visualizer.
+    This setting controls how the preceeding message history is additionally passed into the Visualizer.
+    """
 
     NONE = "none"
-    """No history: only the current visualization request (default)."""
-    LAST = "last"
-    """Messages from the last HumanMessage to the end of the conversation."""
-    FULL = "full"
-    """All messages (excluding the SystemMessage)."""
+    """No history at all — only the current visualization request."""
+
+    LAST_QUESTION = "last_question"
+    """Only the last user question (as a single ``HumanMessage``)."""
+
+    LAST_QUESTION_ANSWER = "last_question_answer"
+    """Last user question **and** the executor's final answer (``HumanMessage`` + ``AIMessage``)."""
+
+    ALL_QUESTIONS = "all_questions"
+    """All user questions merged into a single ``HumanMessage``."""
 
 
 class VisualisationResult(BaseModel):
@@ -110,7 +119,7 @@ class VisualisationResult(BaseModel):
 class Visualizer(ABC):
     """Abstract interface for converting data into plots using natural language."""
 
-    def __init__(self, *, history_mode: HistoryMode = HistoryMode.NONE):
+    def __init__(self, *, history_mode: HistoryMode = HistoryMode.LAST_QUESTION):
         self.history_mode = history_mode
 
     def visualize(self, request: str | None, data: ExecutionResult, *, stream: bool = False) -> VisualisationResult:
@@ -148,38 +157,50 @@ class Visualizer(ABC):
         pass
 
     def _extract_history(self, data: ExecutionResult) -> list[BaseMessage]:
-        """Extract conversation messages from executor results according to :attr:`history_mode`.
+        """Build conversation history for the visualization LLM.
 
-        Returns a (possibly empty) list of LangChain ``BaseMessage`` objects.
+        Returns a (possibly empty) list of LangChain ``BaseMessage`` objects whose
+        shape depends on :attr:`history_mode`:
 
-        - ``NONE``  -- empty list
-        - ``LAST``  -- messages from the last ``HumanMessage`` to the end
-        - ``FULL``  -- all messages, excluding the ``SystemMessage``
+        - ``NONE``                 → ``[]``
+        - ``LAST_QUESTION``        → single ``HumanMessage`` with the last user question
+        - ``LAST_QUESTION_ANSWER`` → ``HumanMessage`` (last question) + ``AIMessage`` (answer)
+        - ``ALL_QUESTIONS``        → single ``HumanMessage`` with every user question
         """
-        if self.history_mode == HistoryMode.NONE:
-            return []
+        from langchain_core.messages import AIMessage, HumanMessage
+
+        match self.history_mode:
+            case HistoryMode.NONE:
+                return []
+
+            case HistoryMode.LAST_QUESTION:
+                human_texts = self._collect_human_texts(data)
+                if not human_texts:
+                    return []
+                return [HumanMessage(f"Additional context: original user request\n{human_texts[-1]}")]
+
+            case HistoryMode.LAST_QUESTION_ANSWER:
+                human_texts = self._collect_human_texts(data)
+                if not human_texts:
+                    return []
+                history: list[BaseMessage] = [
+                    HumanMessage(f"Additional context: original user request\n{human_texts[-1]}"),
+                ]
+                if data.text:
+                    history.append(AIMessage(f"Original agent response:\n{data.text}"))
+                return history
+
+            case HistoryMode.ALL_QUESTIONS:
+                human_texts = self._collect_human_texts(data)
+                if not human_texts:
+                    return []
+                numbered = "\n".join(f"{i}. {q}" for i, q in enumerate(human_texts, 1))
+                return [HumanMessage(f"Additional context: original user requests\n{numbered}")]
+
+    @staticmethod
+    def _collect_human_texts(data: ExecutionResult) -> list[str]:
+        """Return the text content of every ``HumanMessage`` in the executor history."""
+        from langchain_core.messages import HumanMessage
 
         raw_messages: list[Any] = data.meta.get(ExecutionResult.META_MESSAGES_KEY, [])
-        if not raw_messages:
-            return []
-
-        # Lazy import to avoid a hard dependency on langchain in core
-        from langchain_core.messages import HumanMessage, SystemMessage
-
-        # Filter out SystemMessage (there might be none)
-        messages: list[BaseMessage] = [m for m in raw_messages if not isinstance(m, SystemMessage)]
-
-        if self.history_mode == HistoryMode.FULL:
-            return messages
-
-        # LAST: from the last HumanMessage to the end
-        last_human_idx = None
-        for i in range(len(messages) - 1, -1, -1):
-            if isinstance(messages[i], HumanMessage):
-                last_human_idx = i
-                break
-
-        if last_human_idx is not None:
-            return messages[last_human_idx:]
-
-        return messages
+        return [str(m.content) for m in raw_messages if isinstance(m, HumanMessage)]
