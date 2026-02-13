@@ -692,7 +692,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "click", marker = "extra == 'ui'", specifier = ">=8.0.0" },
-    { name = "databao-context-engine", specifier = "==0.1.6" },
+    { name = "databao-context-engine", specifier = "~=0.1.6" },
     { name = "dbt-core", specifier = "~=1.9.0" },
     { name = "dbt-duckdb", specifier = ">=1.10.0" },
     { name = "diskcache", specifier = ">=5.6.3" },
