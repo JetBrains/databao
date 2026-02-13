@@ -98,7 +98,11 @@ class Thread:
             stream = self._stream_plot if self._stream_plot is not None else self._default_stream_plot
             self._visualization_result = self._agent.visualizer.visualize(request, data, stream=stream)
             self._visualization_request = request
-            self._meta.update(self._visualization_result.meta)
+            for key, value in self._visualization_result.meta.items():
+                # We don't want to override existing metadata keys
+                self._meta.setdefault(key, value)
+            if "messages" in self._visualization_result.meta:
+                self._meta["plot_messages"] = [m.message for m in self._visualization_result.meta["messages"]]
             self._meta["plot_code"] = self._visualization_result.code  # maybe worth to expand as a property later
         if self._visualization_result is None:
             raise RuntimeError("_visualization_result is None after materialization")
@@ -116,7 +120,7 @@ class Thread:
             return
 
         # Let the Visualizer recommend a plot based on the df if no prompt is provided (None)
-        self.plot(hints.visualization_prompt)
+        self.plot(f"Last question - {self._opas[-1][-1].query}\nPlot instruction - {hints.visualization_prompt}")
 
     def text(self) -> str:
         """Return the latest textual answer from the executor/LLM."""
@@ -150,6 +154,8 @@ class Thread:
             request: Optional natural-language plotting request.
             rows_limit: Optional row limit for data materialization in lazy mode.
         """
+        if request is None:
+            request = self._opas[-1][-1].query if self._opas else None
         self._stream_plot = stream
         return self._materialize_visualization(request, rows_limit if rows_limit else self._data_materialized_rows)
 
