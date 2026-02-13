@@ -100,7 +100,8 @@ class VegaChatVisualizer(Visualizer):
         # Use the possibly transformed dataframe tied to the generated spec
         model_out = state["messages"][-1]
         text = model_out.message.text
-        meta = {"plot_messages": state["messages"]}  # Full VegaChat history. Also used for edit follow ups.
+        # Full VegaChat history. Also used for edit follow ups.
+        meta = {VegaChatResult.META_PLOT_MESSAGES_KEY: state["messages"]}
         spec = model_out.spec
         spec_json = json.dumps(spec, indent=2) if spec is not None else None
         if spec is None or not model_out.is_drawable or model_out.is_empty_chart:
@@ -198,7 +199,7 @@ class VegaChatVisualizer(Visualizer):
             raise ValueError(f"{self.__class__.__name__} can only edit {VegaChatResult.__name__} objects")
         if visualization.spec_df is None:
             raise ValueError("No dataframe found in the provided visualization")
-        messages = visualization.meta.get("plot_messages", None)
+        messages = visualization.meta.get(VisualisationResult.META_PLOT_MESSAGES_KEY, None)
         if messages is None:
             raise ValueError("No plot message history found in the provided visualization")
         return self._run_vega_chat(request, visualization.spec_df, messages=messages, stream=stream)

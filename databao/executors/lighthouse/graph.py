@@ -81,7 +81,7 @@ class ExecuteSubmit:
                 code=sql,
                 meta={
                     "visualization_prompt": visualization_prompt,
-                    "messages": state["messages"],
+                    ExecutionResult.META_MESSAGES_KEY: state["messages"],
                     "submit_called": False,
                 },
             )
@@ -103,7 +103,7 @@ class ExecuteSubmit:
                 code=sql,
                 meta={
                     "visualization_prompt": visualization_prompt,
-                    "messages": state["messages"],
+                    ExecutionResult.META_MESSAGES_KEY: state["messages"],
                     "submit_called": True,
                 },
             )

@@ -6,10 +6,10 @@ from pandas import DataFrame
 
 from databao.core.executor import ExecutionResult, OutputModalityHints
 from databao.core.opa import Opa
+from databao.core.visualizer import VisualisationResult
 
 if TYPE_CHECKING:
     from databao.core.agent import Agent
-    from databao.core.visualizer import VisualisationResult
 
 
 class Thread:
@@ -96,8 +96,10 @@ class Thread:
             for key, value in self._visualization_result.meta.items():
                 # We don't want to override existing metadata keys
                 self._meta.setdefault(key, value)
-            if "plot_messages" in self._visualization_result.meta:
-                self._meta["plot_messages"] = copy(self._visualization_result.meta["plot_messages"])
+            if VisualisationResult.META_PLOT_MESSAGES_KEY in self._visualization_result.meta:
+                self._meta[VisualisationResult.META_PLOT_MESSAGES_KEY] = copy(
+                    self._visualization_result.meta[VisualisationResult.META_PLOT_MESSAGES_KEY]
+                )
             self._meta["plot_code"] = self._visualization_result.code  # maybe worth to expand as a property later
         if self._visualization_result is None:
             raise RuntimeError("_visualization_result is None after materialization")

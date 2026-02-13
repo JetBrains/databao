@@ -1,7 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any
+from typing import Any, ClassVar, Literal
 
 from langchain_core.messages import BaseMessage
 from pydantic import BaseModel, ConfigDict, Field
@@ -31,6 +31,9 @@ class VisualisationResult(BaseModel):
         plot: Backend-specific plot object (Altair, matplotlib, etc.) or None if not drawable.
         code: Optional code used to generate the plot (e.g., Vega-Lite spec JSON).
     """
+
+    META_PLOT_MESSAGES_KEY: ClassVar[Literal["plot_messages"]] = "plot_messages"
+    """Key in `meta` that stores the visualizer's internal message history."""
 
     text: str
     meta: dict[str, Any]
@@ -156,7 +159,7 @@ class Visualizer(ABC):
         if self.history_mode == HistoryMode.NONE:
             return []
 
-        raw_messages: list[Any] = data.meta.get("messages", [])
+        raw_messages: list[Any] = data.meta.get(ExecutionResult.META_MESSAGES_KEY, [])
         if not raw_messages:
             return []
 
