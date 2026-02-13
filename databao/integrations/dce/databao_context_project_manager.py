@@ -25,6 +25,9 @@ class DatabaoContextProjectManagerApi:
     def get_configured_datasource_list(self) -> list[Datasource]:
         return self._delegate.get_configured_datasource_list()
 
+    def get_introspected_datasource_list(self) -> list[Datasource]:
+        return self._delegate.get_engine_for_project().get_introspected_datasource_list()
+
     # TODO (dce): should be implemented on the DCE side
     def get_prepared_datasource_list(self) -> list[PreparedDatasource]:
         result = []
