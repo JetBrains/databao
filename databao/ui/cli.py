@@ -14,7 +14,7 @@ def _get_streamlit_app_path() -> str:
     return spec.origin
 
 
-def bootstrap_streamlit_app(project_path: str, streamlit_args: list[str] | None = None):
+def bootstrap_streamlit_app(project_path: str, streamlit_args: list[str] | None = None) -> None:
     """Bootstrap the UI."""
 
     if streamlit_args is None:

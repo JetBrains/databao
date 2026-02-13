@@ -76,7 +76,7 @@ def _generate_chat_title(agent: "Agent", first_message: str, created_at: datetim
             ]
         )
 
-        if result and result.title:
+        if isinstance(result, ChatTitle) and result.title:
             title = result.title.strip()
             # Clean up any trailing punctuation
             title = title.rstrip("?!.")

@@ -7,8 +7,8 @@ import duckdb
 import pandas as pd
 import pytest
 from _duckdb import DuckDBPyConnection
-from databao.core.v2.agent import AgentV2
-from databao.core.v2.context import Context, ContextBuilder
+from databao.core.v2.agent import AgentV2  # type: ignore[import-not-found]
+from databao.core.v2.context import Context, ContextBuilder  # type: ignore[import-not-found]
 
 import databao
 from databao.configs import LLMConfigDirectory
@@ -60,7 +60,7 @@ def builder(request: pytest.FixtureRequest) -> collections.abc.Generator[Context
 
 def _new_agent(context: Context) -> AgentV2:
     llm_config = LLMConfigDirectory.DEFAULT.model_copy(update={"model_kwargs": {"api_key": "test"}})
-    return databao.new_agent_v2(context, llm_config=llm_config)
+    return databao.new_agent_v2(context, llm_config=llm_config)  # type: ignore[attr-defined]
 
 
 def test_add_db_with_nonexistent_context_path_raises(builder: ContextBuilder, duckdb_conn: DuckDBPyConnection) -> None:

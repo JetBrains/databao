@@ -40,6 +40,8 @@ def agent(
             case "lighthouse":
                 data_executor = LighthouseExecutor(writer=writer)
             case "dbt":
+                if dbt_config is None:
+                    raise ValueError("dbt_config must be provided when executor_type='dbt'")
                 data_executor = DbtProjectExecutor(dbt_config=dbt_config, writer=writer)
             case _:
                 raise ValueError(f"Invalid executor type: {executor_type}")

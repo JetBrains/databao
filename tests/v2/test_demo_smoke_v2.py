@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
-from databao.core.v2.context import Context, ContextBuilder
+from databao.core.v2.context import Context, ContextBuilder  # type: ignore[import-not-found]
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
@@ -67,7 +67,7 @@ def test_demo_smoke(builder: ContextBuilder, db_engine: Engine) -> None:
 
     # Step 4: Builder a context and create a databao agent
     context = builder.build()
-    agent = databao.new_agent_v2(context, "test_agent", LLMConfig(name="gpt-5"))
+    agent = databao.new_agent_v2(context, "test_agent", LLMConfig(name="gpt-5"))  # type: ignore[attr-defined]
     assert agent is not None
 
     # Step 5: Ask a question and get results
@@ -104,7 +104,7 @@ def test_consecutive_ask_calls(builder: ContextBuilder, db_engine: Engine) -> No
 
     # Step 3: Builder a context and create a databao agent
     context = builder.build()
-    agent = databao.new_agent_v2(context, "test_consecutive_agent", LLMConfig(name="gpt-5"))
+    agent = databao.new_agent_v2(context, "test_consecutive_agent", LLMConfig(name="gpt-5"))  # type: ignore[attr-defined]
     assert agent is not None
 
     # Step 4: First ask - count cancelled shows by directors

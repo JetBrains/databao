@@ -118,7 +118,7 @@ def start_query_execution(chat: "ChatSession", thread: "Thread", query: str) -> 
     query_thread.start()
 
     # Update chat state - store thread reference instead of future
-    chat.query_thread = query_thread  # type: ignore[attr-defined]
+    chat.query_thread = query_thread
     chat.query_status = "running"
 
     logger.info("Started background query execution for chat %s: %s", chat.id, query[:50])
@@ -160,7 +160,7 @@ def check_query_completion(chat: "ChatSession") -> QueryResult | None:
         )
 
     # Clean up chat state
-    chat.query_thread = None  # type: ignore[attr-defined]
+    chat.query_thread = None
     chat.query_status = "completed" if result.error is None else "error"
 
     logger.info(
@@ -201,7 +201,7 @@ def cancel_query(chat: "ChatSession") -> bool:
     # We can't actually stop the thread execution, but we can
     # mark it as cancelled so the result is ignored
     chat.query_status = "idle"
-    chat.query_thread = None  # type: ignore[attr-defined]
+    chat.query_thread = None
 
     logger.info("Cancelled query for chat %s", chat.id)
     return True

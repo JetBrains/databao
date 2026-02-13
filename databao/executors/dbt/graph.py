@@ -575,4 +575,4 @@ class DbtProjectGraph:
         llm_config: LLMConfig,
         messages: list[BaseMessage],
     ) -> AIMessage:
-        return model.with_retry(wait_exponential_jitter=True, stop_after_attempt=3).invoke(messages)
+        return model.with_retry(wait_exponential_jitter=True, stop_after_attempt=3).invoke(messages)  # type: ignore[no-any-return]

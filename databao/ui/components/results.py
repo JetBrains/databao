@@ -175,7 +175,7 @@ def _get_current_chat() -> "ChatSession | None":
     current_chat_id = st.session_state.get("current_chat_id")
     chats = st.session_state.get("chats", {})
     if current_chat_id and current_chat_id in chats:
-        return chats[current_chat_id]
+        return chats[current_chat_id]  # type: ignore[no-any-return]
     return None
 
 

@@ -2,8 +2,9 @@
 
 import argparse
 import logging
+from collections.abc import Callable
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import streamlit as st
 import yaml
@@ -81,7 +82,7 @@ def _get_or_create_disk_cache() -> DiskCache:
         cache_dir = get_cache_dir()
         config = DiskCacheConfig(db_dir=cache_dir / "diskcache")
         st.session_state.disk_cache = DiskCache(config=config)
-    return st.session_state.disk_cache
+    return st.session_state.disk_cache  # type: ignore[no-any-return]
 
 
 def _initialize_agent(project: DatabaoProject) -> Agent | None:
@@ -159,7 +160,7 @@ def _clear_all_chat_threads() -> None:
         chat.thread = None
 
 
-def _initialize_app(project_dir: str):
+def _initialize_app(project_dir: str) -> None:
     """Initialize app-level resources: project and agent.
 
     This is called on every rerun but returns early if already initialized.
@@ -291,10 +292,10 @@ def build_navigation() -> None:
     st.session_state._page_agent_settings = agent_settings_page
 
     # Chat pages - build dynamically from session state
-    chat_pages: list[st.Page] = []
+    chat_pages: list[Any] = []
 
     # "New Chat" action (using a function that creates and navigates)
-    def new_chat_action():
+    def new_chat_action() -> None:
         _create_new_chat()
         # The chat is created and _navigate_to_chat is set.
         # We need to rerun so navigation picks up the new chat.
@@ -311,7 +312,7 @@ def build_navigation() -> None:
 
     # Existing chats
     chats: dict[str, ChatSession] = st.session_state.get("chats", {})
-    target_chat_page: st.Page | None = None
+    target_chat_page: Any = None
 
     if chats:
         # Sort by creation time, newest first
@@ -320,8 +321,8 @@ def build_navigation() -> None:
         for chat in sorted_chats:
             # Create a page for each chat
             # Use a closure to capture the chat_id
-            def make_chat_page(chat_id: str):
-                def page_fn():
+            def make_chat_page(chat_id: str) -> Callable[[], None]:
+                def page_fn() -> None:
                     st.session_state.current_chat_id = chat_id
                     render_chat_page()
 
@@ -379,7 +380,7 @@ def _get_current_project(project_dir: str) -> DatabaoProject:
     """
     # 1. Return existing project if available
     if st.session_state.get("databao_project") is not None:
-        return st.session_state.databao_project
+        return st.session_state.databao_project  # type: ignore[no-any-return]
 
     project = DatabaoProject(path=Path(project_dir))
     st.session_state.databao_project = project

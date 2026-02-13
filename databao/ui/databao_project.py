@@ -22,7 +22,6 @@ class DatabaoProject:
     """
 
     layout: ProjectLayout
-    context: Context
 
     def __init__(self, path: Path):
         self.layout = ProjectLayout(path)
@@ -50,5 +49,5 @@ class DatabaoProject:
             return DCEProjectStatus.NO_BUILD
 
     @cached_property
-    def context(self):
+    def context(self) -> Context:
         return Context.load(self._current_domain_path)
