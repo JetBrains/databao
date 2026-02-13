@@ -36,7 +36,6 @@ class Agent:
         stream_plot: bool = False,
         lazy_threads: bool = False,
         auto_output_modality: bool = True,
-        writer: TextIO | None = None,
     ):
         self.__name = name
         self.__llm = llm.new_chat_model()
@@ -55,7 +54,6 @@ class Agent:
         self.__auto_output_modality = auto_output_modality
         self.__stream_ask = stream_ask
         self.__stream_plot = stream_plot
-        self.__writer = writer
 
         self._init_executor()
 
@@ -88,7 +86,7 @@ class Agent:
             if auto_output_modality is not None
             else self.__auto_output_modality,
             cache_scope=cache_scope,
-            writer=writer or self.__writer,
+            writer=writer,
         )
 
     @property
