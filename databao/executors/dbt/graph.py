@@ -147,9 +147,11 @@ class DbtProjectGraph:
             if self._sql_executor_factory is None:
                 return _json_dumps({"error": "SQL executor factory not provided."})
 
-            # Return cached introspection if available (once per thread/graph lifetime)
             if self._introspect_cache is not None:
-                return self._introspect_cache.to_markdown(index=False)
+                return (
+                    "Database schema was already explored earlier in this session. "
+                    "Refer to the previous run_database_explore result in the conversation history.\n"
+                )
 
             executor = self._sql_executor_factory()
             try:
