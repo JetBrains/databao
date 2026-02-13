@@ -42,4 +42,4 @@ def register_in_duckdb(shared: DuckDBPyConnection, conn: DBConnectionConfig, nam
             adapter.register_in_duckdb(shared, conn, name)
             return
 
-    raise ValueError(f"Cannot register connection of type '{conn.type}' in DuckDB — no matching adapter found")
+    # raise ValueError(f"Cannot register connection of type '{conn.type}' in DuckDB — no matching adapter found")

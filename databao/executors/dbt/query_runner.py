@@ -10,7 +10,7 @@ from sqlalchemy import Engine, text
 from databao.executors.dbt.utils import db_introspect
 
 
-class SqlExecutor(ABC):
+class QueryRunner(ABC):
     """Database-agnostic SQL executor for the dbt agent tools."""
 
     @abstractmethod
@@ -30,7 +30,7 @@ class SqlExecutor(ABC):
         """Release resources held by this executor."""
 
 
-class DuckDbSqlExecutor(SqlExecutor):
+class DuckDbQueryRunner(QueryRunner):
     """SqlExecutor backed by a short-lived DuckDB connection."""
 
     def __init__(self, conn: duckdb.DuckDBPyConnection) -> None:
@@ -46,7 +46,7 @@ class DuckDbSqlExecutor(SqlExecutor):
         self._conn.close()
 
 
-class SqlAlchemySqlExecutor(SqlExecutor):
+class SqlAlchemyQueryRunner(QueryRunner):
     """SqlExecutor backed by a SQLAlchemy engine."""
 
     _INTROSPECT_SQL = """\
@@ -81,5 +81,4 @@ class SqlAlchemySqlExecutor(SqlExecutor):
         pass  # Engine manages its own pool
 
 
-# Type alias matching project convention (like DbConnFactory in duckdb/types.py)
-SqlExecutorFactory = Callable[[], SqlExecutor]
+QueryRunnerFactory = Callable[[], QueryRunner]

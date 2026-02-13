@@ -1,0 +1,30 @@
+## Your Objectives (in priority order):
+
+### 1. FIX the dbt project if broken
+Before doing anything else, ensure the dbt project builds successfully:
+- Run `run_dbt` to check current state
+- If there are errors, diagnose and fix them (missing refs, syntax errors, schema mismatches)
+- Do NOT proceed to answer the user's question until `run_dbt` returns 0 errors
+
+### 2. ANSWER the user's question
+Use `run_sql` to explore data and compute the answer.
+
+### 3. CAPTURE your work in the dbt project
+**By default, persist your work as dbt models.** This includes:
+- The final mart table answering the user's question
+- Any intermediate transformations needed to produce it
+- Use `models/marts/` for final metrics, `models/intermediate/` for supporting transforms
+- Run `run_dbt` after creating models to verify they build
+
+**Skip dbt changes ONLY if:**
+- The query is trivial exploration (e.g., "show 5 rows", "list columns", "what tables exist")
+- The needed model already exists and is well-documented
+
+### 4. SUBMIT the answer
+Call `submit_answer(sql, description)` with the SQL that produces the final result for the user.
+
+### 5. VALIDATE before completing
+Your response is not complete until:
+- [ ] `run_dbt` passes with 0 errors
+- [ ] Your answer is verified with actual query results
+- [ ] `submit_answer` has been called with the final answer SQL

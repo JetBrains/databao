@@ -27,7 +27,7 @@ from databao.executors.dbt.dbt_runner import (
     noop_post_run_hook,
     run_dbt_subprocess,
 )
-from databao.executors.dbt.sql_executor import SqlExecutorFactory
+from databao.executors.dbt.query_runner import QueryRunnerFactory
 
 
 @dataclass(frozen=True)
@@ -85,10 +85,10 @@ class DbtProjectGraph:
     def __init__(
         self,
         *,
-        sql_executor_factory: SqlExecutorFactory | None = None,
+        query_runner_factory: QueryRunnerFactory | None = None,
         post_dbt_run_hook: PostDbtRunHook = noop_post_run_hook,
     ) -> None:
-        self._sql_executor_factory = sql_executor_factory
+        self._query_runner_factory = query_runner_factory
         self._post_dbt_run_hook = post_dbt_run_hook
         self._introspect_cache: pd.DataFrame | None = None
 
@@ -147,7 +147,7 @@ class DbtProjectGraph:
             Returns:
                 A markdown representation of the schema of the provided database.
             """
-            if self._sql_executor_factory is None:
+            if self._query_runner_factory is None:
                 return _json_dumps({"error": "SQL executor factory not provided."})
 
             if self._introspect_cache is not None:
@@ -156,7 +156,7 @@ class DbtProjectGraph:
                     "Refer to the previous run_database_explore result in the conversation history.\n"
                 )
 
-            executor = self._sql_executor_factory()
+            executor = self._query_runner_factory()
             try:
                 schema_df = executor.introspect()
                 self._introspect_cache = schema_df
@@ -179,8 +179,8 @@ class DbtProjectGraph:
             Returns:
                 JSON with keys: schema, row_count, sample_rows, truncated
             """
-            if self._sql_executor_factory is None:
-                return {"error": "SQL executor factory not provided."}
+            if self._query_runner_factory is None:
+                return {"error": "Query runner factory not provided."}
 
             # Guard: reject ATTACH / multi-statement SQL that could break the connection
             sql_stripped = sql.strip().rstrip(";")
@@ -192,9 +192,9 @@ class DbtProjectGraph:
                     )
                 }
 
-            executor = self._sql_executor_factory()
+            runner = self._query_runner_factory()
             try:
-                df = executor.execute_to_df(sql)
+                df = runner.execute_to_df(sql)
                 schema = [{"name": c, "dtype": str(dt)} for c, dt in zip(df.columns, df.dtypes, strict=True)]
                 sample = df.head(sample_rows).to_dict(orient="records")
                 return {
@@ -208,7 +208,7 @@ class DbtProjectGraph:
             except Exception as e:
                 return {"error": str(e)}
             finally:
-                executor.close()
+                runner.close()
 
         @tool(parse_docstring=True)
         def run_dbt(
@@ -410,12 +410,12 @@ class DbtProjectGraph:
             Returns:
                 Confirmation with result summary
             """
-            if self._sql_executor_factory is None:
+            if self._query_runner_factory is None:
                 return {"_submit_answer": False, "error": "SQL executor factory not provided."}
 
-            executor = self._sql_executor_factory()
+            runner = self._query_runner_factory()
             try:
-                df = executor.execute_to_df(sql)
+                df = runner.execute_to_df(sql)
                 return {
                     "_submit_answer": True,
                     "sql": sql,
@@ -431,7 +431,7 @@ class DbtProjectGraph:
                     "error": str(e),
                 }
             finally:
-                executor.close()
+                runner.close()
 
         return [
             run_database_explore,

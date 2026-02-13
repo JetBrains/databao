@@ -22,49 +22,13 @@ from databao.executors.dbt.dbt_runner import (
     duckdb_post_run_hook,
 )
 from databao.executors.dbt.graph import DbtProjectGraph
-from databao.executors.dbt.sql_executor import DuckDbSqlExecutor
+from databao.executors.dbt.query_runner import DuckDbQueryRunner
 from databao.executors.lighthouse.history_cleaning import clean_tool_history
 
 
 class DbtProjectExecutor(GraphExecutor):
     """
-    A Lighthouse-style executor that runs the dbt project graph (DbtProjectGraph),
-    but uses the *same* dbt system prompt rendering approach as the dbt LangChain agent:
-    - assemble_dbt_project_summary(project_dir)
-    - render databao.dbt/system_prompt.jinja with dbt_overview + dbt_directory
-    """
-
-    _DBT_TASK_INSTRUCTION = """\
-    ## Your Objectives (in priority order):
-
-    ### 1. FIX the dbt project if broken
-    Before doing anything else, ensure the dbt project builds successfully:
-    - Run `run_dbt` to check current state
-    - If there are errors, diagnose and fix them (missing refs, syntax errors, schema mismatches)
-    - Do NOT proceed to answer the user's question until `run_dbt` returns 0 errors
-
-    ### 2. ANSWER the user's question
-    Use `run_sql` to explore data and compute the answer.
-
-    ### 3. CAPTURE your work in the dbt project
-    **By default, persist your work as dbt models.** This includes:
-    - The final mart table answering the user's question
-    - Any intermediate transformations needed to produce it
-    - Use `models/marts/` for final metrics, `models/intermediate/` for supporting transforms
-    - Run `run_dbt` after creating models to verify they build
-
-    **Skip dbt changes ONLY if:**
-    - The query is trivial exploration (e.g., "show 5 rows", "list columns", "what tables exist")
-    - The needed model already exists and is well-documented
-
-    ### 4. SUBMIT the answer
-    Call `submit_answer(sql, description)` with the SQL that produces the final result for the user.
-
-    ### 5. VALIDATE before completing
-    Your response is not complete until:
-    - [ ] `run_dbt` passes with 0 errors
-    - [ ] Your answer is verified with actual query results
-    - [ ] `submit_answer` has been called with the final answer SQL
+    A Lighthouse-style executor that runs the dbt project graph (DbtProjectGraph)
     """
 
     def __init__(
@@ -78,21 +42,22 @@ class DbtProjectExecutor(GraphExecutor):
         self._dbt_config = dbt_config
 
         self._prompt_template = self._read_prompt_template("system_prompt.jinja")
+        self._task_instruction = self._read_prompt_template("task_instruction.jinja").render()
 
         # Auto-detect post-run hook: DuckDB projects need checkpoint, others don't.
         # Can be overridden explicitly via constructor.
         self._post_dbt_run_hook = post_dbt_run_hook if post_dbt_run_hook is not None else duckdb_post_run_hook
 
         self._graph = DbtProjectGraph(
-            sql_executor_factory=self._make_sql_executor,
+            query_runner_factory=self._make_query_runner,
             post_dbt_run_hook=self._post_dbt_run_hook,
         )
         self._compiled_graph: CompiledStateGraph[Any] | None = None
         self._current_cache_scope: str | None = None
         self._dbt_dirty: bool = True
 
-    def _make_sql_executor(self) -> DuckDbSqlExecutor:
-        """Create a short-lived DuckDB read-only executor from the shared connection state.
+    def _make_query_runner(self) -> DuckDbQueryRunner:
+        """Create a short-lived DuckDB read-only query runner from the shared connection state.
 
         Uses the base class's shared DuckDB connection metadata (attached paths + registered DFs)
         to build a fresh read-only connection. This ensures dbt's writes are visible after each run.
@@ -108,7 +73,7 @@ class DbtProjectExecutor(GraphExecutor):
             con.register(name, df)
         if first_db_name is not None:
             con.execute(f'USE "{first_db_name}"')
-        return DuckDbSqlExecutor(con)
+        return DuckDbQueryRunner(con)
 
     @staticmethod
     def _read_prompt_template(template_name: str) -> jinja2.Template:
@@ -173,7 +138,7 @@ class DbtProjectExecutor(GraphExecutor):
         if not all_messages_with_system or all_messages_with_system[0].type != "system":
             all_messages_with_system = [
                 SystemMessage(self.render_system_prompt()),
-                HumanMessage(self._DBT_TASK_INSTRUCTION),
+                HumanMessage(self._task_instruction),
                 *all_messages_with_system,
             ]
 
