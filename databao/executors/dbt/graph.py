@@ -91,8 +91,6 @@ class DbtProjectGraph:
         self._post_dbt_run_hook = post_dbt_run_hook
         self._source_project_dir: Path | None = None
         self._staged_project_dir: Path | None = None
-        self._before_snapshot: dict[Path, str] | None = None
-        self._db_explored: bool = False
         self._db_path_remaps: dict[str, str] = {}
 
     def init_state(
@@ -145,13 +143,6 @@ class DbtProjectGraph:
             Returns:
                 A markdown representation of the schema of the provided database.
             """
-            if self._db_explored:
-                return (
-                    "OK: Database schema was already retrieved at the start of this session. "
-                    "Refer to the earlier run_database_explore result in the conversation. "
-                    "Use run_sql('SELECT * FROM table LIMIT 5') to explore specific tables."
-                )
-
             if self._sql_executor_factory is None:
                 return _json_dumps({"error": "SQL executor factory not provided."})
 
@@ -159,7 +150,6 @@ class DbtProjectGraph:
             try:
                 schema_df = executor.introspect()
                 result = schema_df.to_markdown(index=False)
-                self._db_explored = True
                 return result
             except Exception as e:
                 return f"ERROR: could not introspect database: {e}"
