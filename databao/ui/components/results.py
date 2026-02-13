@@ -1,5 +1,6 @@
 """Result display component with foldable sections and action buttons."""
 
+from contextlib import suppress
 from typing import TYPE_CHECKING, Any
 
 import streamlit as st
@@ -9,7 +10,6 @@ from databao.ui.services.chat_persistence import save_current_chat
 if TYPE_CHECKING:
     from databao.core.executor import ExecutionResult
     from databao.core.thread import Thread
-
     from databao.ui.models.chat_session import ChatSession
 
 
@@ -68,9 +68,7 @@ def render_dataframe_section(result: "ExecutionResult", has_visualization: bool)
         st.dataframe(df, width="stretch")
 
 
-def render_visualization_section(
-    thread: "Thread", visualization_data: dict[str, Any] | None = None
-) -> None:
+def render_visualization_section(thread: "Thread", visualization_data: dict[str, Any] | None = None) -> None:
     """Render the visualization section.
 
     Follows the same rendering logic as Jupyter notebooks:
@@ -148,17 +146,13 @@ def render_visualization_section(
 
         # Try _repr_html_
         if html_content is None and hasattr(plot, "_repr_html_"):
-            try:
+            with suppress(Exception):
                 html_content = plot._repr_html_()
-            except Exception:
-                pass
 
         # Try vis_result._get_plot_html()
         if html_content is None and hasattr(vis_result, "_get_plot_html"):
-            try:
+            with suppress(Exception):
                 html_content = vis_result._get_plot_html()
-            except Exception:
-                pass
 
         # Render HTML if we got it
         if html_content:

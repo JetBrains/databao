@@ -1,7 +1,6 @@
 """Databao Streamlit Web Interface - Main Application with Multipage Navigation."""
 
 import argparse
-import gc
 import logging
 from pathlib import Path
 from typing import cast
@@ -30,6 +29,7 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
 
 def _load_persisted_state() -> None:
     """Load settings and chats from disk on startup."""
@@ -102,7 +102,7 @@ def _initialize_agent(project: DatabaoProject) -> Agent | None:
     try:
         executor_type = st.session_state.get("executor_type", "lighthouse")
 
-        if executor_type == "dbt" or True:
+        if executor_type == "dbt":
             # TODO proper integration from DCE side
             dbt_config_path = project.layout.dbt_config
             if dbt_config_path:
@@ -128,7 +128,7 @@ def _initialize_agent(project: DatabaoProject) -> Agent | None:
                 executor_type=executor_type,
                 cache=cache,
                 dbt_config=DbtConfig(
-                    project_dir=Path(dbt_target_folder_path).parent, # NOTE: bc of "/target" on the end
+                    project_dir=Path(dbt_target_folder_path).parent,  # NOTE: bc of "/target" on the end
                 ),
             )
         else:
@@ -396,6 +396,7 @@ def _render_global_sidebar() -> None:
 
     with st.sidebar:
         render_sidebar_header()
+
 
 def main() -> None:
     """Main application entry point."""

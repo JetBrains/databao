@@ -3,11 +3,11 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import duckdb
-
 
 # Post-run hook type alias (project convention: simple Callable aliases)
 PostDbtRunHook = Callable[[Path], None]
@@ -131,7 +131,10 @@ def assemble_dbt_project_summary(project_dir: Path, max_file_chars: int | None =
         ]
         parts.append("\n".join(listing_lines))
     if not parts:
-        return f"DBT project directory present at {project_dir} but no matching files found under models/, macros/, or seeds/."
+        return (
+            f"DBT project directory present at {project_dir} "
+            "but no matching files found under models/, macros/, or seeds/."
+        )
     header = (
         f"Assembled dbt project files from {project_dir}:\n"
         f"Found {len(files)} files with content. "

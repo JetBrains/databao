@@ -29,6 +29,7 @@ def save_current_chat() -> None:
     if current_chat_id and current_chat_id in chats:
         save_chat(chats[current_chat_id])
 
+
 # File names within chat directory
 _SESSION_FILE = "session.json"
 _RESULTS_DIR = "results"

@@ -120,9 +120,7 @@ class DbtProjectGraph:
         )
 
     def get_result(self, state: DbtAgentState) -> dict[str, Any]:
-        last_ai: AIMessage | None = next(
-            (m for m in reversed(state["messages"]) if isinstance(m, AIMessage)), None
-        )
+        last_ai: AIMessage | None = next((m for m in reversed(state["messages"]) if isinstance(m, AIMessage)), None)
         result_df = state.get("answer_df") if state.get("answer_df") is not None else state.get("last_df")
         result_sql = state.get("answer_sql") if state.get("answer_sql") is not None else state.get("last_sql")
 
@@ -186,7 +184,12 @@ class DbtProjectGraph:
             # Guard: reject ATTACH / multi-statement SQL that could break the connection
             sql_stripped = sql.strip().rstrip(";")
             if re.search(r"\bATTACH\b", sql_stripped, re.IGNORECASE):
-                return {"error": "Do NOT use ATTACH in run_sql. The database is already attached. Use fully qualified table names from run_database_explore."}
+                return {
+                    "error": (
+                        "Do NOT use ATTACH in run_sql. The database is already attached. "
+                        "Use fully qualified table names from run_database_explore."
+                    )
+                }
 
             executor = self._sql_executor_factory()
             try:
@@ -195,7 +198,7 @@ class DbtProjectGraph:
                 sample = df.head(sample_rows).to_dict(orient="records")
                 return {
                     "schema": schema,
-                    "row_count": int(len(df)),
+                    "row_count": len(df),
                     "sample_rows": sample,
                     "truncated": bool(len(df) > sample_rows),
                     "df": df,
@@ -349,7 +352,7 @@ class DbtProjectGraph:
             except Exception as e:
                 return f"ERROR: edit failed: {e}"
 
-            return f"EDITED {str(p.resolve())}: {n} replacements"
+            return f"EDITED {p.resolve()!s}: {n} replacements"
 
         @tool(parse_docstring=True)
         def grep_tool(table_name: str, graph_state: Annotated[DbtAgentState, InjectedState]) -> str:
@@ -487,10 +490,14 @@ class DbtProjectGraph:
                             if "df" in result:
                                 last_df = result["df"]
 
-                        if name == "submit_answer" and isinstance(result, dict):
-                            if result.get("_submit_answer") and "df" in result:
-                                answer_sql = result.get("sql")
-                                answer_df = result.pop("df")
+                        if (
+                            name == "submit_answer"
+                            and isinstance(result, dict)
+                            and result.get("_submit_answer")
+                            and "df" in result
+                        ):
+                            answer_sql = result.get("sql")
+                            answer_df = result.pop("df")
 
                         if name == "run_dbt":
                             try:

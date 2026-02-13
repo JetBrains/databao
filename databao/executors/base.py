@@ -39,10 +39,11 @@ class GraphExecutor(Executor, ABC):
         """Register a database source into the shared DuckDB connection."""
         if not source.connectable:
             import logging
+
             logging.getLogger(__name__).debug(
                 "Skipping non-connectable datasource '%s' (type: %s)",
                 source.name,
-                getattr(source.db_connection, 'type', type(source.db_connection).__name__),
+                getattr(source.db_connection, "type", type(source.db_connection).__name__),
             )
             return
 

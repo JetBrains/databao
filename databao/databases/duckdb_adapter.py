@@ -42,8 +42,7 @@ class DuckDBAdapter(DatabaseAdapter):
             database = config.content.get("connection", {}).get(DATABASE_KEY)
         if database is None:
             raise ValueError(
-                f"DuckDB config for '{name}' is missing '{DATABASE_KEY}'. "
-                f"Available keys: {list(config.content.keys())}"
+                f"DuckDB config for '{name}' is missing '{DATABASE_KEY}'. Available keys: {list(config.content.keys())}"
             )
         shared_conn.execute(f"ATTACH '{database}' AS \"{name}\" (READ_ONLY);")
 

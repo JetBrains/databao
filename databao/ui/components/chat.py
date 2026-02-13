@@ -268,23 +268,22 @@ def handle_query_completion(chat: "ChatSession") -> bool:
 
 def render_thinking_section(chat: "ChatSession") -> None:
     """Render the thinking section wrapper that contains the streaming fragment."""
-    with st.chat_message("assistant"):
-        with st.expander("💭 Thinking...", expanded=True):
-            # Use a fragment for streaming updates - this is the Streamlit-recommended
-            # pattern for showing progress from background tasks
-            _thinking_stream_fragment(chat)
+    with st.chat_message("assistant"), st.expander("💭 Thinking...", expanded=True):
+        # Use a fragment for streaming updates - this is the Streamlit-recommended
+        # pattern for showing progress from background tasks
+        _thinking_stream_fragment(chat)
 
 
 @st.fragment(run_every=0.1)
 def _thinking_stream_fragment(chat: "ChatSession") -> None:
     """Fragment that streams thinking updates at 100ms intervals.
-    
+
     This is the Streamlit-recommended pattern for streaming updates from
     background tasks. The fragment polls the writer's buffer rapidly.
     """
     # Get current thinking text from writer
     current_text = chat.writer.getvalue() if chat.writer else ""
-    
+
     # Display current state
     if current_text:
         st.markdown(current_text)

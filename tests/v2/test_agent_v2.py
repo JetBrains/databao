@@ -7,11 +7,11 @@ import duckdb
 import pandas as pd
 import pytest
 from _duckdb import DuckDBPyConnection
+from databao.core.v2.agent import AgentV2
+from databao.core.v2.context import Context, ContextBuilder
 
 import databao
 from databao.configs import LLMConfigDirectory
-from databao.core.v2.agent import AgentV2
-from databao.core.v2.context import Context, ContextBuilder
 
 
 @pytest.fixture

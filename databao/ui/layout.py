@@ -3,8 +3,8 @@ from pathlib import Path
 
 import yaml
 
-
 # TODO: copypasted from databao-cli, needs to be imported or moved
+
 
 def get_databao_project_dir(project_dir: Path) -> Path:
     return project_dir / "databao"
@@ -42,13 +42,13 @@ class ProjectLayout:
             if file.suffix == ".yaml":
                 with open(file) as f:
                     yml = yaml.safe_load(f)
-                    if yml.get('type', None) == "dbt":
+                    if yml.get("type", None) == "dbt":
                         return file
         return None
 
 
 def find_project(initial_dir: Path) -> ProjectLayout | None:
-    dirs_to_check = [initial_dir] + list(initial_dir.parents)
+    dirs_to_check = [initial_dir, *list(initial_dir.parents)]
     for project_dir_candidate in dirs_to_check:
         databao_project_dir = get_databao_project_dir(project_dir_candidate)
         if databao_project_dir.exists():

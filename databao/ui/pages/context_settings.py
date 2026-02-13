@@ -3,10 +3,10 @@
 import streamlit as st
 
 from databao import Agent
-from databao.ui.databao_project import DatabaoProject, DCEProjectStatus
 from databao.ui.app import _clear_all_chat_threads
 from databao.ui.components.sidebar import get_db_icon
 from databao.ui.components.status import AppStatus, set_status
+from databao.ui.databao_project import DatabaoProject, DCEProjectStatus
 
 
 def render_context_settings_page() -> None:
@@ -55,7 +55,7 @@ def render_context_settings_page() -> None:
 def _render_project_info(project: DatabaoProject) -> bool:
     """
     Render project information.
-    
+
     Returns:
         True if the project was reloaded, False otherwise.
     """

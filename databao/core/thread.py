@@ -1,5 +1,5 @@
 import uuid
-from typing import TYPE_CHECKING, Any, TextIO, Self
+from typing import TYPE_CHECKING, Any, Self, TextIO
 
 from pandas import DataFrame
 

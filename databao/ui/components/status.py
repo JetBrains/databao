@@ -111,8 +111,9 @@ def status_context(
         yield
     finally:
         # Pop and restore previous status
-        status_not_changed_inside_block = (st.session_state.app_status == status or st.session_state.status_message == message)
-        if not preserve_inner_status or status_not_changed_inside_block:
-            if st.session_state.status_stack:
-                prev_status, prev_message = st.session_state.status_stack.pop()
-                set_status(prev_status, prev_message)
+        status_not_changed_inside_block = (
+            st.session_state.app_status == status or st.session_state.status_message == message
+        )
+        if (not preserve_inner_status or status_not_changed_inside_block) and st.session_state.status_stack:
+            prev_status, prev_message = st.session_state.status_stack.pop()
+            set_status(prev_status, prev_message)

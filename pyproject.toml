@@ -87,6 +87,7 @@ path = "hatch_build.py"
 
 [dependency-groups]
 dev = [
+    "isort>=7.0.0",
     "mypy>=1.18.2",
     "pandas-stubs>=2.3.2.250926",
     "pre-commit>=4.3.0",

@@ -119,4 +119,3 @@ def render_general_settings_page() -> None:
             help="Resets settings but keeps chats.",
         ):
             _confirm_reset_settings()
-

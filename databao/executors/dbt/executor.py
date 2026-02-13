@@ -14,16 +14,15 @@ from databao.configs.agent import AgentConfig
 from databao.core import Cache, ExecutionResult, Opa
 from databao.core.data_source import Sources
 from databao.core.executor import OutputModalityHints
+from databao.executors.base import GraphExecutor
 from databao.executors.dbt.config import DbtConfig
 from databao.executors.dbt.dbt_runner import (
-    duckdb_post_run_hook,
-    noop_post_run_hook,
     PostDbtRunHook,
     assemble_dbt_project_summary,
+    duckdb_post_run_hook,
 )
-from databao.executors.dbt.sql_executor import DuckDbSqlExecutor
-from databao.executors.base import GraphExecutor
 from databao.executors.dbt.graph import DbtProjectGraph
+from databao.executors.dbt.sql_executor import DuckDbSqlExecutor
 from databao.executors.lighthouse.history_cleaning import clean_tool_history
 
 
@@ -191,7 +190,7 @@ class DbtProjectExecutor(GraphExecutor):
 
         final_messages = last_state.get("messages", [])
         if final_messages:
-            new_messages = final_messages[len(cleaned_messages):]
+            new_messages = final_messages[len(cleaned_messages) :]
             all_messages = all_messages_with_system + new_messages
             all_messages_without_system = [m for m in all_messages if m.type != "system"]
             self._update_message_history(cache, all_messages_without_system)

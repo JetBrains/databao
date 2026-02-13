@@ -2,9 +2,9 @@
 
 import streamlit as st
 
-from databao.ui.databao_project import DatabaoProject, DCEProjectStatus
 from databao.ui.app import _clear_all_chat_threads
 from databao.ui.components.status import AppStatus, render_status_fragment, set_status
+from databao.ui.databao_project import DatabaoProject, DCEProjectStatus
 from databao.ui.suggestions import reset_suggestions_state
 
 
@@ -37,6 +37,7 @@ def _confirm_delete_chat(chat_id: str, chat_title: str) -> None:
             # Navigate to home
             st.session_state._navigate_to_chat = None
             st.rerun()
+
 
 # Icons for different database types
 DB_ICONS = {

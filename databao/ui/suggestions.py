@@ -105,10 +105,12 @@ def generate_suggested_questions(agent: "Agent") -> tuple[list[str], bool]:
         llm_with_structure = agent.llm.with_structured_output(SuggestedQuestions)
 
         # Generate questions
-        result = llm_with_structure.invoke([
-            SystemMessage(content=prompt),
-            HumanMessage(content="Generate 3 suggested questions for exploring this data."),
-        ])
+        result = llm_with_structure.invoke(
+            [
+                SystemMessage(content=prompt),
+                HumanMessage(content="Generate 3 suggested questions for exploring this data."),
+            ]
+        )
 
         if result and result.questions and len(result.questions) == 3:
             # Return questions as-is - UI will handle truncation for display

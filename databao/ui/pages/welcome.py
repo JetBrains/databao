@@ -11,7 +11,7 @@ from databao.ui.app import _create_new_chat
 def render_welcome_page() -> None:
     """Render the welcome page with overview and quick actions."""
     # Center content with columns
-    col1, col2, col3 = st.columns([1, 2, 1])
+    _, col2, _ = st.columns([1, 2, 1])
 
     with col2:
         # Logo and title
@@ -55,10 +55,7 @@ def render_welcome_page() -> None:
             st.metric("Active Chats", num_chats)
 
         with stat_col2:
-            if agent:
-                num_sources = len(agent.dbs) + len(agent.dfs)
-            else:
-                num_sources = 0
+            num_sources = len(agent.dbs) + len(agent.dfs) if agent else 0
             st.metric("Data Sources", num_sources)
 
         with stat_col3:

@@ -6,12 +6,12 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+from databao.core.v2.context import Context, ContextBuilder
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
 import databao
 from databao import LLMConfig
-from databao.core.v2.context import Context, ContextBuilder
 
 
 # TODO (dce): duplication - test_agent_v2.py

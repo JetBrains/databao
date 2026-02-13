@@ -1,3 +1,4 @@
+from contextlib import suppress
 from typing import Any
 
 import pandas as pd
@@ -16,9 +17,16 @@ def db_introspect(db_conn: Any) -> pd.DataFrame:
             column_index (1-based), is_primary_key (bool), fully_qualified_name.
     """
     result_columns = [
-        "catalog", "schema", "table", "fully_qualified_name",
-        "column_name", "data_type", "is_nullable", "column_default",
-        "column_index", "is_primary_key",
+        "catalog",
+        "schema",
+        "table",
+        "fully_qualified_name",
+        "column_name",
+        "data_type",
+        "is_nullable",
+        "column_default",
+        "column_index",
+        "is_primary_key",
     ]
 
     # Discover all user-attached databases
@@ -94,10 +102,8 @@ def db_introspect(db_conn: Any) -> pd.DataFrame:
             continue
 
     # Restore original database context
-    try:
+    with suppress(Exception):
         db_conn.execute(f'USE "{original_db}"')
-    except Exception:
-        pass
 
     if not frames:
         return pd.DataFrame(columns=result_columns)

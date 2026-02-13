@@ -12,7 +12,6 @@ from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
     from databao.core.agent import Agent
-
     from databao.ui.models.chat_session import ChatSession
 
 logger = logging.getLogger(__name__)
@@ -33,7 +32,8 @@ class ChatTitle(BaseModel):
     )
 
 
-TITLE_PROMPT = """Generate a very short title (3-5 words, max 50 characters) that summarizes what this question is about.
+TITLE_PROMPT = """
+Generate a very short title (3-5 words, max 50 characters) that summarizes what this question is about.
 The title should be descriptive and help identify the conversation later.
 
 Do NOT include:
@@ -69,10 +69,12 @@ def _generate_chat_title(agent: "Agent", first_message: str, created_at: datetim
         llm_with_structure = agent.llm.with_structured_output(ChatTitle)
 
         # Generate title
-        result = llm_with_structure.invoke([
-            SystemMessage(content=TITLE_PROMPT),
-            HumanMessage(content=f"Question: {first_message}"),
-        ])
+        result = llm_with_structure.invoke(
+            [
+                SystemMessage(content=TITLE_PROMPT),
+                HumanMessage(content=f"Question: {first_message}"),
+            ]
+        )
 
         if result and result.title:
             title = result.title.strip()
@@ -131,9 +133,7 @@ def trigger_title_generation(agent: "Agent", chat: "ChatSession") -> bool:
 
     # Submit task to executor
     executor = _get_title_executor()
-    future: Future[tuple[str, str]] = executor.submit(
-        _generate_title_task, agent, chat.id, first_msg, chat.created_at
-    )
+    future: Future[tuple[str, str]] = executor.submit(_generate_title_task, agent, chat.id, first_msg, chat.created_at)
 
     # Store in session state keyed by chat ID
     title_futures = st.session_state.get("title_futures", {})

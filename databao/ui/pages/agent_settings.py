@@ -92,4 +92,3 @@ def render_agent_settings_page() -> None:
             st.code(f"Model: {model_name}")
         except Exception:
             st.caption("Could not retrieve model information.")
-
