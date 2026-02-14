@@ -6,10 +6,10 @@ from typing import TYPE_CHECKING, Any, ClassVar, Literal, TextIO
 from pandas import DataFrame
 from pydantic import BaseModel, ConfigDict
 
-from databao.core.data_source import DBDataSource, DFDataSource, Sources
+from databao.core.data_source import DBDataSource, DFDataSource
 
 if TYPE_CHECKING:
-    from databao import LLMConfig
+    from databao import Context, LLMConfig
     from databao.configs.agent import AgentConfig
     from databao.core.cache import Cache
     from databao.core.opa import Opa
@@ -159,7 +159,7 @@ class Executor(ABC):
         cache: "Cache",
         llm_config: "LLMConfig",
         agent_config: "AgentConfig",
-        sources: Sources,
+        context: "Context",
         *,
         rows_limit: int = 100,
         stream: bool = True,
@@ -172,7 +172,7 @@ class Executor(ABC):
             cache: Cache provided by Agent to persist State.
             llm_config: Config of LLM to be used during execution.
             agent_config: Config of agent to be used during execution.
-            sources: Data sources registered with the agent.
+            context: Context of the agent with data sources.
             rows_limit: Preferred row limit for data materialization (may be ignored by executors).
             stream: Stream LLM output to stdout.
             writer: Optional TextIO for streaming output. If provided, overrides executor's default writer.

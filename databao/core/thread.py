@@ -78,7 +78,7 @@ class Thread:
                     cache=self._agent.cache.scoped(self._cache_scope),
                     llm_config=self._agent.llm_config,
                     agent_config=self._agent.agent_config,
-                    sources=self._agent.sources,
+                    context=self._agent.context,
                     rows_limit=rows_limit,
                     stream=stream,
                     writer=self._writer,

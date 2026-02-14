@@ -14,6 +14,10 @@ class DatabaseAdapter(ABC):
 
     @classmethod
     @abstractmethod
+    def main_property_keys(cls) -> set[str]: ...
+
+    @classmethod
+    @abstractmethod
     def accept(cls, conn: DBConnection) -> bool: ...
 
     @classmethod

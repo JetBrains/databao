@@ -8,11 +8,17 @@ DUCKDB_TYPE = DatasourceType(full_type="duckdb")
 
 DATABASE_KEY = "database_path"
 
+MAIN_KEYS = {DATABASE_KEY}
+
 
 class DuckDBAdapter(DatabaseAdapter):
     @classmethod
     def type(cls) -> DatasourceType:
         return DUCKDB_TYPE
+
+    @classmethod
+    def main_property_keys(cls) -> set[str]:
+        return MAIN_KEYS
 
     @classmethod
     def accept(cls, conn: DBConnection) -> bool:

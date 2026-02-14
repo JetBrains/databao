@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from databao_context_engine import ContextSearchResult
 from pandas import DataFrame
@@ -9,6 +10,7 @@ from pandas import DataFrame
 from databao.core.data_source import Sources
 from databao.core.sources import SourcesManager
 from databao.databases import DBConnection, DBConnectionConfig, DBConnectionRuntime, convert_to_config
+from databao.databases.databases import to_dce_config_content
 from databao.integrations.dce import DatabaoContextApi, DatabaoContextEngineApi
 
 
@@ -38,8 +40,8 @@ class Context:
     def load(project_dir: Path) -> Context:
         dce_project = DatabaoContextApi.get_dce_project(project_dir)
         dce = DatabaoContextApi.get_dce(project_dir)
-        prepared_data_sources = dce_project.get_prepared_datasource_list()
-        sources_manager = SourcesManager(prepared_data_sources)
+        configured_data_sources = dce_project.get_configured_datasource_list()
+        sources_manager = SourcesManager(configured_data_sources)
         return Context(_dce=dce, _sources=sources_manager.sources)
 
 
@@ -77,7 +79,9 @@ class ContextBuilder:
         db_source = self._sources_manager.add_db(config, name=name, context=context)
 
         if self._dce_project is not None:
-            self._dce_project.create_datasource_config(config.type, db_source.name, config.content)
+            db_dce_config_content = self._get_dce_config_content(config)
+            self._dce_project.create_datasource_config(config.type, db_source.name, db_dce_config_content)
+
         return self
 
     def add_df(self, df: DataFrame, *, name: str | None = None, context: str | Path | None = None) -> ContextBuilder:
@@ -114,6 +118,10 @@ class ContextBuilder:
             dce = None
         sources = self._sources_manager.sources
         return Context(_dce=dce, _sources=sources)
+
+    @staticmethod
+    def _get_dce_config_content(config: DBConnectionConfig) -> dict[str, Any]:
+        return to_dce_config_content(config)
 
     @staticmethod
     def _convert_to_config(run_conn: DBConnectionRuntime) -> DBConnectionConfig:

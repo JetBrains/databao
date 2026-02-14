@@ -37,12 +37,11 @@ class Agent:
         lazy_threads: bool = False,
         auto_output_modality: bool = True,
     ):
+        self.__context = context
         self.__name = name
         self.__llm = llm.new_chat_model()
         self.__llm_config = llm
         self.__agent_config = agent_config
-
-        self.__sources: Sources = context.sources
 
         self.__executor = data_executor
         self.__visualizer = visualizer
@@ -58,10 +57,10 @@ class Agent:
         self._init_executor()
 
     def _init_executor(self) -> None:
-        for db_source in self.__sources.dbs.values():
+        for db_source in self.sources.dbs.values():
             if db_source.connectable:
                 self.executor.register_db(db_source)
-        for df_source in self.__sources.dfs.values():
+        for df_source in self.sources.dfs.values():
             self.executor.register_df(df_source)
 
     def thread(
@@ -75,7 +74,7 @@ class Agent:
         writer: "TextIO | None" = None,
     ) -> Thread:
         """Start a new thread in this agent."""
-        if not self.__sources.dbs and not self.__sources.dfs:
+        if not self.sources.dbs and not self.sources.dfs:
             raise ValueError("No databases or dataframes registered in this agent.")
         return Thread(
             self,
@@ -91,16 +90,20 @@ class Agent:
         )
 
     @property
+    def context(self) -> Context:
+        return self.__context
+
+    @property
     def sources(self) -> Sources:
-        return self.__sources
+        return self.context.sources
 
     @property
     def dbs(self) -> dict[str, DBDataSource]:
-        return dict(self.__sources.dbs)
+        return dict(self.sources.dbs)
 
     @property
     def dfs(self) -> dict[str, DFDataSource]:
-        return dict(self.__sources.dfs)
+        return dict(self.sources.dfs)
 
     @property
     def name(self) -> str:
@@ -133,4 +136,4 @@ class Agent:
     @property
     def additional_context(self) -> list[str]:
         """General additional context not specific to any one data source."""
-        return self.__sources.additional_context
+        return self.sources.additional_context
