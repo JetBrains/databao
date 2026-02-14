@@ -1,19 +1,15 @@
 from pathlib import Path
 from typing import Any, TextIO
 
-import duckdb
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
-from sqlalchemy import Connection, Engine
 
 from databao.configs import LLMConfig
 from databao.configs.agent import AgentConfig
-from databao.core import Cache, ExecutionResult, Opa, Context
-from databao.core.data_source import DBDataSource, DFDataSource, Sources
+from databao.core import Cache, Context, ExecutionResult, Opa
 from databao.core.executor import OutputModalityHints
-from databao.databases import DBConnectionConfig, register_in_duckdb
-from databao.duckdb.utils import describe_duckdb_schema, get_db_path, register_sqlalchemy
+from databao.duckdb.utils import describe_duckdb_schema
 from databao.executors.base import GraphExecutor
 from databao.executors.lighthouse.graph import ExecuteSubmit
 from databao.executors.lighthouse.history_cleaning import clean_tool_history
@@ -56,7 +52,9 @@ class LighthouseExecutor(GraphExecutor):
 
         return prompt.strip()
 
-    def _get_compiled_graph(self, llm_config: LLMConfig, agent_config: AgentConfig, context: Context) -> CompiledStateGraph[Any]:
+    def _get_compiled_graph(
+        self, llm_config: LLMConfig, agent_config: AgentConfig, context: Context
+    ) -> CompiledStateGraph[Any]:
         """Get compiled graph."""
         compiled_graph = self._compiled_graph or self._graph.compile(llm_config, agent_config, context)
         self._compiled_graph = compiled_graph

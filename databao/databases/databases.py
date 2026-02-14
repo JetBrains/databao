@@ -48,7 +48,8 @@ def to_agent_config_content(dce_ds: ConfiguredDatasource) -> dict[str, Any]:
     dce_content = {str(k): v for k, v in dce_ds.config.items()}
     connection = dce_content.get("connection")
     if connection is None:
-        raise ValueError("Cannot convert DCE config to Agent config: missing 'connection' key")
+        # NOTE: (@gas) Return the raw config content as-is for sources like dbt
+        return dce_content
     connection = {str(k): v for k, v in connection.items()}
     additional_properties = connection.pop("additional_properties", {})
     return {**connection, **additional_properties}

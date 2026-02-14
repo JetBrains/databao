@@ -20,6 +20,7 @@ from langgraph.graph.state import CompiledStateGraph, StateGraph
 from langgraph.prebuilt import InjectedState
 from typing_extensions import TypedDict
 
+from databao.configs import llm
 from databao.configs.agent import AgentConfig
 from databao.configs.llm import LLMConfig
 from databao.executors.dbt.dbt_runner import (
@@ -445,16 +446,24 @@ class DbtProjectGraph:
             submit_answer,
         ]
 
-    def compile(self, llm_config: LLMConfig, agent_config: AgentConfig) -> CompiledStateGraph[Any]:
+    def compile(self, model_config: LLMConfig, agent_config: AgentConfig) -> CompiledStateGraph[Any]:
         tools = self.make_tools()
-        llm = llm_config.new_chat_model()
-        model = self._bind_tools(llm, tools, parallel_tool_calls=agent_config.parallel_tool_calls)
+        llm_model = model_config.new_chat_model()
+
+        if llm.is_openai_model(model_config.name):
+            # Only OpenAI models support parallel tool calls parameter
+            model_with_tools = self._model_bind_tools(
+                llm_model, tools, parallel_tool_calls=agent_config.parallel_tool_calls
+            )
+        else:
+            model_with_tools = self._model_bind_tools(llm_model, tools)
 
         def llm_node(state: DbtAgentState) -> dict[str, Any]:
-            response = self._call_model(model, llm_config, state["messages"])
-            return {"messages": [response]}
+            messages = state["messages"]
+            response = self._chat(messages, model_config, model_with_tools)
+            return {"messages": [response[-1]]}
 
-        def tool_node(state: DbtAgentState) -> dict[str, Any]:
+        def tool_executor_node(state: DbtAgentState) -> dict[str, Any]:
             last = state["messages"][-1]
             if not isinstance(last, AIMessage) or not last.tool_calls:
                 return {}
@@ -563,36 +572,92 @@ class DbtProjectGraph:
                 "dbt_dirty": dbt_dirty,
             }
 
-        def should_continue(state: DbtAgentState) -> Literal["tools", "end"]:
+        def should_continue(state: DbtAgentState) -> Literal["tool_executor", "end"]:
             last = state["messages"][-1]
             if isinstance(last, AIMessage) and last.tool_calls:
-                return "tools"
+                return "tool_executor"
             return "end"
 
         graph = StateGraph(DbtAgentState)
-        graph.add_node("llm", llm_node)
-        graph.add_node("tools", tool_node)
+        graph.add_node("llm_node", llm_node)
+        graph.add_node("tool_executor", tool_executor_node)
 
-        graph.add_edge(START, "llm")
-        graph.add_conditional_edges("llm", should_continue, {"tools": "tools", "end": END})
-        graph.add_edge("tools", "llm")
-
+        graph.add_edge(START, "llm_node")
+        graph.add_conditional_edges("llm_node", should_continue, {"tool_executor": "tool_executor", "end": END})
+        graph.add_edge("tool_executor", "llm_node")
         return graph.compile()
 
     @staticmethod
-    def _bind_tools(
-        model: BaseChatModel,
-        tools: Sequence[BaseTool],
-        **kwargs: Any,
+    def _model_bind_tools(
+        model: BaseChatModel, tools: Sequence[BaseTool], **kwargs: Any
     ) -> Runnable[LanguageModelInput, BaseMessage]:
         if isinstance(model, ChatOpenAI):
             return model.bind_tools(tools, strict=True, **kwargs)
-        return model.bind_tools(tools, **kwargs)
+        else:
+            return model.bind_tools(tools, **kwargs)
 
     @staticmethod
-    def _call_model(
-        model: Runnable[list[BaseMessage], Any],
-        llm_config: LLMConfig,
+    def _chat(
         messages: list[BaseMessage],
-    ) -> AIMessage:
-        return model.with_retry(wait_exponential_jitter=True, stop_after_attempt=3).invoke(messages)  # type: ignore[no-any-return]
+        config: LLMConfig,
+        model: Runnable[list[BaseMessage], Any] | None = None,
+    ) -> list[BaseMessage]:
+        if model is None:
+            model = config.new_chat_model()
+        messages = DbtProjectGraph._apply_system_prompt_caching(config, messages)
+        response: AIMessage = DbtProjectGraph._call_model(model, messages)
+        return [*messages, response]
+
+    @staticmethod
+    def _is_anthropic_model(config: LLMConfig) -> bool:
+        """Check if the model is an Anthropic model based on the config name."""
+        return "claude" in config.name.lower()
+
+    @staticmethod
+    def _apply_system_prompt_caching(config: LLMConfig, messages: list[BaseMessage]) -> list[BaseMessage]:
+        """Apply system prompt caching for Anthropic models."""
+        if not (config.cache_system_prompt and DbtProjectGraph._is_anthropic_model(config)):
+            return messages
+        # Assume only the first message can be a system prompt.
+        assert all(m.type != "system" for m in messages[1:])
+        if messages[0].type == "system":
+            messages = [DbtProjectGraph._set_message_cache_breakpoint(config, messages[0]), *messages[1:]]
+        return messages
+
+    @staticmethod
+    def _set_message_cache_breakpoint(config: LLMConfig, message: BaseMessage) -> BaseMessage:
+        """Enable prompt caching for this message (for Anthropic models).
+
+        If you have a list of messages, set a breakpoint only on the last message to automatically
+        cache all previous messages.
+
+        See https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching
+        > Prompt caching references the entire prompt - tools, system, and messages (in that order) up to and including
+            the block designated with cache_control.
+        """
+        if not DbtProjectGraph._is_anthropic_model(config):
+            return message
+        new_content: list[dict[str, Any] | str]
+        match message.content:
+            case str() | dict():
+                new_content = [DbtProjectGraph._set_anthropic_cache_breakpoint(message.content)]
+            case list():
+                # Set checkpoint only for the last message
+                new_content = message.content.copy()
+                new_content[-1] = DbtProjectGraph._set_anthropic_cache_breakpoint(new_content[-1])
+        return message.model_copy(update={"content": new_content})
+
+    @staticmethod
+    def _set_anthropic_cache_breakpoint(content: str | dict[str, Any]) -> dict[str, Any]:
+        if isinstance(content, str):
+            return {"type": "text", "text": content, "cache_control": {"type": "ephemeral"}}
+        elif isinstance(content, dict):
+            d = content.copy()
+            d["cache_control"] = {"type": "ephemeral"}
+            return d
+        else:
+            raise ValueError(f"Unknown content type: {type(content)}")
+
+    @staticmethod
+    def _call_model(model: Runnable[list[BaseMessage], Any], messages: list[BaseMessage]) -> Any:
+        return model.with_retry(wait_exponential_jitter=True, stop_after_attempt=3).invoke(messages)
