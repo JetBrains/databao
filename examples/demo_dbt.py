@@ -10,8 +10,9 @@ from databao.executors.dbt import DbtConfig, DbtProjectExecutor
 
 logging.basicConfig(level=logging.INFO)
 
-DB_PATH = "/Users/andrei.gasparian/Documents/databao-agent/examples/shopify002/shopify.duckdb"
-DBT_PROJ_PATH = Path("/Users/andrei.gasparian/Documents/databao-agent/examples/shopify002")
+EXAMPLES_DIR = Path(__file__).resolve().parent
+DBT_PROJ_PATH = EXAMPLES_DIR / "shopify002"
+DB_PATH = DBT_PROJ_PATH / "shopify.duckdb"
 
 llm_config = LLMConfig(name="gpt-5", temperature=0)
 agent_config = AgentConfig(recursion_limit=100, parallel_tool_calls=True)
