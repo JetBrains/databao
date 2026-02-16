@@ -21,3 +21,6 @@ examples/shopify002/
 
 # Client build artifacts
 client/out
+
+# Test artifacts
+tests/.pytest-artifacts/

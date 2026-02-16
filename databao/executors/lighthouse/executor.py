@@ -112,8 +112,8 @@ class LighthouseExecutor(GraphExecutor):
             new_messages = final_messages[len(cleaned_messages) :]
             all_messages = all_messages_with_system + new_messages
             all_messages_without_system = [msg for msg in all_messages if msg.type != "system"]
-            if execution_result.meta.get("messages"):
-                execution_result.meta["messages"] = all_messages
+            if execution_result.meta.get(ExecutionResult.META_MESSAGES_KEY):
+                execution_result.meta[ExecutionResult.META_MESSAGES_KEY] = all_messages
             self._update_message_history(cache, all_messages_without_system)
 
         # Set modality hints
