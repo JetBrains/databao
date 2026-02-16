@@ -154,7 +154,7 @@ class DbtProjectExecutor(GraphExecutor):
             dbt_dirty=self._dbt_dirty,
         )
 
-        invoke_config = RunnableConfig(recursion_limit=self._graph_recursion_limit or agent_config.recursion_limit)
+        invoke_config = RunnableConfig(recursion_limit=max(self._graph_recursion_limit, agent_config.recursion_limit))
         last_state = self._invoke_graph_sync(
             compiled_graph, init_state, config=invoke_config, stream=stream, writer=writer or self._writer
         )
