@@ -5,7 +5,7 @@ from typing import NoReturn
 from sqlalchemy import create_engine, text
 
 import databao
-from databao import ContextBuilder, LLMConfig
+from databao import LLMConfig
 
 FILE_DIR = Path(__file__).parent
 
@@ -41,11 +41,10 @@ def main() -> None:
     if not project_dir.is_dir():
         project_dir.mkdir(parents=True)
 
-        context = ContextBuilder(project_dir=project_dir).add_db(engine).build()
-    else:
-        context = databao.Context.load(project_dir)
+    domain = databao.domain(project_dir)
+    domain.add_source(engine)
 
-    agent = databao.agent(context=context, name="my_agent", llm_config=LLMConfig(name="gpt-5.1", temperature=0))
+    agent = databao.agent(domain=domain, name="my_agent", llm_config=LLMConfig(name="gpt-5.1", temperature=0))
 
     agent.thread().ask("How many accidents occurred in total?")
 

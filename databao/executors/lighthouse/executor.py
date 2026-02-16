@@ -1,19 +1,19 @@
 from pathlib import Path
-from typing import Any, TextIO
+from typing import Any, TextIO, cast
 
 import duckdb
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
-from sqlalchemy import Connection, Engine
 
 from databao.configs import LLMConfig
 from databao.configs.agent import AgentConfig
-from databao.core import Cache, Context, ExecutionResult, Opa
+from databao.core import Cache, Domain, ExecutionResult, Opa
 from databao.core.data_source import DBDataSource, DFDataSource
+from databao.core.domain import _Domain
 from databao.core.executor import OutputModalityHints
-from databao.databases import DBConnectionConfig, register_in_duckdb
-from databao.duckdb.utils import describe_duckdb_schema, get_db_path, register_sqlalchemy
+from databao.databases import register_in_duckdb
+from databao.duckdb.utils import describe_duckdb_schema
 from databao.executors.base import GraphExecutor
 from databao.executors.lighthouse.graph import ExecuteSubmit
 from databao.executors.lighthouse.history_cleaning import clean_tool_history
@@ -33,13 +33,14 @@ class LighthouseExecutor(GraphExecutor):
     def render_system_prompt(
         self,
         data_connection: Any,
-        context: Context,
+        domain: Domain,
         recursion_limit: int = 50,
     ) -> str:
         """Render system prompt with database schema."""
         db_schema = describe_duckdb_schema(data_connection)
 
-        sources = context.sources
+        domain = cast(_Domain, domain)
+        sources = domain.sources
         context_text = ""
         for db_name, source in sources.dbs.items():
             if source.context:
@@ -61,32 +62,16 @@ class LighthouseExecutor(GraphExecutor):
 
     def register_db(self, source: DBDataSource) -> None:
         """Register DB in the DuckDB connection."""
-        connection = source.db_connection
-        if isinstance(connection, Connection):
-            connection = connection.engine
-
-        if isinstance(connection, duckdb.DuckDBPyConnection):
-            path = get_db_path(connection)
-            if path is not None:
-                connection.close()
-                self._duckdb_connection.execute(f"ATTACH '{path}' AS {source.name} (READ_ONLY)")
-            else:
-                raise RuntimeError("Memory-based DuckDB is not supported.")
-        elif isinstance(connection, Engine):
-            register_sqlalchemy(self._duckdb_connection, connection, source.name)
-        elif isinstance(connection, DBConnectionConfig):
-            register_in_duckdb(self._duckdb_connection, connection, source.name)
-        else:
-            raise ValueError("Only DuckDB or SQLAlchemy connections are supported.")
+        register_in_duckdb(self._duckdb_connection, source.config, source.name)
 
     def register_df(self, source: DFDataSource) -> None:
         self._duckdb_connection.register(source.name, source.df)
 
     def _get_compiled_graph(
-        self, llm_config: LLMConfig, agent_config: AgentConfig, context: Context
+        self, llm_config: LLMConfig, agent_config: AgentConfig, domain: Domain
     ) -> CompiledStateGraph[Any]:
         """Get compiled graph."""
-        compiled_graph = self._compiled_graph or self._graph.compile(llm_config, agent_config, context)
+        compiled_graph = self._compiled_graph or self._graph.compile(llm_config, agent_config, domain)
         self._compiled_graph = compiled_graph
 
         return compiled_graph
@@ -109,22 +94,20 @@ class LighthouseExecutor(GraphExecutor):
         cache: Cache,
         llm_config: LLMConfig,
         agent_config: AgentConfig,
-        context: Context,
+        domain: Domain,
         *,
         rows_limit: int = 100,
         stream: bool = True,
         writer: TextIO | None = None,
     ) -> ExecutionResult:
-        compiled_graph = self._get_compiled_graph(llm_config, agent_config, context)
+        compiled_graph = self._get_compiled_graph(llm_config, agent_config, domain)
         messages: list[BaseMessage] = self._process_opas(opas, cache)
 
         # Prepend system message if not present
         all_messages_with_system = messages
         if not all_messages_with_system or all_messages_with_system[0].type != "system":
             all_messages_with_system = [
-                SystemMessage(
-                    self.render_system_prompt(self._duckdb_connection, context, agent_config.recursion_limit)
-                ),
+                SystemMessage(self.render_system_prompt(self._duckdb_connection, domain, agent_config.recursion_limit)),
                 *all_messages_with_system,
             ]
         cleaned_messages = clean_tool_history(all_messages_with_system, llm_config.max_tokens_before_cleaning)

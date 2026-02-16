@@ -1,10 +1,13 @@
+from pathlib import Path
 from typing import TYPE_CHECKING, TextIO
 
 from langchain_core.language_models.chat_models import BaseChatModel
+from pandas import DataFrame
 
-from databao.core.context import Context
 from databao.core.data_source import DBDataSource, DFDataSource, Sources
+from databao.core.domain import Domain, _Domain
 from databao.core.thread import Thread
+from databao.databases import DBConnection
 
 if TYPE_CHECKING:
     from databao.configs.agent import AgentConfig
@@ -22,7 +25,7 @@ class Agent:
 
     def __init__(
         self,
-        context: Context,
+        domain: "_Domain",
         llm: "LLMConfig",
         agent_config: "AgentConfig",
         data_executor: "Executor",
@@ -36,7 +39,7 @@ class Agent:
         lazy_threads: bool = False,
         auto_output_modality: bool = True,
     ):
-        self.__context = context
+        self.__domain = domain
         self.__name = name
         self.__llm = llm.new_chat_model()
         self.__llm_config = llm
@@ -56,10 +59,23 @@ class Agent:
         self._init_executor()
 
     def _init_executor(self) -> None:
+        self.__domain.finalize_sources()
         for db_source in self.sources.dbs.values():
             self.executor.register_db(db_source)
         for df_source in self.sources.dfs.values():
             self.executor.register_df(df_source)
+
+    def add_db(self, conn: DBConnection, *, name: str | None = None, context: str | Path | None = None) -> None:
+        raise NotImplementedError(
+            "This method was removed. "
+            "Please create a Domain, add a source to it, and initialize the Agent with that Domain."
+        )
+
+    def add_df(self, df: DataFrame, *, name: str | None = None, context: str | Path | None = None) -> None:
+        raise NotImplementedError(
+            "This method was removed. "
+            "Please create a Domain, add a source to it, and initialize the Agent with that Domain."
+        )
 
     def thread(
         self,
@@ -72,8 +88,6 @@ class Agent:
         writer: TextIO | None = None,
     ) -> Thread:
         """Start a new thread in this agent."""
-        if not self.sources.dbs and not self.sources.dfs:
-            raise ValueError("No databases or dataframes registered in this agent.")
         return Thread(
             self,
             rows_limit=self.__rows_limit,
@@ -88,12 +102,12 @@ class Agent:
         )
 
     @property
-    def context(self) -> Context:
-        return self.__context
+    def domain(self) -> Domain:
+        return self.__domain
 
     @property
     def sources(self) -> Sources:
-        return self.context.sources
+        return self.__domain.sources
 
     @property
     def dbs(self) -> dict[str, DBDataSource]:

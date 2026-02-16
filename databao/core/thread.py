@@ -74,13 +74,16 @@ class Thread:
         if len(new_opas) > 0:
             rows_limit = rows_limit if rows_limit else self._default_rows_limit
             stream = self._stream_ask if self._stream_ask is not None else self._default_stream_ask
+            executor = self._agent.executor
+            domain = self._agent.domain
+            executor.prepare_for_execution(domain)
             for opa in new_opas:
-                self._data_result = self._agent.executor.execute(
+                self._data_result = executor.execute(
                     opa,
                     cache=self._agent.cache.scoped(self._cache_scope),
                     llm_config=self._agent.llm_config,
                     agent_config=self._agent.agent_config,
-                    context=self._agent.context,
+                    domain=domain,
                     rows_limit=rows_limit,
                     stream=stream,
                     writer=self._writer,

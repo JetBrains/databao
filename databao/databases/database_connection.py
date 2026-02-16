@@ -6,7 +6,7 @@ from databao_context_engine import DatasourceType
 from sqlalchemy import Connection, Engine
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=True)
 class DBConnectionConfig:
     type: DatasourceType
     content: dict[str, Any]

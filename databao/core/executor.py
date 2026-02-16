@@ -7,9 +7,10 @@ from pandas import DataFrame
 from pydantic import BaseModel, ConfigDict
 
 from databao.core.data_source import DBDataSource, DFDataSource
+from databao.core.domain import Domain, _PersistentDomain
 
 if TYPE_CHECKING:
-    from databao import Context, LLMConfig
+    from databao import LLMConfig
     from databao.configs.agent import AgentConfig
     from databao.core.cache import Cache
     from databao.core.opa import Opa
@@ -162,7 +163,7 @@ class Executor(ABC):
         cache: "Cache",
         llm_config: "LLMConfig",
         agent_config: "AgentConfig",
-        context: "Context",
+        domain: "Domain",
         *,
         rows_limit: int = 100,
         stream: bool = True,
@@ -175,10 +176,15 @@ class Executor(ABC):
             cache: Cache provided by Agent to persist State.
             llm_config: Config of LLM to be used during execution.
             agent_config: Config of agent to be used during execution.
-            context: Context of the agent with data sources.
+            domain: Domain with data sources used by the agent.
             rows_limit: Preferred row limit for data materialization (may be ignored by executors).
             stream: Stream LLM output to stdout.
             writer: Optional TextIO for streaming output. If provided, streaming
                 output will be written to this writer instead of stdout.
         """
         pass
+
+    @staticmethod
+    def prepare_for_execution(domain: "Domain") -> None:
+        if isinstance(domain, _PersistentDomain):
+            domain.build_context()

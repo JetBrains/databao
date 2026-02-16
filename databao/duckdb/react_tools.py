@@ -9,7 +9,7 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import create_react_agent
 from pydantic import BaseModel
 
-from databao.core import Context
+from databao.core import Domain
 from databao.duckdb.utils import describe_duckdb_schema
 from databao.executors.tools import make_search_context_tool
 
@@ -79,7 +79,7 @@ def make_duckdb_tool(con: DuckDBPyConnection) -> Any:
     return execute_sql
 
 
-def make_react_duckdb_agent(con: DuckDBPyConnection, llm: BaseChatModel, context: Context) -> CompiledStateGraph[Any]:
+def make_react_duckdb_agent(con: DuckDBPyConnection, llm: BaseChatModel, domain: Domain) -> CompiledStateGraph[Any]:
     """
     Create a ReAct agent configured to work with DuckDB.
 
@@ -110,7 +110,7 @@ def make_react_duckdb_agent(con: DuckDBPyConnection, llm: BaseChatModel, context
 
     execute_sql_tool = make_duckdb_tool(con)
     tools = [execute_sql_tool]
-    search_context_tool = make_search_context_tool(context)
+    search_context_tool = make_search_context_tool(domain)
     if search_context_tool is not None:
         tools.append(search_context_tool)
 

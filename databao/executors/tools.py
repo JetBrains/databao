@@ -3,12 +3,13 @@ from typing import Any
 from databao_context_engine import ContextSearchResult
 from langchain_core.tools import BaseTool, tool
 
-from databao.core import Context
+from databao.core import Domain
+from databao.core.domain import _PersistentDomain
 from databao.integrations.dce import DatabaoContextApi
 
 
-def make_search_context_tool(context: Context) -> BaseTool | None:
-    if not context.is_static:
+def make_search_context_tool(domain: Domain) -> BaseTool | None:
+    if not isinstance(domain, _PersistentDomain):
         return None
 
     @tool(parse_docstring=True)
@@ -18,7 +19,7 @@ def make_search_context_tool(context: Context) -> BaseTool | None:
         Args:
             retrieve_text: Natural language query to search the context for relevant results.
         """
-        search_result_list = context.search_context(retrieve_text)
+        search_result_list = domain.search_context(retrieve_text)
         return list(map(_search_result_to_dict, search_result_list))
 
     def _search_result_to_dict(search_result: ContextSearchResult) -> dict[str, Any]:
@@ -31,6 +32,6 @@ def make_search_context_tool(context: Context) -> BaseTool | None:
 
     def _get_ds_name(search_result: ContextSearchResult) -> str:
         ds_id = search_result.datasource_id
-        return DatabaoContextApi.get_ds_name(ds_id)
+        return DatabaoContextApi.get_datasource_name(ds_id)
 
     return search_context

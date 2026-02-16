@@ -6,6 +6,7 @@ from databao_context_engine import (
     ConfiguredDatasource,
     DatabaoContextProjectManager,
     Datasource,
+    DatasourceId,
     DatasourceType,
 )
 
@@ -27,6 +28,11 @@ class DatabaoContextProjectManagerApi:
 
     def build_context(self) -> list[BuildDatasourceResult]:
         return self._delegate.build_context()
+
+    # TODO (dce): should be provided by the DCE side
+    @staticmethod
+    def _get_datasource_name(datasource_id: DatasourceId) -> str:
+        return datasource_id.datasource_path.split("/")[-1]
 
     @property
     def project_dir(self) -> Path:
