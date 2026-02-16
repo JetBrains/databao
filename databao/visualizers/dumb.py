@@ -1,15 +1,12 @@
-from langchain_core.messages import BaseMessage
-
 from databao.core import ExecutionResult, VisualisationResult, Visualizer
 
 
 class DumbVisualizer(Visualizer):
     def _visualize(
         self,
-        request: str | None,
+        request: str,
         data: ExecutionResult,
         *,
-        history: list[BaseMessage],
         stream: bool = False,
     ) -> VisualisationResult:
         plot = data.df.plot(kind="bar") if data.df is not None else None

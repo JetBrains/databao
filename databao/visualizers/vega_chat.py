@@ -7,9 +7,8 @@ import altair
 import pandas as pd
 from edaplot.image_utils import vl_to_png_base64, vl_to_png_bytes
 from edaplot.llms import LLMConfig as VegaLLMConfig
-from edaplot.vega import MessageType, to_altair_chart
+from edaplot.vega import to_altair_chart
 from edaplot.vega_chat.vega_chat import MessageInfo, VegaChatConfig, VegaChatGraph, VegaChatState
-from langchain_core.messages import BaseMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
 from PIL import Image
 
@@ -156,19 +155,9 @@ class VegaChatVisualizer(Visualizer):
         df: pd.DataFrame,
         *,
         messages: list[MessageInfo] | None = None,
-        history: list[BaseMessage] | None = None,
         stream: bool = False,
     ) -> VegaChatResult:
         vega_chat = VegaChatGraph(self._vega_config, df=df)
-
-        # If conversation history is provided (list of BaseMessage from the executor),
-        # prepend it after the VegaChat system prompt so the visualization LLM has context.
-        if history and messages is None:
-            messages = vega_chat.get_start_messages()  # [SystemMessage for VegaChat]
-            for msg in history:
-                msg_type = MessageType.USER if isinstance(msg, HumanMessage) else MessageType.AI_RESPONSE_VALID
-                messages.append(MessageInfo(message=msg, message_type=msg_type))
-
         start_state = vega_chat.get_start_state(request, messages=messages)
         compiled_graph = vega_chat.compile_graph(is_async=False)
         # Use an empty `config` instead of `None` due to a bug in the "AI Agents Debugger" PyCharm plugin.
@@ -180,19 +169,14 @@ class VegaChatVisualizer(Visualizer):
 
     def _visualize(
         self,
-        request: str | None,
+        request: str,
         data: ExecutionResult,
         *,
-        history: list[BaseMessage],
         stream: bool = False,
     ) -> VegaChatResult:
         if data.df is None:
             return VegaChatResult(text="Nothing to visualize", meta={}, plot=None, code=None, visualizer=self)
-        if request is None:
-            # We could also call the ChartRecommender module, but since we want a
-            # single output plot, we'll just use a simple prompt.
-            request = "I don't know what the data is about. Show me an interesting plot."
-        return self._run_vega_chat(request, data.df, history=history or None, stream=stream)
+        return self._run_vega_chat(request, data.df, stream=stream)
 
     def edit(self, request: str, visualization: VisualisationResult, *, stream: bool = False) -> VegaChatResult:
         if not isinstance(visualization, VegaChatResult):

@@ -3,7 +3,6 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any, ClassVar, Literal
 
-from langchain_core.messages import BaseMessage
 from pydantic import BaseModel, ConfigDict, Field
 
 from databao.core.executor import ExecutionResult
@@ -12,23 +11,23 @@ _logger = logging.getLogger(__name__)
 
 
 class HistoryMode(str, Enum):
-    """Controls how much conversation history is passed to the Visualizer.
+    """Controls how much conversation history is prepended to the visualization request.
 
-    The DataFrame from final answer and the visualization request (if any) is always passed into the Visualizer.
-    This setting controls how the preceeding message history is additionally passed into the Visualizer.
+    The DataFrame and the visualization instructions are always passed to the Visualizer.
+    This setting controls how much preceding conversation context is added to the request.
     """
 
     NONE = "none"
-    """No history at all — only the current visualization request."""
+    """No history — only the visualization instructions."""
 
     LAST_QUESTION = "last_question"
-    """Only the last user question (as a single ``HumanMessage``)."""
+    """Only the last user question."""
 
     LAST_QUESTION_ANSWER = "last_question_answer"
-    """Last user question **and** the executor's final answer (``HumanMessage`` + ``AIMessage``)."""
+    """Last user question and the executor's final answer."""
 
     ALL_QUESTIONS = "all_questions"
-    """All user questions merged into a single ``HumanMessage``."""
+    """All user questions from the conversation."""
 
 
 class VisualisationResult(BaseModel):
@@ -122,31 +121,34 @@ class Visualizer(ABC):
     def __init__(self, *, history_mode: HistoryMode = HistoryMode.LAST_QUESTION):
         self.history_mode = history_mode
 
+    DEFAULT_REQUEST = "I don't know what the data is about. Show me an interesting plot."
+
     def visualize(self, request: str | None, data: ExecutionResult, *, stream: bool = False) -> VisualisationResult:
         """Produce a visualization for the given data and optional user request.
 
-        Extracts conversation history from *data* based on :attr:`history_mode` and
-        delegates to :meth:`_visualize`.
+        If *request* is ``None``, :attr:`DEFAULT_REQUEST` is used.  The request
+        is then enriched with conversation history according to :attr:`history_mode`
+        before being forwarded to :meth:`_visualize`.
         """
-        history = self._extract_history(data)
-        return self._visualize(request, data, history=history, stream=stream)
+        if request is None:
+            request = self.DEFAULT_REQUEST
+        enriched = self._enrich_with_history_context(request, data)
+        return self._visualize(enriched, data, stream=stream)
 
     @abstractmethod
     def _visualize(
         self,
-        request: str | None,
+        request: str,
         data: ExecutionResult,
         *,
-        history: list[BaseMessage],
         stream: bool = False,
     ) -> VisualisationResult:
         """Produce a visualization for the given data and optional user request.
 
         Args:
-            request: Natural-language visualization request.
+            request: Visualization request — either :attr:`DEFAULT_REQUEST` or
+                the caller's request enriched with conversation history.
             data: The execution result containing the dataframe and metadata.
-            history: Conversation history as a list of LangChain ``BaseMessage``
-                objects, already filtered according to :attr:`history_mode`.
             stream: Whether to stream LLM output.
         """
         pass
@@ -156,49 +158,33 @@ class Visualizer(ABC):
         """Refine a prior visualization with a natural language request."""
         pass
 
-    def _extract_history(self, data: ExecutionResult) -> list[BaseMessage]:
-        """Build conversation history for the visualization LLM.
+    def _enrich_with_history_context(self, request: str, data: ExecutionResult) -> str:
+        """Prepend conversation history to the visualization request.
 
-        Returns a (possibly empty) list of LangChain ``BaseMessage`` objects whose
-        shape depends on :attr:`history_mode`:
-
-        - ``NONE``                 → ``[]``
-        - ``LAST_QUESTION``        → single ``HumanMessage`` with the last user question
-        - ``LAST_QUESTION_ANSWER`` → ``HumanMessage`` (last question) + ``AIMessage`` (answer)
-        - ``ALL_QUESTIONS``        → single ``HumanMessage`` with every user question
+        Returns the original *request* unchanged for ``NONE``, or a new string
+        with a ``User question history:`` / ``Instructions:`` structure for other modes.
         """
-        from langchain_core.messages import AIMessage, HumanMessage
+        if self.history_mode == HistoryMode.NONE:
+            return request
+
+        questions = self._collect_human_questions(data)
+        if not questions:
+            return request
 
         match self.history_mode:
-            case HistoryMode.NONE:
-                return []
-
             case HistoryMode.LAST_QUESTION:
-                human_texts = self._collect_human_texts(data)
-                if not human_texts:
-                    return []
-                return [HumanMessage(f"Additional context: original user request\n{human_texts[-1]}")]
+                history_block = questions[-1]
 
             case HistoryMode.LAST_QUESTION_ANSWER:
-                human_texts = self._collect_human_texts(data)
-                if not human_texts:
-                    return []
-                history: list[BaseMessage] = [
-                    HumanMessage(f"Additional context: original user request\n{human_texts[-1]}"),
-                ]
-                if data.text:
-                    history.append(AIMessage(f"Original agent response:\n{data.text}"))
-                return history
+                history_block = f"{questions[-1]}\n{data.text}" if data.text else questions[-1]
 
             case HistoryMode.ALL_QUESTIONS:
-                human_texts = self._collect_human_texts(data)
-                if not human_texts:
-                    return []
-                numbered = "\n".join(f"{i}. {q}" for i, q in enumerate(human_texts, 1))
-                return [HumanMessage(f"Additional context: original user requests\n{numbered}")]
+                history_block = "\n".join(questions)
+
+        return "\n".join(["User question history:", history_block, "Instructions:", request])
 
     @staticmethod
-    def _collect_human_texts(data: ExecutionResult) -> list[str]:
+    def _collect_human_questions(data: ExecutionResult) -> list[str]:
         """Return the text content of every ``HumanMessage`` in the executor history."""
         from langchain_core.messages import HumanMessage
 
