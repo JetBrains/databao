@@ -130,7 +130,7 @@ class Visualizer(ABC):
         is then enriched with conversation history according to :attr:`history_mode`
         before being forwarded to :meth:`_visualize`.
         """
-        if request is None:
+        if request is None or request.strip() == "":
             request = self.DEFAULT_REQUEST
         enriched = self._enrich_with_history_context(request, data)
         return self._visualize(enriched, data, stream=stream)
