@@ -45,6 +45,9 @@ class ExecutionResult(BaseModel):
         df: Optional dataframe materialized by the executor.
     """
 
+    META_MESSAGES_KEY: ClassVar[Literal["messages"]] = "messages"
+    """Key in `meta` that stores the full LangChain message history."""
+
     text: str
     meta: dict[str, Any]
     code: str | None = None
