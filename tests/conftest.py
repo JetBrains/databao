@@ -13,4 +13,3 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
         for item in items:
             if "apikey" in item.keywords:
                 item.add_marker(skip_apikey)
-
