@@ -48,11 +48,4 @@ jobs:
       - name: Run pytest
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }} # Real API key for integration tests
-        run: |
-          if [ -z "$OPENAI_API_KEY" ]; then
-            echo "OPENAI_API_KEY not set, skipping apikey tests"
-            uv run pytest tests -v -m "not apikey"
-          else
-            echo "OPENAI_API_KEY is set, running all tests"
-            uv run pytest tests -v
-          fi
+        run: uv run pytest tests -v
