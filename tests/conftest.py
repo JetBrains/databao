@@ -5,14 +5,6 @@ import os
 import pytest
 
 
-def pytest_configure(config: pytest.Config) -> None:
-    """Configure pytest markers."""
-    config.addinivalue_line(
-        "markers",
-        "apikey: marks tests that require an API key",
-    )
-
-
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     """Skip apikey tests if OPENAI_API_KEY is not set or is empty."""
     # Check if OPENAI_API_KEY is set and not empty
