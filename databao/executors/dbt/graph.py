@@ -33,6 +33,14 @@ from databao.executors.dbt.query_runner import QueryRunnerFactory
 
 @dataclass(frozen=True)
 class DbtProjectContext:
+    """Context information for interacting with a dbt project.
+
+    :ivar project_dir: Filesystem path to the root directory of the dbt project.
+    :ivar pre_existing_files: Set of file paths (relative to ``project_dir``) that
+        were present before the agent started and must not be modified by the agent.
+    :ivar dbt_timeout_seconds: Maximum time, in seconds, to allow a dbt subprocess
+        (e.g., ``dbt run``, ``dbt test``) to execute before timing out.
+    """
     project_dir: Path
     pre_existing_files: set[str]
     dbt_timeout_seconds: int = 300
