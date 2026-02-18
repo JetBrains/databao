@@ -5,6 +5,7 @@ from databao_context_engine import (
     BuildContextResult,
     ConfiguredDatasource,
     DatabaoContextProjectManager,
+    Datasource,
     DatasourceType,
 )
 
@@ -20,6 +21,9 @@ class DatabaoContextProjectManagerApi:
 
     def get_configured_datasource_list(self) -> list[ConfiguredDatasource]:
         return self._delegate.get_configured_datasource_list()
+
+    def get_introspected_datasource_list(self) -> list[Datasource]:
+        return self._delegate.get_engine_for_project().get_introspected_datasource_list()
 
     def build_context(self) -> list[BuildContextResult]:
         return self._delegate.build_context()

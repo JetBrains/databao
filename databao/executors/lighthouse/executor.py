@@ -100,9 +100,9 @@ class LighthouseExecutor(GraphExecutor):
         cleaned_messages = clean_tool_history(all_messages_with_system, llm_config.max_tokens_before_cleaning)
 
         init_state = self._graph.init_state(cleaned_messages, limit_max_rows=rows_limit)
-        invoke_config = RunnableConfig(recursion_limit=max(self._graph_recursion_limit, agent_config.recursion_limit))
+        invoke_config = RunnableConfig(recursion_limit=agent_config.recursion_limit)
         last_state = self._invoke_graph_sync(
-            compiled_graph, init_state, config=invoke_config, stream=stream, writer=writer or self._writer
+            compiled_graph, init_state, config=invoke_config, stream=stream, writer=writer
         )
         execution_result = self._graph.get_result(last_state)
 

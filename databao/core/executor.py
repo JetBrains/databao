@@ -178,6 +178,7 @@ class Executor(ABC):
             context: Context of the agent with data sources.
             rows_limit: Preferred row limit for data materialization (may be ignored by executors).
             stream: Stream LLM output to stdout.
-            writer: Optional TextIO for streaming output. If provided, overrides executor's default writer.
+            writer: Optional TextIO for streaming output. If provided, streaming
+                output will be written to this writer instead of stdout.
         """
         pass

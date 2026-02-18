@@ -111,11 +111,7 @@ class GraphExecutor(Executor, ABC):
         writer: TextIO | None = None,
         **kwargs: Any,
     ) -> Any:
-        """Invoke the graph with the given start state and return the output state.
-
-        Can be called as static method or instance method. When called as instance method,
-        pass writer=self._writer to use the executor's writer.
-        """
+        """Invoke the graph with the given start state and return the output state."""
         if stream:
             return GraphExecutor._execute_stream_sync(
                 compiled_graph, start_state, config=config, writer=writer, **kwargs

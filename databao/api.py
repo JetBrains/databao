@@ -51,7 +51,7 @@ def agent(
         llm_config,
         agent_config,
         name=name or "default_agent",
-        data_executor=data_executor or LighthouseExecutor(),
+        data_executor=data_executor,
         visualizer=visualizer or VegaChatVisualizer(llm_config),
         cache=cache or InMemCache(),
         rows_limit=rows_limit,

@@ -1,6 +1,7 @@
 import logging
 from typing import Any, TextIO
 
+from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
 
@@ -25,7 +26,16 @@ class ReactDuckDBExecutor(GraphExecutor):
         return make_react_duckdb_agent(data_connection, llm_config.new_chat_model(), context)
 
     def drop_last_opa_group(self, cache: Cache, n: int = 1) -> None:
-        raise NotImplementedError("ReactDuckDBExecutor does not support dropping OPA groups.")
+        """Drop last n groups of operations from the message history."""
+        messages = cache.get("state", default={}).get("messages", [])
+        human_messages = [m for m in messages if isinstance(m, HumanMessage)]
+        if len(human_messages) < n:
+            raise ValueError(f"Cannot drop last {n} operations - only {len(human_messages)} operations found.")
+        c = 0
+        while c < n:
+            m = messages.pop()
+            if isinstance(m, HumanMessage):
+                c += 1
 
     def execute(
         self,
@@ -42,21 +52,26 @@ class ReactDuckDBExecutor(GraphExecutor):
         # Get or create graph (cached after first use)
         compiled_graph = self._compiled_graph or self._create_graph(self._duckdb_connection, llm_config, context)
 
+        # Process the opa and get messages
         messages = self._process_opas(opas, cache)
 
+        # Execute the graph
         init_state = {"messages": messages}
         invoke_config = RunnableConfig(recursion_limit=agent_config.recursion_limit)
         last_state = self._invoke_graph_sync(
-            compiled_graph, init_state, config=invoke_config, stream=stream, writer=writer or self._writer
+            compiled_graph, init_state, config=invoke_config, stream=stream, writer=writer
         )
         answer: AgentResponse = last_state["structured_response"]
         logger.info("Generated query: %s", answer.sql)
         df = execute_duckdb_sql(answer.sql, self._duckdb_connection, limit=rows_limit)
 
+        # Update message history
         final_messages = last_state.get("messages", [])
         self._update_message_history(cache, final_messages)
 
         execution_result = ExecutionResult(text=answer.explanation, code=answer.sql, df=df, meta={})
+
+        # Set modality hints
         execution_result.meta[OutputModalityHints.META_KEY] = self._make_output_modality_hints(execution_result)
 
         return execution_result

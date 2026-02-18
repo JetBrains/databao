@@ -62,7 +62,11 @@ class Thread:
         self._meta: dict[str, Any] = {}
 
         # A unique cache scope so executors can store per-thread state (e.g., message history)
-        self._cache_scope = f"{self._agent.name}/{uuid.uuid4()}"
+        # If cache_scope is provided, use it to restore a previous session
+        self._cache_scope = cache_scope if cache_scope else f"{self._agent.name}/{uuid.uuid4()}"
+
+        # Optional per-thread writer for streaming output
+        self._writer = writer
 
         # Optional per-thread writer for streaming output
         self._writer = writer

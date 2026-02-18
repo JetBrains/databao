@@ -14,7 +14,6 @@ if TYPE_CHECKING:
     from databao.core.visualizer import Visualizer
 
 
-# TODO (dce): use Context.search_context
 class Agent:
     """An agent manages all databases and Dataframes as well as the context for them.
     Agent determines what LLM to use, what executor to use and how to visualize data for all threads.
@@ -71,7 +70,7 @@ class Agent:
         lazy: bool | None = None,
         auto_output_modality: bool | None = None,
         cache_scope: str | None = None,
-        writer: "TextIO | None" = None,
+        writer: TextIO | None = None,
     ) -> Thread:
         """Start a new thread in this agent."""
         if not self.sources.dbs and not self.sources.dfs:

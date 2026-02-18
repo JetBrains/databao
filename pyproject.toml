@@ -46,12 +46,6 @@ examples = [
     "notebook>=7.4.7",
     "python-dotenv>=1.1.1",
 ]
-ui = [
-    "streamlit>=1.53.0",
-    "click>=8.0.0",
-    "pyyaml>=6.0",
-    "uuid6>=2024.7.10",
-]
 
 [build-system]
 requires = ["hatchling", "uv-dynamic-versioning"]
@@ -127,6 +121,8 @@ extend-exclude = ["*.ipynb"]
 select = [
     # pycodestyle
     "E",
+    # pycodestyle warnings
+    "W",
     # Pyflakes
     "F",
     # pyupgrade
