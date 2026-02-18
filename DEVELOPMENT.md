@@ -30,13 +30,15 @@ Follow the prompts to authenticate with your GitHub account.
 Branch names should follow the pattern: `<nickname>/<descriptive-branch-name>`
 
 Where:
-- `<nickname>` is your commonly used git author name (check with `git config user.name`)
+
+- `<nickname>` is your personal short identifier — if you don't have one yet, pick something short, distinctive, and branch-name compatible (lowercase, no spaces, e.g. `jsmith`, `alex`, `kosta`)
 - `<descriptive-branch-name>` briefly describes the change (e.g., `fix-auth-bug`, `add-plotting-feature`)
 
 Examples:
-- `john/fix-connection-timeout`
-- `jane/add-mysql-support`
-- `alex/update-readme`
+
+- `jsmith/fix-connection-timeout`
+- `alex/add-mysql-support`
+- `kosta/update-readme`
 
 ## Code Quality
 

@@ -30,31 +30,22 @@ Wait for user confirmation before proceeding.
    If not installed or not authenticated, guide the user to [DEVELOPMENT.md](DEVELOPMENT.md) for setup instructions. They can also choose to create the PR manually.
 
 2. **Determine the branch name prefix:**
-   - First, extract branch prefixes from existing remote branches to find the user's nickname
-   - Filter out system prefixes (dependabot, revert-*, HEAD)
-   - If found, use the most common prefix; otherwise fall back to git username
+   - Extract branch prefixes from existing remote branches, filtering out system prefixes (dependabot, revert-*, HEAD)
+   - Use the most common matching prefix as the user's nickname
+   - If no existing branches found, ask the user for their nickname
    - Branch format: `<nickname>/<descriptive-branch-name>`
 
    Strategy:
    ```bash
-   # Get current user email
-   git config user.email
-
-   # Extract and count branch prefixes (format: prefix/branch-name)
-   git branch -r | grep -oP '(?<=origin/)[^/]+(?=/)' | sort | uniq -c | sort -rn
-
-   # Verify found prefix by checking for existing branches
-   git branch -r | grep "origin/<prefix>/"
-
-   # Fallback: use simplified git username if no branches exist
-   git config user.name | awk '{print tolower($1)}'
+   # Extract and count branch prefixes, excluding system prefixes
+   git branch -r | sed -nE 's|^ *origin/([^/]+)/.*|\1|p' | grep -vE '^(dependabot|HEAD|revert-)' | sort | uniq -c | sort -rn
    ```
 
 3. **Create a separate branch** with the appropriate prefix (never commit directly to main)
 
-3. **Commit the changes** with clear, descriptive commit messages
+4. **Commit the changes** with clear, descriptive commit messages
 
-4. **Create a Pull Request** with the following format:
+5. **Create a Pull Request** with the following format:
 
 ### Pull Request Format
 
