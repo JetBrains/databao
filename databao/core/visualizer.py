@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from enum import Enum
+from enum import StrEnum
 from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -10,7 +10,7 @@ from databao.core.executor import ExecutionResult
 _logger = logging.getLogger(__name__)
 
 
-class HistoryMode(str, Enum):
+class HistoryMode(StrEnum):
     """Controls how much conversation history is prepended to the visualization request.
 
     The DataFrame and the visualization instructions are always passed to the Visualizer.
