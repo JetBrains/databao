@@ -68,9 +68,6 @@ class Thread:
         # Optional per-thread writer for streaming output
         self._writer = writer
 
-        # Optional per-thread writer for streaming output
-        self._writer = writer
-
     def _materialize_data(self, rows_limit: int | None) -> "ExecutionResult":
         """Materialize the latest data state by executing pending OPAs if needed."""
         new_opas = self._opas[self._opas_processed_count :]
