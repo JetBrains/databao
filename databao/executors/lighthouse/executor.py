@@ -12,8 +12,8 @@ from databao.core.domain import _Domain
 from databao.core.executor import OutputModalityHints
 from databao.duckdb.utils import describe_duckdb_schema
 from databao.executors.base import GraphExecutor
-from databao.executors.lighthouse.graph import ExecuteSubmit
 from databao.executors.history_cleaning import clean_tool_history
+from databao.executors.lighthouse.graph import ExecuteSubmit
 from databao.executors.lighthouse.utils import get_today_date_str, read_prompt_template
 
 

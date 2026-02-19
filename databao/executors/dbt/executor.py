@@ -87,7 +87,6 @@ class DbtProjectExecutor(GraphExecutor):
     def _get_today_date_str() -> str:
         return datetime.datetime.now().strftime("%A, %Y-%m-%d")
 
-
     def render_system_prompt(self, domain: Domain, recursion_limit: int = 50) -> str:
         project_dir = self._dbt_config.project_dir.resolve()
         dbt_overview = assemble_dbt_project_summary(project_dir)
@@ -102,9 +101,7 @@ class DbtProjectExecutor(GraphExecutor):
                 context_text += f"## Context for DB {db_name}\n\n{source.context}\n\n"
         for df_name, source in sources.dfs.items():
             if source.context:
-                context_text += (
-                    f"## Context for DF {df_name} (registered as '{df_name}')\n\n{source.context}\n\n"
-                )
+                context_text += f"## Context for DF {df_name} (registered as '{df_name}')\n\n{source.context}\n\n"
         for idx, add_ctx in enumerate(sources.additional_context, start=1):
             context_text += f"## General information {idx}\n\n{add_ctx.strip()}\n\n"
         context_text = context_text.strip()
@@ -141,7 +138,9 @@ class DbtProjectExecutor(GraphExecutor):
             entries.append({"name": df_name, "description": desc})
         return entries
 
-    def _get_compiled_graph(self, llm_config: LLMConfig, agent_config: AgentConfig, domain: Domain) -> CompiledStateGraph[Any]:
+    def _get_compiled_graph(
+        self, llm_config: LLMConfig, agent_config: AgentConfig, domain: Domain
+    ) -> CompiledStateGraph[Any]:
         compiled_graph = self._compiled_graph or self._graph.compile(llm_config, agent_config, domain)
         self._compiled_graph = compiled_graph
         return compiled_graph

@@ -158,12 +158,6 @@ class DbtProjectGraph:
             if self._query_runner_factory is None:
                 return _json_dumps({"error": "SQL executor factory not provided."})
 
-            if self._introspect_cache is not None:
-                return (
-                    "Database schema was already explored earlier in this session. "
-                    "Refer to the previous run_database_explore result in the conversation history.\n"
-                )
-
             executor = self._query_runner_factory()
             try:
                 schema_df = executor.introspect()
@@ -452,7 +446,7 @@ class DbtProjectGraph:
             submit_answer,
         ]
 
-        search_context_tool = make_search_context_tool(domain, with_datasource_name=True)
+        search_context_tool = make_search_context_tool(domain)
         if search_context_tool is not None:
             tools.append(search_context_tool)
 

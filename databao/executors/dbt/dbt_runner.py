@@ -96,10 +96,7 @@ def assemble_dbt_project_summary(project_dir: Path) -> str:
     files.sort()
 
     if not files:
-        return (
-            f"DBT project directory present at {project_dir} "
-            "but no files found."
-        )
+        return f"DBT project directory present at {project_dir} but no files found."
 
     # Build a compact tree representation
     lines: list[str] = [f"dbt project structure ({len(files)} files):"]
@@ -108,7 +105,5 @@ def assemble_dbt_project_summary(project_dir: Path) -> str:
         lines.append(f"  {rel}  ({size_str})")
 
     lines.append("")
-    lines.append(
-        "Use read_tool(path) to inspect any file contents as needed."
-    )
+    lines.append("Use read_tool(path) to inspect any file contents as needed.")
     return "\n".join(lines)
