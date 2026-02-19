@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy.engine.url import make_url
 
-from databao.duckdb.utils import sqlalchemy_to_postgres_url
+from databao_agent.duckdb.utils import sqlalchemy_to_postgres_url
 
 
 @pytest.mark.parametrize(

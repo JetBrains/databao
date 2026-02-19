@@ -61,11 +61,11 @@ bump = true
 allow-direct-references = true
 
 [tool.hatch.build.targets.sdist]
-include = ["/databao"]
+include = ["/databao_agent"]
 force-include = { "client/out" = "client/out" }
 
 [tool.hatch.build.targets.wheel]
-include = ["/databao"]
+include = ["/databao_agent"]
 force-include = { "client/out" = "client/out" }
 
 [tool.hatch.build.hooks.custom]
@@ -97,7 +97,7 @@ warn_unused_configs = true
 warn_unused_ignores = true
 allow_redefinition_new = true
 local_partial_types = true
-files = ["databao", "tests", "examples"]
+files = ["databao_agent", "tests", "examples"]
 plugins = ["pydantic.mypy", "sqlalchemy.ext.mypy.plugin"]
 
 [[tool.mypy.overrides]]
@@ -105,7 +105,7 @@ module = ["databao_context_engine", "databao_context_engine.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["databao.integrations.dce.*"]
+module = ["databao_agent.integrations.dce.*"]
 disable_error_code = ["no-any-return"]
 
 [tool.ruff]

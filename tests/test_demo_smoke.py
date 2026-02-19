@@ -9,9 +9,9 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
-import databao
-from databao import LLMConfig
-from databao.core.context import Context, ContextBuilder
+import databao_agent
+from databao_agent import LLMConfig
+from databao_agent.core.context import Context, ContextBuilder
 
 
 @pytest.fixture(params=["static", "dynamic"])
@@ -70,9 +70,9 @@ def test_demo_smoke(builder: ContextBuilder, db_engine: Engine) -> None:
     df = pd.DataFrame(data)
     builder.add_df(df)
 
-    # Step 4: Builder a context and create a databao agent
+    # Step 4: Builder a context and create a databao_agent agent
     context = builder.build()
-    agent = databao.agent(context, "test_agent", LLMConfig(name="gpt-5"))
+    agent = databao_agent.agent(context, "test_agent", LLMConfig(name="gpt-5"))
     assert agent is not None
 
     # Step 5: Ask a question and get results
@@ -107,9 +107,9 @@ def test_consecutive_ask_calls(builder: ContextBuilder, db_engine: Engine) -> No
     df = pd.DataFrame(data)
     builder.add_df(df)
 
-    # Step 3: Builder a context and create a databao agent
+    # Step 3: Builder a context and create a databao_agent agent
     context = builder.build()
-    agent = databao.agent(context, "test_consecutive_agent", LLMConfig(name="gpt-5"))
+    agent = databao_agent.agent(context, "test_consecutive_agent", LLMConfig(name="gpt-5"))
     assert agent is not None
 
     # Step 4: First ask - count cancelled shows by directors

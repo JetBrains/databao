@@ -3,8 +3,8 @@
 import pytest
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 
-from databao.core.executor import ExecutionResult
-from databao.core.visualizer import HistoryMode, VisualisationResult, Visualizer
+from databao_agent.core.executor import ExecutionResult
+from databao_agent.core.visualizer import HistoryMode, VisualisationResult, Visualizer
 
 
 class _StubVisualizer(Visualizer):

@@ -3,8 +3,8 @@ import logging
 import pandas as pd
 from sqlalchemy import create_engine
 
-import databao
-from databao import Context
+import databao_agent
+from databao_agent import Context
 
 logging.basicConfig(level=logging.WARNING)
 
@@ -33,7 +33,7 @@ context_builder.add_df(df)
 # llm_config = LLMConfigDirectory.QWEN3_8B_OLLAMA  # Use one of the preconfigured configs
 llm_config = None  # Omit the config to use the default config
 context = context_builder.build()
-agent = databao.agent(context, "my_agent", llm_config=llm_config)
+agent = databao_agent.agent(context, "my_agent", llm_config=llm_config)
 
 thread = agent.thread()
 thread.ask("count cancelled shows by directors")
