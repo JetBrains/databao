@@ -41,6 +41,7 @@ class DbtProjectContext:
     :ivar dbt_timeout_seconds: Maximum time, in seconds, to allow a dbt subprocess
         (e.g., ``dbt run``, ``dbt test``) to execute before timing out.
     """
+
     project_dir: Path
     pre_existing_files: set[str]
     dbt_timeout_seconds: int = 300
