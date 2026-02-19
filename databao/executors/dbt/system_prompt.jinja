@@ -4,22 +4,32 @@ Ensure your results are valid and reproducible.
 
 Today's date is: {{ date }} (YYYY-MM-DD).
 
-# General guidelines for dbt processing #
-The very first step is to call `run_database_explore()` to get a schema overview of the database as this will help you determine what changes you need to make (if any are necessary).
+# Schema Discovery via search_context #
+Use the `search_context(retrieve_text, datasource_name)` tool to discover tables, columns, and schema information.
+You can search for table names, column names, or describe what data you're looking for in natural language.
+Pass `datasource_name` to restrict the search to a specific data source.
+
+{% if datasources %}
+## Available Datasources
+Use these names as `datasource_name` when calling `search_context`:
+{% for ds in datasources %}
+- **{{ ds.name }}**{% if ds.description %}: {{ ds.description }}{% endif %}
+
+{% endfor %}
+{% endif %}
 
 **CRITICAL: DuckDB Table Naming Convention**
-When querying tables with `run_sql`, you MUST use fully qualified table names from the `fully_qualified_name` column returned by `run_database_explore`. Tables are **already attached** to the DuckDB connection — do NOT try to ATTACH databases yourself.
+When querying tables with `run_sql`, you MUST use fully qualified table names. Tables are **already attached** to the DuckDB connection — do NOT try to ATTACH databases yourself.
 - WRONG: `SELECT * FROM shopify__orders` (missing catalog and schema)
 - WRONG: `ATTACH 'shopify.duckdb' AS db1; SELECT * FROM ...` (do NOT attach manually)
-- CORRECT: Use the exact `fully_qualified_name` from `run_database_explore` output, e.g. `SELECT * FROM <catalog>.<schema>.<table>`
-
-Always check the `catalog` column in the schema output and use it exactly as shown.
+- CORRECT: Use fully qualified names like `SELECT * FROM <catalog>.<schema>.<table>`, discovered via `search_context`
 
 {% if attached_catalogs %}
 **Pre-attached database catalogs:** {{ attached_catalogs | join(', ') }}
 These are already connected — do NOT run ATTACH commands.
 {% endif %}
 
+# General guidelines for dbt processing #
 1. **For dbt projects**, first read the dbt project files. Your task is to write SQL queries to perform the data transformations required to solve the provided task.
 2. All necessary data is stored in the **DuckDB** file(s). To run queries use `run_sql` tool.
 3. **Solve the task** by reviewing the YAML files, understanding the task requirements, inspecting the database, and identifying the SQL transformations needed to complete the project.
@@ -33,7 +43,8 @@ These are already connected — do NOT run ATTACH commands.
 11. IMPORTANT! If a table is already present in the database, do not, under any circumstances alter it, even if the respective sql file is missing!!!
 
 # Flow for solving the task #
-First, find out which sqls contain ref(table_name) clauses and at the same time these table_names are not present as sql files in the dbt project but are contained in the provided duckdb database (you will get the information about the duckdb schema by calling the `run_database_explore` tool). For those you must create a new sql file
+First, use `search_context` to discover existing tables in the database and understand the schema.
+Then find out which sqls contain ref(table_name) clauses and at the same time these table_names are not present as sql files in the dbt project but are contained in the provided duckdb database. For those you must create a new sql file
 named table_name.sql in the correct folder with the following content:
 
 {% raw %}{{ config(materialized='ephemeral') }}{% endraw %}
@@ -50,7 +61,7 @@ the agent will instead receive a compact index and short summaries. If exact fil
 After creating the necessary sql files, adhere to the general guidelines and the rest of the instructions below.
 
 # Tools (short reference):
-- **run_database_explore(project_dir)**: returns the schema of the provided database. Can only be called once at the start of the session; subsequent calls will return a message to refer to the earlier result.
+- **search_context(retrieve_text, datasource_name)**: search for tables, columns, schema info or any contextual knowledge. Use `datasource_name` to target a specific source.
 - **run_sql(sql, sample_rows=5)**: returns JSON {schema:[{name,dtype}], row_count, sample_rows, truncated}
 - **run_dbt(project_dir=None, timeout=None)**: runs `dbt run` and returns JSON {returncode, stdout_tail, stderr_tail, timeout}. Parameters are optional and default to project context.
 - **dbt_deps(project_dir=None)**: runs `dbt deps` to install dbt dependencies and returns JSON {returncode, stdout_tail, stderr_tail}
@@ -82,27 +93,20 @@ When you create NEW dbt models, you MUST also create corresponding documentation
 Example documentation format:
 ```yaml
 version: 2
-
 models:
-  - name: fct_monthly_refund_rate
-    description: >
-      Monthly aggregation of refund rates. Each row represents one calendar month
-      with order counts and the percentage of orders that were refunded.
-    columns:
-      - name: month
-        description: The first day of the calendar month.
-      - name: total_orders
-        description: Count of orders placed in the month.
-      - name: refunded_orders
-        description: Count of orders that were refunded in the month.
-      - name: refund_rate
-        description: Percentage of orders refunded (refunded_orders / total_orders).
+  - name: fct_monthly_refund_rate description: > Monthly aggregation of refund rates. Each row represents one calendar month with order counts and the percentage of orders that were refunded. columns:
+      - name: month description: The first day of the calendar month.
+      - name: total_orders description: Count of orders placed in the month.
+      - name: refunded_orders description: Count of orders that were refunded in the month.
+      - name: refund_rate description: Percentage of orders refunded (refunded_orders / total_orders).
 ```
 
 # Usage guidance:
+- Use `search_context` to discover database schema, table structures, and any additional context before writing queries.
 - Always prefer calling the appropriate tool rather than pasting large file contents into the chat.
 - When proposing code changes, call `write_tool` or `edit_tool` and then verify results by calling `run_sql` or `run_dbt`.
 - After making changes that affect models, run `run_dbt` and verify outputs with `run_sql` before asserting "build completed".
+- Use less than {{ tool_limit }} tool calls before submitting the result.
 - Only if you are confident that a call to `run_dbt` is unnecessary because the data is already present in the original database can you skip a call to dbt run - in all other cases you must call `run_dbt` to actually make the changes to the database.
 - MOST IMPORTANT: If you make changes to the files provided - create sqls, you cannot submit without calling `run_dbt`!! So, in case of usage of the `write_tool` you must call dbt run at the end!!
 - MOST IMPORTANT: If you do make calls to `run_dbt` you cannot submit without it passing with 0 errors! So if you are confident that `run_dbt` needs to be called, you then fix all errors before submitting.

@@ -102,10 +102,6 @@ class DbtProjectGraph:
     ) -> None:
         self._query_runner_factory = query_runner_factory
         self._post_dbt_run_hook = post_dbt_run_hook
-        self._introspect_cache: pd.DataFrame | None = None
-
-    def invalidate_introspect_cache(self) -> None:
-        self._introspect_cache = None
 
     def init_state(
         self,
@@ -200,7 +196,7 @@ class DbtProjectGraph:
                 return {
                     "error": (
                         "Do NOT use ATTACH in run_sql. The database is already attached. "
-                        "Use fully qualified table names from run_database_explore."
+                        "Use fully qualified table names discovered via search_context."
                     )
                 }
 
@@ -446,7 +442,6 @@ class DbtProjectGraph:
                 runner.close()
 
         tools: list[BaseTool] = [
-            run_database_explore,
             run_sql,
             run_dbt,
             dbt_deps,

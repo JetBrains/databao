@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import datetime
 from pathlib import Path
-from typing import Any, TextIO
+from typing import Any, TextIO, cast
 
 import duckdb
 import jinja2
@@ -12,6 +13,7 @@ from langgraph.graph.state import CompiledStateGraph
 from databao.configs import LLMConfig
 from databao.configs.agent import AgentConfig
 from databao.core import Cache, Domain, ExecutionResult, Opa
+from databao.core.domain import _Domain
 from databao.core.executor import OutputModalityHints
 from databao.executors.base import GraphExecutor
 from databao.executors.dbt.config import DbtConfig
@@ -22,7 +24,7 @@ from databao.executors.dbt.dbt_runner import (
 )
 from databao.executors.dbt.graph import DbtProjectGraph
 from databao.executors.dbt.query_runner import DuckDbQueryRunner
-from databao.executors.lighthouse.history_cleaning import clean_tool_history
+from databao.executors.history_cleaning import clean_tool_history
 
 
 class DbtProjectExecutor(GraphExecutor):
@@ -44,7 +46,6 @@ class DbtProjectExecutor(GraphExecutor):
         self._task_instruction = self._read_prompt_template("task_instruction.jinja").render()
 
         # Auto-detect post-run hook: DuckDB projects need checkpoint, others don't.
-        # Can be overridden explicitly via constructor.
         self._post_dbt_run_hook = post_dbt_run_hook if post_dbt_run_hook is not None else duckdb_post_run_hook
 
         self._graph = DbtProjectGraph(
@@ -52,7 +53,6 @@ class DbtProjectExecutor(GraphExecutor):
             post_dbt_run_hook=self._post_dbt_run_hook,
         )
         self._compiled_graph: CompiledStateGraph[Any] | None = None
-        self._current_cache_scope: str | None = None
         self._dbt_dirty: bool = True
 
     def _make_query_runner(self) -> DuckDbQueryRunner:
@@ -87,13 +87,15 @@ class DbtProjectExecutor(GraphExecutor):
     def _get_today_date_str() -> str:
         return datetime.datetime.now().strftime("%A, %Y-%m-%d")
 
-    def render_system_prompt(self, domain: Domain) -> str:
+
+    def render_system_prompt(self, domain: Domain, recursion_limit: int = 50) -> str:
         project_dir = self._dbt_config.project_dir.resolve()
         dbt_overview = assemble_dbt_project_summary(project_dir)
         attached_catalogs = list(self._attached_db_paths.keys()) or []
 
         domain_internal = cast(_Domain, domain)
         sources = domain_internal.sources
+
         context_text = ""
         for db_name, source in sources.dbs.items():
             if source.context:
@@ -107,14 +109,37 @@ class DbtProjectExecutor(GraphExecutor):
             context_text += f"## General information {idx}\n\n{add_ctx.strip()}\n\n"
         context_text = context_text.strip()
 
+        datasource_entries = self._build_datasource_list(domain_internal)
+
         system_prompt = self._prompt_template.render(
             dbt_overview=dbt_overview,
             dbt_directory=project_dir.absolute(),
             attached_catalogs=attached_catalogs,
             date=self._get_today_date_str(),
             context=context_text,
+            datasources=datasource_entries,
+            tool_limit=recursion_limit // 2,
         )
         return system_prompt.strip()
+
+    @staticmethod
+    def _build_datasource_list(domain: _Domain) -> list[dict[str, str]]:
+        """Build a list of datasource names with descriptions for the system prompt."""
+        entries: list[dict[str, str]] = []
+        sources = domain.sources
+        for db_name, source in sources.dbs.items():
+            desc = ""
+            if source.context:
+                first_line = source.context.strip().split("\n")[0][:120]
+                desc = first_line
+            entries.append({"name": db_name, "description": desc})
+        for df_name, source in sources.dfs.items():
+            desc = ""
+            if source.context:
+                first_line = source.context.strip().split("\n")[0][:120]
+                desc = first_line
+            entries.append({"name": df_name, "description": desc})
+        return entries
 
     def _get_compiled_graph(self, llm_config: LLMConfig, agent_config: AgentConfig, domain: Domain) -> CompiledStateGraph[Any]:
         compiled_graph = self._compiled_graph or self._graph.compile(llm_config, agent_config, domain)
@@ -144,20 +169,13 @@ class DbtProjectExecutor(GraphExecutor):
         stream: bool = True,
         writer: TextIO | None = None,
     ) -> ExecutionResult:
-        # Detect thread switch via cache prefix and invalidate introspection cache
-        # TODO: (@gas) revisit after integrating with DCE
-        cache_prefix = getattr(cache, "_prefix", None)
-        if cache_prefix != self._current_cache_scope:
-            self._current_cache_scope = cache_prefix
-            self._graph.invalidate_introspect_cache()
-
         compiled_graph = self._get_compiled_graph(llm_config, agent_config, domain)
         messages: list[BaseMessage] = self._process_opas(opas, cache)
 
         all_messages_with_system = messages
         if not all_messages_with_system or all_messages_with_system[0].type != "system":
             all_messages_with_system = [
-                SystemMessage(self.render_system_prompt(domain)),
+                SystemMessage(self.render_system_prompt(domain, agent_config.recursion_limit)),
                 HumanMessage(self._task_instruction),
                 *all_messages_with_system,
             ]
