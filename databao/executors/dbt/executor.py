@@ -11,7 +11,7 @@ from langgraph.graph.state import CompiledStateGraph
 
 from databao.configs import LLMConfig
 from databao.configs.agent import AgentConfig
-from databao.core import Cache, Context, ExecutionResult, Opa
+from databao.core import Cache, Domain, ExecutionResult, Opa
 from databao.core.executor import OutputModalityHints
 from databao.executors.base import GraphExecutor
 from databao.executors.dbt.config import DbtConfig
@@ -117,7 +117,7 @@ class DbtProjectExecutor(GraphExecutor):
         cache: Cache,
         llm_config: LLMConfig,
         agent_config: AgentConfig,
-        context: Context,
+        domain: Domain,
         *,
         rows_limit: int = 100,
         stream: bool = True,

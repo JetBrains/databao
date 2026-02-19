@@ -1,5 +1,5 @@
-from typing import cast, TextIO
 from pathlib import Path
+from typing import TextIO, cast
 
 from databao.caches.in_mem_cache import InMemCache
 from databao.configs.agent import DEFAULT_AGENT_CONFIG, AgentConfig

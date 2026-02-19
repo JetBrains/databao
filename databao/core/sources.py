@@ -17,7 +17,6 @@ class SourcesManager:
         *,
         name: str | None = None,
         context: str | Path | None = None,
-        connectable: bool = True,
     ) -> DBDataSource | None:
         for db in self._sources.dbs.values():
             if db.config == config:
@@ -28,7 +27,12 @@ class SourcesManager:
 
         context_text = self._parse_context_arg(context) or ""
 
-        source = DBDataSource(name=name, context=context_text, config=config, connectable=connectable)
+        source = DBDataSource(
+            name=name,
+            context=context_text,
+            config=config,
+            connectable=is_connectable(config.type),
+        )
         self._sources.dbs[name] = source
         return source
 

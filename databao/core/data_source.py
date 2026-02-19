@@ -20,9 +20,6 @@ class DFDataSource(DataSource):
 class DBDataSource(DataSource):
     config: DBConnectionConfig
     connectable: bool = True
-    """Whether this datasource can be attached to a DuckDB execution connection.
-    Non-connectable sources (e.g. dbt) are still available for metadata/context
-    but won't be registered in the executor's DuckDB instance."""
 
 
 @dataclass

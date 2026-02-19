@@ -6,14 +6,12 @@ import duckdb
 from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
-from sqlalchemy import Connection, Engine
 
 from databao.core import Cache
 from databao.core.data_source import DBDataSource, DFDataSource
 from databao.core.executor import ExecutionResult, Executor, OutputModalityHints
 from databao.core.opa import Opa
-from databao.databases import DBConnectionConfig, register_in_duckdb
-from databao.duckdb.utils import get_db_path, register_sqlalchemy
+from databao.databases import register_in_duckdb
 from databao.executors.frontend.text_frontend import TextStreamFrontend
 
 
@@ -40,34 +38,17 @@ class GraphExecutor(Executor, ABC):
         """Register a database source into the shared DuckDB connection."""
         if not source.connectable:
             logging.getLogger(__name__).debug(
-                "Skipping non-connectable datasource '%s' (type: %s)",
+                "Skipping non-connectable datasource '%s'",
                 source.name,
-                getattr(source.db_connection, "type", type(source.db_connection).__name__),
             )
             return
 
-        connection = source.db_connection
-        if isinstance(connection, Connection):
-            connection = connection.engine
-
-        if isinstance(connection, duckdb.DuckDBPyConnection):
-            path = get_db_path(connection)
-            if path is None:
-                raise RuntimeError("Memory-based DuckDB is not supported.")
-            connection.close()
-            self._attached_db_paths[source.name] = path
-            self._duckdb_connection.execute(f"ATTACH '{path}' AS \"{source.name}\" (READ_ONLY)")
-        elif isinstance(connection, Engine):
-            register_sqlalchemy(self._duckdb_connection, connection, source.name)
-        elif isinstance(connection, DBConnectionConfig):
-            register_in_duckdb(self._duckdb_connection, connection, source.name)
-            db_path = connection.content.get("database_path")
-            if db_path is None:
-                db_path = connection.content.get("connection", {}).get("database_path")
-            if db_path is not None:
-                self._attached_db_paths[source.name] = db_path
-        else:
-            raise ValueError(f"Unsupported connection type: {type(connection)}")
+        register_in_duckdb(self._duckdb_connection, source.config, source.name)
+        db_path = source.config.content.get("database_path")
+        if db_path is None:
+            db_path = source.config.content.get("connection", {}).get("database_path")
+        if db_path is not None:
+            self._attached_db_paths[source.name] = db_path
 
     def register_df(self, source: DFDataSource) -> None:
         """Register a DataFrame source into the shared DuckDB connection."""
