@@ -95,8 +95,8 @@ class DbtProjectExecutor(GraphExecutor):
         )
         return system_prompt.strip()
 
-    def _get_compiled_graph(self, llm_config: LLMConfig, agent_config: AgentConfig) -> CompiledStateGraph[Any]:
-        compiled_graph = self._compiled_graph or self._graph.compile(llm_config, agent_config)
+    def _get_compiled_graph(self, llm_config: LLMConfig, agent_config: AgentConfig, domain: Domain) -> CompiledStateGraph[Any]:
+        compiled_graph = self._compiled_graph or self._graph.compile(llm_config, agent_config, domain)
         self._compiled_graph = compiled_graph
         return compiled_graph
 
@@ -130,7 +130,7 @@ class DbtProjectExecutor(GraphExecutor):
             self._current_cache_scope = cache_prefix
             self._graph.invalidate_introspect_cache()
 
-        compiled_graph = self._get_compiled_graph(llm_config, agent_config)
+        compiled_graph = self._get_compiled_graph(llm_config, agent_config, domain)
         messages: list[BaseMessage] = self._process_opas(opas, cache)
 
         all_messages_with_system = messages

@@ -13,13 +13,14 @@ def make_search_context_tool(domain: Domain) -> BaseTool | None:
         return None
 
     @tool(parse_docstring=True)
-    def search_context(retrieve_text: str) -> list[dict[str, Any]]:
+    def search_context(retrieve_text: str, datasource_name: str | None = None) -> list[dict[str, Any]]:
         """Search the context for relevant information matching the given query text.
 
         Args:
             retrieve_text: Natural language query to search the context for relevant results.
+            datasource_name: Optional datasource name to restrict the search to a specific data source.
         """
-        search_result_list = domain.search_context(retrieve_text)
+        search_result_list = domain.search_context(retrieve_text, datasource_name=datasource_name)
         return list(map(_search_result_to_dict, search_result_list))
 
     def _search_result_to_dict(search_result: ContextSearchResult) -> dict[str, Any]:

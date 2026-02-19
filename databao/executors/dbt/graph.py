@@ -23,12 +23,14 @@ from typing_extensions import TypedDict
 from databao.configs import llm
 from databao.configs.agent import AgentConfig
 from databao.configs.llm import LLMConfig
+from databao.core import Domain
 from databao.executors.dbt.dbt_runner import (
     PostDbtRunHook,
     noop_post_run_hook,
     run_dbt_subprocess,
 )
 from databao.executors.dbt.query_runner import QueryRunnerFactory
+from databao.executors.tools import make_search_context_tool
 
 
 @dataclass(frozen=True)
@@ -145,7 +147,7 @@ class DbtProjectGraph:
             "answer_submitted": state.get("answer_df") is not None,
         }
 
-    def make_tools(self) -> list[BaseTool]:
+    def make_tools(self, domain: Domain) -> list[BaseTool]:
         @tool(parse_docstring=True)
         def run_database_explore(project_dir: str) -> str:
             """
@@ -443,7 +445,7 @@ class DbtProjectGraph:
             finally:
                 runner.close()
 
-        return [
+        tools: list[BaseTool] = [
             run_database_explore,
             run_sql,
             run_dbt,
@@ -455,8 +457,14 @@ class DbtProjectGraph:
             submit_answer,
         ]
 
-    def compile(self, model_config: LLMConfig, agent_config: AgentConfig) -> CompiledStateGraph[Any]:
-        tools = self.make_tools()
+        search_context_tool = make_search_context_tool(domain, with_datasource_name=True)
+        if search_context_tool is not None:
+            tools.append(search_context_tool)
+
+        return tools
+
+    def compile(self, model_config: LLMConfig, agent_config: AgentConfig, domain: Domain) -> CompiledStateGraph[Any]:
+        tools = self.make_tools(domain)
         llm_model = model_config.new_chat_model()
 
         if llm.is_openai_model(model_config.name):
