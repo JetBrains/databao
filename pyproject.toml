@@ -2,7 +2,7 @@
 name = "databao"
 description = "databao: NL queries for data"
 dynamic = ["version"]  # Based on the git tag
-requires-python = ">=3.12, <3.15"
+requires-python = ">=3.11, <3.15"
 readme = "README.md"
 license = "Apache-2.0 AND LicenseRef-Additional-Terms"
 license-files = ["LICENSE.md"]
@@ -28,7 +28,7 @@ dependencies = [
     "diskcache>=5.6.3",
     "sqlalchemy>=2.0.45",
     "snowflake-sqlalchemy>=1.8.2",
-    "databao-context-engine[postgresql,mysql,snowflake]~=0.3.0",
+    "databao-context-engine[postgresql,mysql,snowflake] @ git+https://github.com/JetBrains/databao-context-engine.git@main",
     "watchdog>=6.0.0",
     "pandas-stubs~=2.3.3",
     # dbt agent-related deps
