@@ -20,11 +20,12 @@ def from_env(key: str) -> str:
 
 def main() -> None:
     engine = create_engine(
-        "snowflake://{user}:{password}@{account_identifier}/{database}".format(
+        "snowflake://{user}@{account_identifier}/{database}?private_key_file={private_key_file}".format(
             user=from_env("SNOWFLAKE_USER"),
-            password=from_env("SNOWFLAKE_PASSWORD"),
+            # password=from_env("SNOWFLAKE_PASSWORD"),
             account_identifier=from_env("SNOWFLAKE_ACCOUNT"),
             database="CALIFORNIA_TRAFFIC_COLLISION",
+            private_key_file=from_env("SNOWFLAKE_PRIVATE_KEY_FILE"),
         )
     )
 

@@ -1,4 +1,5 @@
-from urllib.parse import quote_plus
+from pathlib import Path
+from typing import Any
 
 from _duckdb import DuckDBPyConnection
 from databao_context_engine import DatasourceType
@@ -9,12 +10,53 @@ from databao.databases.database_connection import DBConnection, DBConnectionConf
 
 SNOWFLAKE_TYPE = DatasourceType(full_type="snowflake")
 
+WAREHOUSE_KEY = "warehouse"
+ACCOUNT_KEY = "account"
+PORT_KEY = "port"
+DATABASE_KEY = "database"
+SCHEMA_KEY = "schema"
+AUTH_KEY = "auth"
+AUTH_TYPE_KEY = "auth_type"
 USER_KEY = "user"
 PASSWORD_KEY = "password"
-ACCOUNT_KEY = "account"
-DATABASE_KEY = "database"
+TOKEN_KEY = "token"
+PRIVATE_KEY_KEY = "private_key"
+PRIVATE_KEY_FILE_KEY = "private_key_file"
+PRIVATE_KEY_PASSPHRASE_KEY = "private_key_passphrase"
+OKTA_URL_KEY = "okta_url"
 
-MAIN_KEYS = {USER_KEY, PASSWORD_KEY, ACCOUNT_KEY, DATABASE_KEY}
+CONNECTION_KEYS = {
+    WAREHOUSE_KEY,
+    ACCOUNT_KEY,
+    PORT_KEY,
+    DATABASE_KEY,
+    SCHEMA_KEY,
+    USER_KEY,
+}
+
+AUTH_KEYS = {
+    PASSWORD_KEY,
+    TOKEN_KEY,
+    PRIVATE_KEY_KEY,
+    PRIVATE_KEY_FILE_KEY,
+    PRIVATE_KEY_PASSPHRASE_KEY,
+    OKTA_URL_KEY,
+}
+
+KNOWN_KEYS = {
+    *CONNECTION_KEYS,
+    *AUTH_KEYS,
+}
+
+MAIN_KEYS = {*CONNECTION_KEYS, AUTH_KEY}
+
+AUTH_TYPE_KEY_PAIR = "key_pair"
+AUTH_TYPE_OAUTH = "oauth"
+AUTH_TYPE_OKTA = "okta"
+
+
+def _filter_paramaters(parameters: dict[str, Any], keys: set[str]) -> dict[str, Any]:
+    return {k: v for k, v in parameters.items() if k in keys}
 
 
 class SnowflakeAdapter(DatabaseAdapter):
@@ -47,9 +89,12 @@ class SnowflakeAdapter(DatabaseAdapter):
 
         sa_url_str = engine.url.render_as_string(hide_password=False)
         sa_url = make_url(sa_url_str)
-        content = dict(dialect.create_connect_args(sa_url)[1])
-        if "dbname" in content and "database" not in content:
-            content["database"] = content.pop("dbname")
+        arguments = dict(dialect.create_connect_args(sa_url)[1])
+        if "dbname" in arguments and "database" not in arguments:
+            arguments["database"] = arguments.pop("dbname")
+
+        content = _filter_paramaters(arguments, CONNECTION_KEYS)
+        content[AUTH_KEY] = _filter_paramaters(arguments, AUTH_KEYS)
 
         return DBConnectionConfig(type=SNOWFLAKE_TYPE, content=content)
 
@@ -68,25 +113,39 @@ class SnowflakeAdapter(DatabaseAdapter):
     @staticmethod
     def _create_connection_string(conn: DBConnectionConfig) -> str:
         content = conn.content
-        connection = content.get("connection")
 
-        if connection is None:
-            raise ValueError("Cannot find snowflake connection in config")
+        if content is None:
+            raise ValueError("Cannot find snowflake content in config")
 
-        account = str(connection.get(ACCOUNT_KEY))
-        database = str(connection.get(DATABASE_KEY))
-        user = str(connection.get(USER_KEY))
-
-        auth = connection.get("auth")
+        auth = content.get(AUTH_KEY)
 
         if auth is None:
             raise ValueError("Cannot find snowflake auth in config")
 
-        password = str(auth.get(PASSWORD_KEY))
+        connection_parameters = _filter_paramaters(content, KNOWN_KEYS)
 
-        return (
-            f"account={quote_plus(account)};"
-            f"database={quote_plus(database)};"
-            f"user={quote_plus(user)};"
-            f"password={quote_plus(password)};"
-        )
+        auth_type = SnowflakeAdapter._auth_type(auth)
+
+        if auth_type is not None:
+            connection_parameters[AUTH_TYPE_KEY] = auth_type
+
+        # Work on a copy of the auth parameters to avoid mutating the original config.
+        auth_params = dict(auth)
+
+        if "private_key_file" in auth_params:
+            auth_params["private_key"] = Path(auth_params["private_key_file"]).absolute()
+            del auth_params["private_key_file"]
+
+        all_parameters = {**connection_parameters, **auth_params}
+        return ";".join(f"{k}={v}" for k, v in all_parameters.items())
+
+    @staticmethod
+    def _auth_type(parameters: dict[str, Any]) -> str | None:
+        if parameters.keys() & {PRIVATE_KEY_KEY, PRIVATE_KEY_FILE_KEY}:
+            return AUTH_TYPE_KEY_PAIR
+        if TOKEN_KEY in parameters:
+            return AUTH_TYPE_OAUTH
+        if OKTA_URL_KEY in parameters:
+            return AUTH_TYPE_OKTA
+
+        return None
