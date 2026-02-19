@@ -1,3 +1,4 @@
+import logging
 from abc import ABC
 from typing import Any, TextIO
 
@@ -38,8 +39,6 @@ class GraphExecutor(Executor, ABC):
     def register_db(self, source: DBDataSource) -> None:
         """Register a database source into the shared DuckDB connection."""
         if not source.connectable:
-            import logging
-
             logging.getLogger(__name__).debug(
                 "Skipping non-connectable datasource '%s' (type: %s)",
                 source.name,
