@@ -83,15 +83,36 @@ class DbtProjectExecutor(GraphExecutor):
         )
         return env.get_template(template_name)
 
-    def render_system_prompt(self) -> str:
+    @staticmethod
+    def _get_today_date_str() -> str:
+        return datetime.datetime.now().strftime("%A, %Y-%m-%d")
+
+    def render_system_prompt(self, domain: Domain) -> str:
         project_dir = self._dbt_config.project_dir.resolve()
         dbt_overview = assemble_dbt_project_summary(project_dir)
         attached_catalogs = list(self._attached_db_paths.keys()) or []
+
+        domain_internal = cast(_Domain, domain)
+        sources = domain_internal.sources
+        context_text = ""
+        for db_name, source in sources.dbs.items():
+            if source.context:
+                context_text += f"## Context for DB {db_name}\n\n{source.context}\n\n"
+        for df_name, source in sources.dfs.items():
+            if source.context:
+                context_text += (
+                    f"## Context for DF {df_name} (registered as '{df_name}')\n\n{source.context}\n\n"
+                )
+        for idx, add_ctx in enumerate(sources.additional_context, start=1):
+            context_text += f"## General information {idx}\n\n{add_ctx.strip()}\n\n"
+        context_text = context_text.strip()
 
         system_prompt = self._prompt_template.render(
             dbt_overview=dbt_overview,
             dbt_directory=project_dir.absolute(),
             attached_catalogs=attached_catalogs,
+            date=self._get_today_date_str(),
+            context=context_text,
         )
         return system_prompt.strip()
 
@@ -136,7 +157,7 @@ class DbtProjectExecutor(GraphExecutor):
         all_messages_with_system = messages
         if not all_messages_with_system or all_messages_with_system[0].type != "system":
             all_messages_with_system = [
-                SystemMessage(self.render_system_prompt()),
+                SystemMessage(self.render_system_prompt(domain)),
                 HumanMessage(self._task_instruction),
                 *all_messages_with_system,
             ]
