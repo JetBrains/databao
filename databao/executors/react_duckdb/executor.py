@@ -7,7 +7,8 @@ from langgraph.graph.state import CompiledStateGraph
 
 from databao.configs.agent import AgentConfig
 from databao.configs.llm import LLMConfig
-from databao.core import Cache, Context, ExecutionResult, Opa
+from databao.core import Cache, Domain, ExecutionResult, Opa
+from databao.core.data_source import DBDataSource, DFDataSource
 from databao.core.executor import OutputModalityHints
 from databao.duckdb.react_tools import AgentResponse, execute_duckdb_sql, make_react_duckdb_agent
 from databao.executors.base import GraphExecutor
@@ -21,9 +22,9 @@ class ReactDuckDBExecutor(GraphExecutor):
         super().__init__(writer=writer)
         self._compiled_graph: CompiledStateGraph[Any] | None = None
 
-    def _create_graph(self, data_connection: Any, llm_config: LLMConfig, context: Context) -> CompiledStateGraph[Any]:
+    def _create_graph(self, data_connection: Any, llm_config: LLMConfig, domain: Domain) -> CompiledStateGraph[Any]:
         """Create and compile the ReAct DuckDB agent graph."""
-        return make_react_duckdb_agent(data_connection, llm_config.new_chat_model(), context)
+        return make_react_duckdb_agent(data_connection, llm_config.new_chat_model(), domain)
 
     def drop_last_opa_group(self, cache: Cache, n: int = 1) -> None:
         """Drop last n groups of operations from the message history."""
@@ -43,14 +44,14 @@ class ReactDuckDBExecutor(GraphExecutor):
         cache: Cache,
         llm_config: LLMConfig,
         agent_config: AgentConfig,
-        context: Context,
+        domain: Domain,
         *,
         rows_limit: int = 100,
         stream: bool = True,
         writer: TextIO | None = None,
     ) -> ExecutionResult:
         # Get or create graph (cached after first use)
-        compiled_graph = self._compiled_graph or self._create_graph(self._duckdb_connection, llm_config, context)
+        compiled_graph = self._compiled_graph or self._create_graph(self._duckdb_connection, llm_config, domain)
 
         # Process the opa and get messages
         messages = self._process_opas(opas, cache)

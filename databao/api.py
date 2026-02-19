@@ -1,10 +1,11 @@
-from typing import TextIO
+from typing import cast, TextIO
+from pathlib import Path
 
 from databao.caches.in_mem_cache import InMemCache
 from databao.configs.agent import DEFAULT_AGENT_CONFIG, AgentConfig
 from databao.configs.llm import LLMConfig, LLMConfigDirectory
 from databao.core import Agent, Cache, Executor, Visualizer
-from databao.core.context import Context
+from databao.core.domain import Domain, _Domain, _InMemoryDomain, _PersistentDomain
 from databao.executors.dbt.config import DbtConfig
 from databao.executors.dbt.executor import DbtProjectExecutor
 from databao.executors.lighthouse.executor import LighthouseExecutor
@@ -12,7 +13,7 @@ from databao.visualizers.vega_chat import VegaChatVisualizer
 
 
 def agent(
-    context: Context,
+    domain: Domain,
     name: str | None = None,
     llm_config: LLMConfig | None = None,
     agent_config: AgentConfig | None = None,
@@ -31,6 +32,7 @@ def agent(
     """This is an entry point for users to create a new agent.
     Agent can't be modified after it's created. Only new data sources can be added.
     """
+    domain = cast(_Domain, domain)
     llm_config = llm_config if llm_config else LLMConfigDirectory.DEFAULT
     agent_config = agent_config if agent_config else DEFAULT_AGENT_CONFIG
 
@@ -47,7 +49,7 @@ def agent(
                 raise ValueError(f"Invalid executor type: {executor_type}")
 
     return Agent(
-        context,
+        domain,
         llm_config,
         agent_config,
         name=name or "default_agent",
@@ -60,3 +62,12 @@ def agent(
         lazy_threads=lazy_threads,
         auto_output_modality=auto_output_modality,
     )
+
+
+def domain(project_dir: str | Path | None = None) -> Domain:
+    if isinstance(project_dir, str):
+        project_dir = Path(project_dir)
+    if project_dir is None:
+        return _InMemoryDomain()
+    else:
+        return _PersistentDomain(project_dir)

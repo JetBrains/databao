@@ -4,7 +4,6 @@ import pandas as pd
 from sqlalchemy import create_engine
 
 import databao
-from databao import Context
 
 logging.basicConfig(level=logging.WARNING)
 
@@ -22,18 +21,17 @@ df = pd.read_sql(
 )
 print(df)
 
-context_builder = Context.builder()
-context_builder.add_db(engine)
+domain = databao.domain()
+domain.add_source(engine)
 
 data = {"show_id": ["s706", "s1032", "s1253"], "cancelled": [True, True, False]}
 df = pd.DataFrame(data)
-context_builder.add_df(df)
+domain.add_source(df)
 
 # llm_config = LLMConfig.from_yaml("configs/qwen3-8b-ollama.yaml")  # Use a custom config file
 # llm_config = LLMConfigDirectory.QWEN3_8B_OLLAMA  # Use one of the preconfigured configs
 llm_config = None  # Omit the config to use the default config
-context = context_builder.build()
-agent = databao.agent(context, "my_agent", llm_config=llm_config)
+agent = databao.agent(domain, "my_agent", llm_config=llm_config)
 
 thread = agent.thread()
 thread.ask("count cancelled shows by directors")
