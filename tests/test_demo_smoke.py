@@ -63,15 +63,15 @@ def test_demo_smoke(domain: Domain, db_engine: Engine) -> None:
     assert len(df) > 0, "Expected to get some results from the database query"
 
     # Step 2: Add a database to the domain
-    domain.add_source(db_engine)
+    domain.add_db(db_engine)
 
     # Step 3: Create and add DataFrame to the domain
     data = {"show_id": ["s706", "s1032", "s1253"], "cancelled": [True, True, False]}
     df = pd.DataFrame(data)
-    domain.add_source(df)
+    domain.add_df(df)
 
     # Step 4: Create a databao agent
-    agent = databao.agent(domain, "test_agent", LLMConfig(name="gpt-5"))
+    agent = databao.agent(domain, name="test_agent", llm_config=LLMConfig(name="gpt-5"))
     assert agent is not None
 
     # Step 5: Ask a question and get results
@@ -99,15 +99,15 @@ def test_consecutive_ask_calls(domain: Domain, db_engine: Engine) -> None:
     logging.basicConfig(level=logging.INFO)
 
     # Step 1: Add a database to the domain
-    domain.add_source(db_engine)
+    domain.add_db(db_engine)
 
     # Step 2: Create and add DataFrame to context
     data = {"show_id": ["s706", "s1032", "s1253"], "cancelled": [True, True, False]}
     df = pd.DataFrame(data)
-    domain.add_source(df)
+    domain.add_df(df)
 
     # Step 3: Create a databao agent
-    agent = databao.agent(domain, "test_consecutive_agent", LLMConfig(name="gpt-5"))
+    agent = databao.agent(domain, name="test_consecutive_agent", llm_config=LLMConfig(name="gpt-5"))
     assert agent is not None
 
     # Step 4: First ask - count cancelled shows by directors

@@ -1,6 +1,6 @@
 from databao.core.agent import Agent
 from databao.core.cache import Cache
-from databao.core.domain import Domain, DomainSource
+from databao.core.domain import Domain
 from databao.core.executor import ExecutionResult, Executor
 from databao.core.opa import Opa
 from databao.core.thread import Thread
@@ -10,7 +10,6 @@ __all__ = [
     "Agent",
     "Cache",
     "Domain",
-    "DomainSource",
     "ExecutionResult",
     "Executor",
     "HistoryMode",

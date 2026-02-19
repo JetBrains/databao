@@ -36,15 +36,15 @@ class LighthouseExecutor(GraphExecutor):
         domain = cast(_Domain, domain)
         sources = domain.sources
         context_text = ""
-        for db_name, source in sources.dbs.items():
-            if source.context:
-                context_text += f"## Context for DB {db_name}\n\n{source.context}\n\n"
-        for df_name, source in sources.dfs.items():
-            if source.context:
-                context_text += (
-                    f"## Context for DF {df_name} (fully qualified name 'temp.main.{df_name}')\n\n{source.context}\n\n"
-                )
-        for idx, add_ctx in enumerate(sources.additional_context, start=1):
+        for name, source in sources.dbs.items():
+            if source.description:
+                desc = source.description
+                context_text += f"## Context for DB {name}\n\n{desc}\n\n"
+        for name, source in sources.dfs.items():
+            if source.description:
+                desc = source.description
+                context_text += f"## Context for DF {name} (fully qualified name 'temp.main.{name}')\n\n{desc}\n\n"
+        for idx, add_ctx in enumerate(sources.additional_description, start=1):
             context_text += f"## General information {idx}\n\n{add_ctx.strip()}\n\n"
         context_text = context_text.strip()
 

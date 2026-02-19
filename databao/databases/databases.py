@@ -1,10 +1,13 @@
 from typing import Any
 
 from _duckdb import DuckDBPyConnection
-from databao_context_engine import ConfiguredDatasource, DatasourceType
+from databao_context_engine.pluginlib.build_plugin import AbstractConfigFile, DatasourceType
 
 from databao.databases.database_adapter import DatabaseAdapter
-from databao.databases.database_connection import DBConnectionConfig, DBConnectionRuntime
+from databao.databases.database_connection import (
+    DBConnectionConfig,
+    DBConnectionRuntime,
+)
 from databao.databases.duckdb_adapter import DuckDBAdapter
 from databao.databases.mysql_adapter import MySQLAdapter
 from databao.databases.postgresql_adapter import PostgreSQLAdapter
@@ -20,57 +23,37 @@ DATABASE_ADAPTERS: list[DatabaseAdapter] = [
 ]
 
 
-def supported_db_types() -> list[DatasourceType]:
-    return [adapter.type() for adapter in DATABASE_ADAPTERS]
+def db_type(config: DBConnectionConfig) -> DatasourceType:
+    for adapter in DATABASE_ADAPTERS:
+        if adapter.accept(config):
+            return adapter.type()
+    raise ValueError(f"Cannot determine database type for connection config of type {type(config)}.")
 
 
-def is_connectable(datasource_type: DatasourceType) -> bool:
-    """Check whether a datasource type has a registered adapter that can open a connection."""
-    return any(adapter.type() == datasource_type for adapter in DATABASE_ADAPTERS)
+def create_db_config_file(config: DBConnectionConfig, name: str) -> AbstractConfigFile:
+    for adapter in DATABASE_ADAPTERS:
+        if adapter.accept(config):
+            return adapter.create_config_file(config, name)
+    raise ValueError(f"Cannot create config file for connection config of type {type(config)}.")
 
 
-# TODO (dce): use DCE config instead
-def to_dce_config_content(config: DBConnectionConfig) -> dict[str, Any]:
-    type = config.type
-    content = config.content
+def create_db_config_from_runtime(run_conn: DBConnectionRuntime) -> DBConnectionConfig:
+    for adapter in DATABASE_ADAPTERS:
+        if adapter.accept(run_conn):
+            return adapter.create_config_from_runtime(run_conn)
+    raise ValueError(f"Cannot create config for runtime connection of type {type(run_conn)}.")
+
+
+def try_create_db_config_from_content(type: DatasourceType, content: dict[str, Any]) -> DBConnectionConfig | None:
     for adapter in DATABASE_ADAPTERS:
         if adapter.type() == type:
-            main_property_keys = adapter.main_property_keys()
-            additional_properties = {k: v for k, v in content.items() if k not in main_property_keys}
-            main_properties = {k: v for k, v in content.items() if k in main_property_keys}
-            main_properties["additional_properties"] = additional_properties
-            return {"connection": main_properties}
-    # No adapter found — return raw content as-is (e.g. dbt sources)
-    return content
+            return adapter.create_config_from_content(content)
+    return None
 
 
-# TODO (dce): use DCE config instead
-def to_agent_config_content(dce_ds: ConfiguredDatasource) -> dict[str, Any]:
-    dce_content = {str(k): v for k, v in dce_ds.config.items()}
-    connection = dce_content.get("connection")
-    if connection is None:
-        # NOTE: (@gas) Return the raw config content as-is for sources like dbt
-        return dce_content
-    connection = {str(k): v for k, v in connection.items()}
-    additional_properties = connection.pop("additional_properties", {})
-    return {**connection, **additional_properties}
-
-
-def convert_to_config(conn: DBConnectionRuntime) -> DBConnectionConfig:
+def register_db_in_duckdb(shared_conn: DuckDBPyConnection, config: DBConnectionConfig, name: str) -> None:
     for adapter in DATABASE_ADAPTERS:
-        if adapter.accept(conn):
-            config = adapter.convert_to_config(conn)
-            if config is None:
-                break
-            return config
-
-    raise ValueError("Cannot convert connection to DBConnectionConfig")
-
-
-def register_in_duckdb(shared: DuckDBPyConnection, conn: DBConnectionConfig, name: str) -> None:
-    for adapter in DATABASE_ADAPTERS:
-        if adapter.accept(conn):
-            adapter.register_in_duckdb(shared, conn, name)
+        if adapter.accept(config):
+            adapter.register_in_duckdb(shared_conn, config, name)
             return
-
-    # raise ValueError(f"Cannot register connection of type '{conn.type}' in DuckDB — no matching adapter found")
+    raise ValueError(f"Cannot register connection for config type {type(config)} in DuckDB.")

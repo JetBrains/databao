@@ -1,15 +1,18 @@
 from pathlib import Path
 
-from databao_context_engine import ContextSearchResult, DatabaoContextEngine, DatasourceId
+from databao_context_engine import ContextSearchResult, DatabaoContextEngine, Datasource, DatasourceId
 
 
 class DatabaoContextEngineApi:
     def __init__(self, delegate: DatabaoContextEngine):
         self._delegate = delegate
 
+    def get_introspected_datasource_list(self) -> list[Datasource]:
+        return self._delegate.get_introspected_datasource_list()
+
     # TODO (dce): should be implemented on the DCE side
     def is_context_built(self) -> bool:
-        introspected_data_sources = self._delegate.get_introspected_datasource_list()
+        introspected_data_sources = self.get_introspected_datasource_list()
         return len(introspected_data_sources) > 0
 
     def search_context(

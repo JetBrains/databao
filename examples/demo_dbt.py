@@ -2,14 +2,12 @@ import logging
 import tempfile
 from pathlib import Path
 
-from databao_context_engine import DatasourceType
 from dotenv import load_dotenv
 
 import databao
 from databao import LLMConfig
-from databao.api import domain
 from databao.configs.agent import AgentConfig
-from databao.databases import DBConnectionConfig
+from databao.databases import DuckDBConnectionConfig
 from databao.executors.dbt import DbtProjectExecutor
 from databao.executors.query_expansion import QueryExpansionConfig
 
@@ -28,22 +26,13 @@ llm_config = LLMConfig(name="gpt-5", temperature=0)
 agent_config = AgentConfig(recursion_limit=100, parallel_tool_calls=True)
 
 with tempfile.TemporaryDirectory(prefix="dbt-agent-") as tmp_dce_proj_dir:
-    domain_ctx = domain(project_dir=tmp_dce_proj_dir)
+    domain_ctx = databao.domain(project_dir=tmp_dce_proj_dir)
 
-    duckdb_config = DBConnectionConfig(
-        type=DatasourceType(full_type="duckdb"),
-        content={"database_path": str(DB_PATH)},
-    )
-    domain_ctx.add_source(duckdb_config, name="shopify", description="Shopify e-commerce data")
+    duckdb_config = DuckDBConnectionConfig(database_path=str(DB_PATH))
+    domain_ctx.add_db(duckdb_config, name="shopify", description="Shopify e-commerce data")
+    domain_ctx.add_dbt(DBT_PROJ_PATH, name="shopify-dbt", description="dbt transformations project")
 
-    dbt_config = DBConnectionConfig(
-        type=DatasourceType(full_type="dbt"),
-        content={"dbt_target_folder_path": str(DBT_PROJ_PATH / "target")},
-    )
-    domain_ctx.add_source(dbt_config, name="shopify-dbt", description="dbt transformations project")
-
-    domain_ctx.finalize_sources()  # type: ignore
-    domain_ctx.build_context()
+    domain_ctx.build_context()  # explicit call is optional
 
     expansion_config = QueryExpansionConfig(num_queries=2, rrf_k=60)
     agent = databao.agent(

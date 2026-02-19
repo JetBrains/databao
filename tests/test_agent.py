@@ -54,47 +54,47 @@ def _new_agent(domain: Domain) -> Agent:
 
 def test_add_db_with_nonexistent_context_path_raises(domain: Domain, duckdb_conn: DuckDBPyConnection) -> None:
     with pytest.raises(FileNotFoundError):
-        domain.add_source(duckdb_conn, description=Path("this_file_does_not_exist_123456.md"))
+        domain.add_db(duckdb_conn, description=Path("this_file_does_not_exist_123456.md"))
 
 
 def test_add_df_with_nonexistent_context_path_raises(domain: Domain) -> None:
     df = pd.DataFrame({"a": [1, 2, 3]})
 
     with pytest.raises(FileNotFoundError):
-        domain.add_source(df, description=Path("another_missing_context_987654.md"))
+        domain.add_df(df, description=Path("another_missing_context_987654.md"))
 
 
 def test_add_db_with_temp_file_context(
     domain: Domain, temp_context_file: Path, duckdb_conn: DuckDBPyConnection
 ) -> None:
     """Test adding a database with context from a temporary file."""
-    domain.add_source(duckdb_conn, description=temp_context_file)
+    domain.add_db(duckdb_conn, description=temp_context_file)
     agent = _new_agent(domain)
 
     assert "db1" in agent.dbs
-    assert agent.dbs["db1"].context == temp_context_file.read_text()
+    assert agent.dbs["db1"].description == temp_context_file.read_text()
 
 
 def test_add_df_with_temp_file_context(domain: Domain, temp_context_file: Path) -> None:
     """Test adding a DataFrame with context from a temporary file."""
     df = pd.DataFrame({"a": [1, 2, 3]})
 
-    domain.add_source(df, description=temp_context_file)
+    domain.add_df(df, description=temp_context_file)
     agent = _new_agent(domain)
 
     assert "df1" in agent.dfs
-    assert agent.dfs["df1"].context == temp_context_file.read_text()
+    assert agent.dfs["df1"].description == temp_context_file.read_text()
 
 
 def test_add_db_with_string_context(domain: Domain, duckdb_conn: DuckDBPyConnection) -> None:
     """Test adding a database with context as a string."""
     context_string = "This is a string context for the database."
 
-    domain.add_source(duckdb_conn, description=context_string)
+    domain.add_db(duckdb_conn, description=context_string)
     agent = _new_agent(domain)
 
     assert "db1" in agent.dbs
-    assert agent.dbs["db1"].context == context_string
+    assert agent.dbs["db1"].description == context_string
 
 
 def test_add_df_with_string_context(domain: Domain) -> None:
@@ -102,11 +102,11 @@ def test_add_df_with_string_context(domain: Domain) -> None:
     df = pd.DataFrame({"a": [1, 2, 3]})
     context_string = "This is a string context for the DataFrame."
 
-    domain.add_source(df, description=context_string)
+    domain.add_df(df, description=context_string)
     agent = _new_agent(domain)
 
     assert "df1" in agent.dfs
-    assert agent.dfs["df1"].context == context_string
+    assert agent.dfs["df1"].description == context_string
 
 
 def test_add_additional_context_with_nonexistent_path_raises(domain: Domain) -> None:
@@ -120,7 +120,7 @@ def test_add_additional_context_with_temp_file(domain: Domain, temp_context_file
     domain.add_description(temp_context_file)
     agent = _new_agent(domain)
 
-    assert agent.additional_context == [temp_context_file.read_text()]
+    assert agent.additional_description == [temp_context_file.read_text()]
 
 
 def test_add_additional_context_with_string(domain: Domain) -> None:
@@ -130,7 +130,7 @@ def test_add_additional_context_with_string(domain: Domain) -> None:
     domain.add_description(text)
     agent = _new_agent(domain)
 
-    assert agent.additional_context == [text]
+    assert agent.additional_description == [text]
 
 
 def test_add_additional_context_multiple_calls_mixed_sources(domain: Domain, temp_context_file: Path) -> None:
@@ -144,6 +144,6 @@ def test_add_additional_context_multiple_calls_mixed_sources(domain: Domain, tem
     domain.add_description(third)
     agent = _new_agent(domain)
 
-    assert first in agent.additional_context
-    assert second in agent.additional_context
-    assert third in agent.additional_context
+    assert first in agent.additional_description
+    assert second in agent.additional_description
+    assert third in agent.additional_description

@@ -1,56 +1,52 @@
+from typing import Any
+
 from _duckdb import DuckDBPyConnection
-from databao_context_engine import DatasourceType
+from databao_context_engine import DatasourceType, DuckDBConfigFile, DuckDBConnectionConfig
+from databao_context_engine.pluginlib.build_plugin import AbstractConfigFile
 
 from databao.databases.database_adapter import DatabaseAdapter
 from databao.databases.database_connection import DBConnection, DBConnectionConfig, DBConnectionRuntime
-
-DUCKDB_TYPE = DatasourceType(full_type="duckdb")
-
-DATABASE_KEY = "database_path"
-
-MAIN_KEYS = {DATABASE_KEY}
 
 
 class DuckDBAdapter(DatabaseAdapter):
     @classmethod
     def type(cls) -> DatasourceType:
-        return DUCKDB_TYPE
-
-    @classmethod
-    def main_property_keys(cls) -> set[str]:
-        return MAIN_KEYS
+        full_type = DuckDBConfigFile.model_fields["type"].default
+        return DatasourceType(full_type=full_type)
 
     @classmethod
     def accept(cls, conn: DBConnection) -> bool:
         if isinstance(conn, DuckDBPyConnection):
             return True
-        if isinstance(conn, DBConnectionConfig):
-            return conn.type == DUCKDB_TYPE  # type: ignore[no-any-return]
-        return False
+        return isinstance(conn, DuckDBConnectionConfig)
 
     @classmethod
-    def convert_to_config(cls, run_conn: DBConnectionRuntime) -> DBConnectionConfig | None:
-        if not isinstance(run_conn, DuckDBPyConnection):
-            return None
+    def create_config_file(cls, config: DBConnectionConfig, name: str) -> AbstractConfigFile:
+        if not isinstance(config, DuckDBConnectionConfig):
+            raise ValueError(f"Invalid connection config type: expected DuckDBConnectionConfig, got {type(config)}.")
+        return DuckDBConfigFile(connection=config, name=name)
 
+    @classmethod
+    def create_config_from_runtime(cls, run_conn: DBConnectionRuntime) -> DBConnectionConfig:
+        if not isinstance(run_conn, DuckDBPyConnection):
+            raise ValueError(f"Invalid runtime connection type: expected DuckDBPyConnection, got {type(run_conn)}.")
         database = cls._get_database(run_conn)
         if database is None:
             raise RuntimeError("Memory-based DuckDB is not supported.")
 
         run_conn.close()
-        return DBConnectionConfig(DUCKDB_TYPE, {DATABASE_KEY: database})
+        return DuckDBConnectionConfig(database_path=database)
+
+    @classmethod
+    def create_config_from_content(cls, content: dict[str, Any]) -> DBConnectionConfig:
+        config_file = DuckDBConfigFile.model_validate({"name": "", **content})
+        return config_file.connection
 
     @classmethod
     def register_in_duckdb(cls, shared_conn: DuckDBPyConnection, config: DBConnectionConfig, name: str) -> None:
-        database = config.content.get(DATABASE_KEY)
-        if database is None:
-            # DCE configs nest the path under a "connection" key
-            database = config.content.get("connection", {}).get(DATABASE_KEY)
-        if database is None:
-            raise ValueError(
-                f"DuckDB config for '{name}' is missing '{DATABASE_KEY}'. Available keys: {list(config.content.keys())}"
-            )
-        shared_conn.execute(f"ATTACH '{database}' AS \"{name}\" (READ_ONLY);")
+        if not isinstance(config, DuckDBConnectionConfig):
+            raise ValueError(f"Invalid connection config type: expected DuckDBConnectionConfig, got {type(config)}.")
+        shared_conn.execute(f"ATTACH '{config.database_path}' AS \"{name}\" (READ_ONLY);")
 
     @staticmethod
     def _get_database(conn: DuckDBPyConnection) -> str | None:

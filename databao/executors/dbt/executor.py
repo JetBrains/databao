@@ -18,6 +18,7 @@ from databao.core import Cache, Domain, ExecutionResult, Opa
 from databao.core.data_source import Sources
 from databao.core.domain import _Domain
 from databao.core.executor import OutputModalityHints
+from databao.databases.databases import db_type, register_db_in_duckdb
 from databao.executors.base import GraphExecutor
 from databao.executors.dbt.config import DbtConfig
 from databao.executors.dbt.dbt_runner import (
@@ -29,8 +30,6 @@ from databao.executors.dbt.graph import DbtProjectGraph
 from databao.executors.dbt.query_runner import DuckDbQueryRunner
 from databao.executors.history_cleaning import clean_tool_history
 from databao.executors.query_expansion import QueryExpansionConfig
-
-_DBT_TARGET_FOLDER_KEY = "dbt_target_folder_path"
 
 
 class DbtProjectExecutor(GraphExecutor):
@@ -64,24 +63,20 @@ class DbtProjectExecutor(GraphExecutor):
 
     def _detach_all_databases(self) -> None:
         """Detach all databases from the shared connection to release file locks."""
-        for name in self._attached_db_paths:
-            for name in self._attached_db_paths:
-                with contextlib.suppress(Exception):
-                    self._duckdb_connection.execute(f'DETACH "{name}"')
+        with contextlib.suppress(Exception):
+            for db_source in self._registered_dbs.values():
+                self._duckdb_connection.execute(f'DETACH "{db_source.name}"')
+            for df_source in self._registered_dfs.values():
+                self._duckdb_connection.execute(f'DETACH "{df_source.name}"')
 
     @staticmethod
     def _resolve_project_dir(dbt_config: DbtConfig, sources: Sources) -> Path:
-        """Extract the dbt project directory from explicit config or the domain's datasources.
-
-        A dbt datasource stores ``dbt_target_folder_path`` pointing to ``<project_dir>/target``.
-        The project root is its parent.
-        """
+        """Extract the dbt project directory from explicit config or the domain's datasources."""
         if dbt_config.project_dir is not None:
             return dbt_config.project_dir.resolve()
-        for source in sources.dbs.values():
-            target_path = source.config.content.get(_DBT_TARGET_FOLDER_KEY)
-            if target_path is not None:
-                return Path(target_path).resolve().parent
+        # TODO: (@gas) the same sources are passed to register_dbt
+        for source in sources.dbts.values():
+            return source.dir.resolve()
         raise ValueError(
             "Could not resolve dbt project directory. "
             "Ensure a dbt datasource with dbt_target_folder_path is configured in the DCE project."
@@ -90,20 +85,22 @@ class DbtProjectExecutor(GraphExecutor):
     def _make_query_runner(self) -> DuckDbQueryRunner:
         """Create a short-lived DuckDB read-only query runner from the shared connection state.
 
-        Uses the base class's shared DuckDB connection metadata (attached paths + registered DFs)
+        Uses the base class's shared DuckDB connection metadata (registered data sources)
         to build a fresh read-only connection. This ensures dbt's writes are visible after each run.
         """
         con = duckdb.connect(":memory:")
-        first_db_name: str | None = None
-        for name, path in self._attached_db_paths.items():
-            resolved_path = str(Path(path).resolve())
-            con.execute(f"ATTACH '{resolved_path}' AS \"{name}\" (READ_ONLY)")
-            if first_db_name is None:
-                first_db_name = name
-        for name, df in self._registered_dfs.items():
-            con.register(name, df)
-        if first_db_name is not None:
-            con.execute(f'USE "{first_db_name}"')
+        first_source_name: str | None = None
+        for name, db_source in self._registered_dbs.items():
+            register_db_in_duckdb(con, db_source.config, name)
+            if first_source_name is None:
+                first_source_name = name
+        for name, df_source in self._registered_dfs.items():
+            con.register(name, df_source)
+            if first_source_name is None:
+                first_source_name = name
+        # TODO: (@gas) check - should work without USE "{first_db_name}"
+        if first_source_name is not None:
+            con.execute(f'USE "{first_source_name}"')
         return DuckDbQueryRunner(con)
 
     @staticmethod
@@ -121,16 +118,24 @@ class DbtProjectExecutor(GraphExecutor):
 
     def render_system_prompt(self, sources: Sources, project_dir: Path, recursion_limit: int = 50) -> str:
         dbt_overview = assemble_dbt_project_summary(project_dir)
-        attached_catalogs = list(self._attached_db_paths.keys()) or []
+        attached_catalogs: list[str] = []
 
         context_text = ""
         for db_name, source in sources.dbs.items():
-            if source.context:
-                context_text += f"## Context for DB {db_name}\n\n{source.context}\n\n"
+            attached_catalogs.append(db_name)
+            if source.description:
+                db_desc = source.description
+                context_text += f"## Context for DB {db_name} (registered as '{db_name}') \n\n{db_desc}\n\n"
         for df_name, source in sources.dfs.items():
-            if source.context:
-                context_text += f"## Context for DF {df_name} (registered as '{df_name}')\n\n{source.context}\n\n"
-        for idx, add_ctx in enumerate(sources.additional_context, start=1):
+            attached_catalogs.append(df_name)
+            if source.description:
+                df_desc = source.description
+                context_text += f"## Context for DF {df_name} (registered as '{df_name}')\n\n{df_desc}\n\n"
+        for dbt_name, source in sources.dbts.items():
+            if source.description:
+                dbt_desc = source.description
+                context_text += f"## Context for DBT {dbt_name} (registered as '{dbt_name}')\n\n{dbt_desc}\n\n"
+        for idx, add_ctx in enumerate(sources.additional_description, start=1):
             context_text += f"## General information {idx}\n\n{add_ctx.strip()}\n\n"
         context_text = context_text.strip()
 
@@ -153,20 +158,14 @@ class DbtProjectExecutor(GraphExecutor):
         entries: list[dict[str, str]] = []
         for db_name, source in sources.dbs.items():
             desc = ""
-            if source.context:
-                first_line = source.context.strip().split("\n")[0][:120]
+            if source.description:
+                first_line = source.description.strip().split("\n")[0][:120]
                 desc = first_line
-            entries.append(
-                {
-                    "name": db_name,
-                    "description": desc,
-                    "type": source.config.type.full_type,
-                }
-            )
+            entries.append({"name": db_name, "description": desc, "type": db_type(source.config)})
         for df_name, source in sources.dfs.items():
             desc = ""
-            if source.context:
-                first_line = source.context.strip().split("\n")[0][:120]
+            if source.description:
+                first_line = source.description.strip().split("\n")[0][:120]
                 desc = first_line
             entries.append({"name": df_name, "description": desc, "type": "dataframe"})
         return entries
