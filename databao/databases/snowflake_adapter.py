@@ -129,12 +129,14 @@ class SnowflakeAdapter(DatabaseAdapter):
         if auth_type is not None:
             connection_parameters[AUTH_TYPE_KEY] = auth_type
 
-        if "private_key_file" in auth:
-            auth["private_key"] = Path(auth["private_key_file"]).absolute()
-            del auth["private_key_file"]
+        # Work on a copy of the auth parameters to avoid mutating the original config.
+        auth_params = dict(auth)
 
-        all_parameters = {**connection_parameters, **auth}
+        if "private_key_file" in auth_params:
+            auth_params["private_key"] = Path(auth_params["private_key_file"]).absolute()
+            del auth_params["private_key_file"]
 
+        all_parameters = {**connection_parameters, **auth_params}
         return ";".join(f"{k}={v}" for k, v in all_parameters.items())
 
     @staticmethod
