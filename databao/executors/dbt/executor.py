@@ -226,7 +226,6 @@ class DbtProjectExecutor(GraphExecutor):
             compiled_graph, init_state, config=invoke_config, stream=stream, writer=writer or self._writer
         )
 
-        # Persist dbt_dirty flag across execute() calls
         self._dbt_dirty = last_state.get("dbt_dirty", True)
 
         result = self._graph.get_result(last_state)

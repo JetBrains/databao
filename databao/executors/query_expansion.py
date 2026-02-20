@@ -68,7 +68,6 @@ def expand_queries(
     except (json.JSONDecodeError, TypeError):
         pass
 
-    # Fallback: return the original query unchanged
     return [query]
 
 

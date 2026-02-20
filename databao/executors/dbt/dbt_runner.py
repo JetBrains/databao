@@ -9,8 +9,24 @@ from typing import Any
 
 import duckdb
 
-# Post-run hook type alias (project convention: simple Callable aliases)
 PostDbtRunHook = Callable[[Path], None]
+
+_EXCLUDED_DIR_NAMES: frozenset[str] = frozenset(
+    {
+        "target",
+        "dbt_packages",
+        "dbt_modules",
+        "logs",
+        ".venv",
+        ".git",
+        "node_modules",
+        "__pycache__",
+        ".mypy_cache",
+        ".pytest_cache",
+    }
+)
+
+_MAX_SUMMARY_FILES = 1000
 
 
 def duckdb_post_run_hook(project_dir: Path) -> None:
@@ -78,12 +94,18 @@ def assemble_dbt_project_summary(project_dir: Path) -> str:
     Returns a directory tree listing all files with their sizes — no file
     contents are read.  The agent can later call ``read_tool(path)`` for any
     file it actually needs.
+
+    Directories listed in ``_EXCLUDED_DIR_NAMES`` (e.g. target, dbt_packages,
+    logs) are skipped to avoid bloating the system prompt after dbt deps/run.
+    The listing is also capped at ``_MAX_SUMMARY_FILES`` entries.
     """
     if not project_dir or not project_dir.exists():
         return f"DBT project directory not found at {project_dir}"
 
     files: list[tuple[Path, int]] = []
-    for dirpath, _dirnames, filenames in os.walk(project_dir):
+    for dirpath, dirnames, filenames in os.walk(project_dir):
+        dirnames[:] = [d for d in dirnames if d not in _EXCLUDED_DIR_NAMES]
+
         for fname in sorted(filenames):
             fpath = Path(dirpath) / fname
             rel = fpath.relative_to(project_dir)
@@ -92,17 +114,26 @@ def assemble_dbt_project_summary(project_dir: Path) -> str:
             except Exception:
                 size = -1
             files.append((rel, size))
+            if len(files) >= _MAX_SUMMARY_FILES:
+                break
+        if len(files) >= _MAX_SUMMARY_FILES:
+            break
 
     files.sort()
 
     if not files:
         return f"DBT project directory present at {project_dir} but no files found."
 
-    # Build a compact tree representation
-    lines: list[str] = [f"dbt project structure ({len(files)} files):"]
+    truncated = len(files) >= _MAX_SUMMARY_FILES
+    lines: list[str] = [f"dbt project structure ({len(files)}{'+ (truncated)' if truncated else ''} files):"]
     for rel, size in files:
         size_str = f"{size} bytes" if size >= 0 else "unknown size"
         lines.append(f"  {rel}  ({size_str})")
+
+    if truncated:
+        lines.append(
+            f"\n  ... listing capped at {_MAX_SUMMARY_FILES} files. Use read_tool / grep_tool to explore further."
+        )
 
     lines.append("")
     lines.append("Use read_tool(path) to inspect any file contents as needed.")

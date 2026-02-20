@@ -36,7 +36,6 @@ def agent(
     llm_config = llm_config if llm_config else LLMConfigDirectory.DEFAULT
     agent_config = agent_config if agent_config else DEFAULT_AGENT_CONFIG
 
-    # Create executor if not provided
     if data_executor is None:
         match executor_type:
             case "lighthouse":
