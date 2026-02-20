@@ -13,6 +13,7 @@ from langgraph.graph.state import CompiledStateGraph
 from databao.configs import LLMConfig
 from databao.configs.agent import AgentConfig
 from databao.core import Cache, Domain, ExecutionResult, Opa
+from databao.core.data_source import Sources
 from databao.core.domain import _Domain
 from databao.core.executor import OutputModalityHints
 from databao.executors.base import GraphExecutor
@@ -26,6 +27,8 @@ from databao.executors.dbt.graph import DbtProjectGraph
 from databao.executors.dbt.query_runner import DuckDbQueryRunner
 from databao.executors.history_cleaning import clean_tool_history
 
+_DBT_TARGET_FOLDER_KEY = "dbt_target_folder_path"
+
 
 class DbtProjectExecutor(GraphExecutor):
     """
@@ -35,12 +38,12 @@ class DbtProjectExecutor(GraphExecutor):
     def __init__(
         self,
         *,
-        dbt_config: DbtConfig,
+        dbt_config: DbtConfig | None = None,
         post_dbt_run_hook: PostDbtRunHook | None = None,
         writer: TextIO | None = None,
     ) -> None:
         super().__init__(writer=writer)
-        self._dbt_config = dbt_config
+        self._dbt_config = dbt_config or DbtConfig()
 
         self._prompt_template = self._read_prompt_template("system_prompt.jinja")
         self._task_instruction = self._read_prompt_template("task_instruction.jinja").render()
@@ -54,6 +57,24 @@ class DbtProjectExecutor(GraphExecutor):
         )
         self._compiled_graph: CompiledStateGraph[Any] | None = None
         self._dbt_dirty: bool = True
+
+    @staticmethod
+    def _resolve_project_dir(dbt_config: DbtConfig, sources: Sources) -> Path:
+        """Extract the dbt project directory from explicit config or the domain's datasources.
+
+        A dbt datasource stores ``dbt_target_folder_path`` pointing to ``<project_dir>/target``.
+        The project root is its parent.
+        """
+        if dbt_config.project_dir is not None:
+            return dbt_config.project_dir.resolve()
+        for source in sources.dbs.values():
+            target_path = source.config.content.get(_DBT_TARGET_FOLDER_KEY)
+            if target_path is not None:
+                return Path(target_path).resolve().parent
+        raise ValueError(
+            "Could not resolve dbt project directory. "
+            "Ensure a dbt datasource with dbt_target_folder_path is configured in the DCE project."
+        )
 
     def _make_query_runner(self) -> DuckDbQueryRunner:
         """Create a short-lived DuckDB read-only query runner from the shared connection state.
@@ -87,13 +108,9 @@ class DbtProjectExecutor(GraphExecutor):
     def _get_today_date_str() -> str:
         return datetime.datetime.now().strftime("%A, %Y-%m-%d")
 
-    def render_system_prompt(self, domain: Domain, recursion_limit: int = 50) -> str:
-        project_dir = self._dbt_config.project_dir.resolve()
+    def render_system_prompt(self, sources: Sources, project_dir: Path, recursion_limit: int = 50) -> str:
         dbt_overview = assemble_dbt_project_summary(project_dir)
         attached_catalogs = list(self._attached_db_paths.keys()) or []
-
-        domain_internal = cast(_Domain, domain)
-        sources = domain_internal.sources
 
         context_text = ""
         for db_name, source in sources.dbs.items():
@@ -106,7 +123,7 @@ class DbtProjectExecutor(GraphExecutor):
             context_text += f"## General information {idx}\n\n{add_ctx.strip()}\n\n"
         context_text = context_text.strip()
 
-        datasource_entries = self._build_datasource_list(domain_internal)
+        datasource_entries = self._build_datasource_list(sources)
 
         system_prompt = self._prompt_template.render(
             dbt_overview=dbt_overview,
@@ -120,10 +137,9 @@ class DbtProjectExecutor(GraphExecutor):
         return system_prompt.strip()
 
     @staticmethod
-    def _build_datasource_list(domain: _Domain) -> list[dict[str, str]]:
+    def _build_datasource_list(sources: Sources) -> list[dict[str, str]]:
         """Build a list of datasource names with descriptions for the system prompt."""
         entries: list[dict[str, str]] = []
-        sources = domain.sources
         for db_name, source in sources.dbs.items():
             desc = ""
             if source.context:
@@ -171,17 +187,18 @@ class DbtProjectExecutor(GraphExecutor):
         compiled_graph = self._get_compiled_graph(llm_config, agent_config, domain)
         messages: list[BaseMessage] = self._process_opas(opas, cache)
 
+        sources = cast(_Domain, domain).sources
+        project_dir = self._resolve_project_dir(self._dbt_config, sources)
+
         all_messages_with_system = messages
         if not all_messages_with_system or all_messages_with_system[0].type != "system":
             all_messages_with_system = [
-                SystemMessage(self.render_system_prompt(domain, agent_config.recursion_limit)),
+                SystemMessage(self.render_system_prompt(sources, project_dir, agent_config.recursion_limit)),
                 HumanMessage(self._task_instruction),
                 *all_messages_with_system,
             ]
 
         cleaned_messages = clean_tool_history(all_messages_with_system, llm_config.max_tokens_before_cleaning)
-
-        project_dir = self._dbt_config.project_dir.resolve()
 
         pre_existing_files = [str(p.resolve()) for p in project_dir.rglob("*") if p.is_file()]
         init_state = self._graph.init_state(

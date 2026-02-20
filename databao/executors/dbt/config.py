@@ -12,5 +12,5 @@ class DbtConfig:
     This is intentionally minimal for now. We'll extend it when implementing planning/validation/apply.
     """
 
-    project_dir: Path
+    project_dir: Path | None = None
     dbt_timeout_seconds: int = 300
