@@ -40,7 +40,8 @@ def to_dce_config_content(config: DBConnectionConfig) -> dict[str, Any]:
             main_properties = {k: v for k, v in content.items() if k in main_property_keys}
             main_properties["additional_properties"] = additional_properties
             return {"connection": main_properties}
-    raise ValueError("Cannot convert DBConnectionConfig to DCE-format config")
+    # No adapter found — return raw content as-is (e.g. dbt sources)
+    return content
 
 
 # TODO (dce): use DCE config instead

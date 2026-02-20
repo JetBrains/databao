@@ -37,7 +37,9 @@ def duckdb_post_run_hook(project_dir: Path) -> None:
             con.execute("CHECKPOINT")
             con.close()
         except Exception:
-            pass  # Best effort
+            # If we can't checkpoint (e.g. lock held), WAL will be applied
+            # on the next read-only ATTACH automatically by DuckDB.
+            pass
 
 
 def noop_post_run_hook(project_dir: Path) -> None:

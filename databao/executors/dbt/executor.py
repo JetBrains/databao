@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import datetime
 from pathlib import Path
 from typing import Any, TextIO, cast
@@ -60,6 +61,13 @@ class DbtProjectExecutor(GraphExecutor):
         )
         self._compiled_graph: CompiledStateGraph[Any] | None = None
         self._dbt_dirty: bool = True
+
+    def _detach_all_databases(self) -> None:
+        """Detach all databases from the shared connection to release file locks."""
+        for name in self._attached_db_paths:
+            for name in self._attached_db_paths:
+                with contextlib.suppress(Exception):
+                    self._duckdb_connection.execute(f'DETACH "{name}"')
 
     @staticmethod
     def _resolve_project_dir(dbt_config: DbtConfig, sources: Sources) -> Path:
@@ -196,6 +204,10 @@ class DbtProjectExecutor(GraphExecutor):
         stream: bool = True,
         writer: TextIO | None = None,
     ) -> ExecutionResult:
+        # NOTE: (@gas) release file locks — this executor uses short-lived connections
+        # Detaching allows the dbt subprocess to write freely.
+        self._detach_all_databases()
+
         compiled_graph = self._get_compiled_graph(llm_config, agent_config, domain)
         messages: list[BaseMessage] = self._process_opas(opas, cache)
 
