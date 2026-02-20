@@ -5,15 +5,18 @@ Ensure your results are valid and reproducible.
 Today's date is: {{ date }} (YYYY-MM-DD).
 
 # Schema Discovery via search_context #
-Use the `search_context(retrieve_text, datasource_name)` tool to discover tables, columns, and schema information.
+Use the `search_context(retrieve_text, datasource_name, datasource_type)` tool to discover tables, columns, and schema information.
 You can search for table names, column names, or describe what data you're looking for in natural language.
 Pass `datasource_name` to restrict the search to a specific data source.
+Pass `datasource_type` to indicate the type of the datasource you are searching (e.g. "dbt", "duckdb", "snowflake", "postgres").
+This helps the tool adapt the search to the naming conventions of that system.
 
 {% if datasources %}
 ## Available Datasources
-Use these names as `datasource_name` when calling `search_context`:
+Use these names as `datasource_name` when calling `search_context`.
+Use the listed type as `datasource_type`.
 {% for ds in datasources %}
-- **{{ ds.name }}**{% if ds.description %}: {{ ds.description }}{% endif %}
+- **{{ ds.name }}** (type: `{{ ds.type }}`){% if ds.description %}: {{ ds.description }}{% endif %}
 
 {% endfor %}
 {% endif %}
@@ -61,7 +64,7 @@ the agent will instead receive a compact index and short summaries. If exact fil
 After creating the necessary sql files, adhere to the general guidelines and the rest of the instructions below.
 
 # Tools (short reference):
-- **search_context(retrieve_text, datasource_name)**: search for tables, columns, schema info or any contextual knowledge. Use `datasource_name` to target a specific source.
+- **search_context(retrieve_text, datasource_name, datasource_type)**: search for tables, columns, schema info or any contextual knowledge. Use `datasource_name` to target a specific source. Use `datasource_type` (e.g. "dbt", "duckdb", "snowflake") to adapt the search to naming conventions.
 - **run_sql(sql, sample_rows=5)**: returns JSON {schema:[{name,dtype}], row_count, sample_rows, truncated}
 - **run_dbt(project_dir=None, timeout=None)**: runs `dbt run` and returns JSON {returncode, stdout_tail, stderr_tail, timeout}. Parameters are optional and default to project context.
 - **dbt_deps(project_dir=None)**: runs `dbt deps` to install dbt dependencies and returns JSON {returncode, stdout_tail, stderr_tail}
@@ -92,13 +95,19 @@ When you create NEW dbt models, you MUST also create corresponding documentation
 
 Example documentation format:
 ```yaml
-version: 2
-models:
-  - name: fct_monthly_refund_rate description: > Monthly aggregation of refund rates. Each row represents one calendar month with order counts and the percentage of orders that were refunded. columns:
-      - name: month description: The first day of the calendar month.
-      - name: total_orders description: Count of orders placed in the month.
-      - name: refunded_orders description: Count of orders that were refunded in the month.
-      - name: refund_rate description: Percentage of orders refunded (refunded_orders / total_orders).
+  - name: fct_monthly_refund_rate
+    description: >
+      Monthly aggregation of refund rates. Each row represents one calendar month
+      with order counts and the percentage of orders that were refunded.
+    columns:
+      - name: month
+        description: The first day of the calendar month.
+      - name: total_orders
+        description: Count of orders placed in the month.
+      - name: refunded_orders
+        description: Count of orders that were refunded in the month.
+      - name: refund_rate
+        description: Percentage of orders refunded (refunded_orders / total_orders).
 ```
 
 # Usage guidance:

@@ -26,6 +26,7 @@ from databao.executors.dbt.dbt_runner import (
 from databao.executors.dbt.graph import DbtProjectGraph
 from databao.executors.dbt.query_runner import DuckDbQueryRunner
 from databao.executors.history_cleaning import clean_tool_history
+from databao.executors.query_expansion import QueryExpansionConfig
 
 _DBT_TARGET_FOLDER_KEY = "dbt_target_folder_path"
 
@@ -40,10 +41,12 @@ class DbtProjectExecutor(GraphExecutor):
         *,
         dbt_config: DbtConfig | None = None,
         post_dbt_run_hook: PostDbtRunHook | None = None,
+        expansion_config: QueryExpansionConfig | None = None,
         writer: TextIO | None = None,
     ) -> None:
         super().__init__(writer=writer)
         self._dbt_config = dbt_config or DbtConfig()
+        self._expansion_config = expansion_config
 
         self._prompt_template = self._read_prompt_template("system_prompt.jinja")
         self._task_instruction = self._read_prompt_template("task_instruction.jinja").render()
@@ -106,7 +109,7 @@ class DbtProjectExecutor(GraphExecutor):
 
     @staticmethod
     def _get_today_date_str() -> str:
-        return datetime.datetime.now().strftime("%A, %Y-%m-%d")
+        return datetime.datetime.now().strftime("%Y-%m-%d")
 
     def render_system_prompt(self, sources: Sources, project_dir: Path, recursion_limit: int = 50) -> str:
         dbt_overview = assemble_dbt_project_summary(project_dir)
@@ -138,28 +141,37 @@ class DbtProjectExecutor(GraphExecutor):
 
     @staticmethod
     def _build_datasource_list(sources: Sources) -> list[dict[str, str]]:
-        """Build a list of datasource names with descriptions for the system prompt."""
+        """Build a list of datasource names with descriptions and types for the system prompt."""
         entries: list[dict[str, str]] = []
         for db_name, source in sources.dbs.items():
             desc = ""
             if source.context:
                 first_line = source.context.strip().split("\n")[0][:120]
                 desc = first_line
-            entries.append({"name": db_name, "description": desc})
+            entries.append(
+                {
+                    "name": db_name,
+                    "description": desc,
+                    "type": source.config.type.full_type,
+                }
+            )
         for df_name, source in sources.dfs.items():
             desc = ""
             if source.context:
                 first_line = source.context.strip().split("\n")[0][:120]
                 desc = first_line
-            entries.append({"name": df_name, "description": desc})
+            entries.append({"name": df_name, "description": desc, "type": "dataframe"})
         return entries
 
     def _get_compiled_graph(
         self, llm_config: LLMConfig, agent_config: AgentConfig, domain: Domain
     ) -> CompiledStateGraph[Any]:
-        compiled_graph = self._compiled_graph or self._graph.compile(llm_config, agent_config, domain)
-        self._compiled_graph = compiled_graph
-        return compiled_graph
+        if self._compiled_graph is None:
+            expansion_llm = llm_config.new_chat_model() if self._expansion_config else None
+            self._graph._expansion_llm = expansion_llm
+            self._graph._expansion_config = self._expansion_config
+            self._compiled_graph = self._graph.compile(llm_config, agent_config, domain)
+        return self._compiled_graph
 
     def drop_last_opa_group(self, cache: Cache, n: int = 1) -> None:
         messages = cache.get("state", default={}).get("messages", [])

@@ -30,6 +30,7 @@ from databao.executors.dbt.dbt_runner import (
     run_dbt_subprocess,
 )
 from databao.executors.dbt.query_runner import QueryRunnerFactory
+from databao.executors.query_expansion import QueryExpansionConfig
 from databao.executors.tools import make_search_context_tool
 
 
@@ -99,9 +100,13 @@ class DbtProjectGraph:
         *,
         query_runner_factory: QueryRunnerFactory | None = None,
         post_dbt_run_hook: PostDbtRunHook = noop_post_run_hook,
+        expansion_llm: BaseChatModel | None = None,
+        expansion_config: QueryExpansionConfig | None = None,
     ) -> None:
         self._query_runner_factory = query_runner_factory
         self._post_dbt_run_hook = post_dbt_run_hook
+        self._expansion_llm = expansion_llm
+        self._expansion_config = expansion_config
 
     def init_state(
         self,
@@ -446,7 +451,11 @@ class DbtProjectGraph:
             submit_answer,
         ]
 
-        search_context_tool = make_search_context_tool(domain)
+        search_context_tool = make_search_context_tool(
+            domain,
+            expansion_llm=self._expansion_llm,
+            expansion_config=self._expansion_config,
+        )
         if search_context_tool is not None:
             tools.append(search_context_tool)
 
