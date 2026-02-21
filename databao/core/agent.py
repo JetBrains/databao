@@ -205,14 +205,14 @@ class Agent:
             if resolved_auth is not None:
                 raise ValueError("'auth' is only supported for HTTP-based transports (SSE / Streamable HTTP)")
             connection = McpConnection.connect_stdio(command, args=args, env=env)
-        elif transport == "streamable_http":
-            if url is None:
-                raise ValueError("url must not be None")
-            connection = McpConnection.connect_streamable_http(url, headers=headers, auth=resolved_auth)
-        else:
+        elif transport == "sse":
             if url is None:
                 raise ValueError("url must not be None")
             connection = McpConnection.connect_sse(url, headers=headers, auth=resolved_auth)
+        else:
+            if url is None:
+                raise ValueError("url must not be None")
+            connection = McpConnection.connect_streamable_http(url, headers=headers, auth=resolved_auth)
 
         server_name = name or connection.server_name
         if server_name in self.__mcp_connections:
