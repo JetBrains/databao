@@ -413,6 +413,74 @@ class TestAgentAddMcpTransportValidation:
             agent.add_mcp(url="http://localhost:8080/mcp", transport="streamable-http")
 
 
+class TestSseUrlAutoDetection:
+    @patch("databao.mcp.connection.McpConnection.connect_sse")
+    @patch("databao.mcp.adapter.mcp_tools_to_langchain")
+    def test_url_ending_with_sse_uses_sse_transport(
+        self, mock_to_lc: MagicMock, mock_connect: MagicMock, domain: Domain
+    ) -> None:
+        mock_conn = MagicMock(spec=McpConnection)
+        mock_conn.server_name = "sse:http://example.com/sse"
+        mock_conn.tools = []
+        mock_connect.return_value = mock_conn
+        mock_to_lc.return_value = []
+
+        agent = _new_agent(domain)
+        agent.add_mcp(url="http://example.com/sse")
+
+        mock_connect.assert_called_once_with("http://example.com/sse", headers=None, auth=None)
+
+    @patch("databao.mcp.connection.McpConnection.connect_sse")
+    @patch("databao.mcp.adapter.mcp_tools_to_langchain")
+    def test_url_ending_with_sse_trailing_slash(
+        self, mock_to_lc: MagicMock, mock_connect: MagicMock, domain: Domain
+    ) -> None:
+        mock_conn = MagicMock(spec=McpConnection)
+        mock_conn.server_name = "sse:http://example.com/sse/"
+        mock_conn.tools = []
+        mock_connect.return_value = mock_conn
+        mock_to_lc.return_value = []
+
+        agent = _new_agent(domain)
+        agent.add_mcp(url="http://example.com/sse/")
+
+        mock_connect.assert_called_once_with("http://example.com/sse/", headers=None, auth=None)
+
+    @patch("databao.mcp.connection.McpConnection.connect_streamable_http")
+    @patch("databao.mcp.adapter.mcp_tools_to_langchain")
+    def test_non_sse_url_defaults_to_streamable_http(
+        self, mock_to_lc: MagicMock, mock_connect: MagicMock, domain: Domain
+    ) -> None:
+        mock_conn = MagicMock(spec=McpConnection)
+        mock_conn.server_name = "http:http://example.com/mcp"
+        mock_conn.tools = []
+        mock_connect.return_value = mock_conn
+        mock_to_lc.return_value = []
+
+        agent = _new_agent(domain)
+        agent.add_mcp(url="http://example.com/mcp")
+
+        mock_connect.assert_called_once_with("http://example.com/mcp", headers=None, auth=None)
+
+
+class TestConfigNameUsedAsKey:
+    @patch("databao.mcp.connection.McpConnection.connect_stdio")
+    @patch("databao.mcp.adapter.mcp_tools_to_langchain")
+    def test_config_name_used_in_mcp_servers(
+        self, mock_to_lc: MagicMock, mock_connect: MagicMock, domain: Domain
+    ) -> None:
+        mock_conn = MagicMock(spec=McpConnection)
+        mock_conn.server_name = "stdio:npx"
+        mock_conn.tools = []
+        mock_connect.return_value = mock_conn
+        mock_to_lc.return_value = []
+
+        agent = _new_agent(domain)
+        agent.add_mcp({"mcpServers": {"My Weather Server": {"command": "npx", "args": ["@weather/mcp"]}}})
+
+        assert agent.mcp_servers == ["My Weather Server"]
+
+
 class TestParseMcpConfigEdgeCases:
     def test_empty_dict_returns_empty_list(self) -> None:
         result = parse_mcp_config({})
