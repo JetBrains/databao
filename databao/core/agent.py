@@ -153,6 +153,7 @@ class Agent:
             servers = parse_mcp_config(config)
             for server_cfg in servers:
                 self._add_mcp_single(
+                    name=server_cfg.get("name"),
                     url=server_cfg.get("url"),
                     command=server_cfg.get("command"),
                     args=server_cfg.get("args"),
@@ -176,6 +177,7 @@ class Agent:
     def _add_mcp_single(
             self,
             *,
+            name: str | None = None,
             url: str | None = None,
             command: str | None = None,
             args: list[str] | None = None,
@@ -212,7 +214,7 @@ class Agent:
                 raise ValueError("url must not be None")
             connection = McpConnection.connect_sse(url, headers=headers, auth=resolved_auth)
 
-        server_name = connection.server_name
+        server_name = name or connection.server_name
         if server_name in self.__mcp_connections:
             logger.warning("MCP server %r registered more than once; replacing previous connection", server_name)
             self.__mcp_connections[server_name].close()
