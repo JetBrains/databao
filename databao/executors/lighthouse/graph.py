@@ -1,3 +1,4 @@
+import json
 from collections.abc import Sequence
 from typing import Annotated, Any, Literal
 
@@ -272,6 +273,11 @@ class ExecuteSubmit:
                     visualization_prompt = tool_call["args"].get("visualization_prompt", "")
                     sql = state["query_ids"][query_id].artifact["sql"]
                     df = state["query_ids"][query_id].artifact["df"]
+                else:
+                    if isinstance(result, dict):
+                        content = json.dumps(result, ensure_ascii=False, default=str)
+                    else:
+                        content = str(result)
                 tool_messages.append(ToolMessage(content=content, tool_call_id=tool_call_id, artifact=result))
                 if name == "submit_result":
                     return {
