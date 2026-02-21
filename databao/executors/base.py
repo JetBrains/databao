@@ -1,14 +1,18 @@
 import logging
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import Any, TextIO
 
 import duckdb
 from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
+from langchain_core.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
 
+from databao.configs.agent import AgentConfig
+from databao.configs.llm import LLMConfig
 from databao.core import Cache
 from databao.core.data_source import DBDataSource, DFDataSource
+from databao.core.domain import Domain
 from databao.core.executor import ExecutionResult, Executor, OutputModalityHints
 from databao.core.opa import Opa
 from databao.databases import register_in_duckdb
@@ -33,6 +37,9 @@ class GraphExecutor(Executor, ABC):
         self._duckdb_connection: duckdb.DuckDBPyConnection = duckdb.connect(":memory:")
         self._attached_db_paths: dict[str, str] = {}
         self._registered_dfs: dict[str, Any] = {}
+        self._extra_tools: list[BaseTool] = []
+        self._compiled_graph: CompiledStateGraph[Any] | None = None
+        self._compiled_extra_tools_count: int = 0
 
     def register_db(self, source: DBDataSource) -> None:
         """Register a database source into the shared DuckDB connection."""
@@ -54,6 +61,26 @@ class GraphExecutor(Executor, ABC):
         """Register a DataFrame source into the shared DuckDB connection."""
         self._registered_dfs[source.name] = source.df
         self._duckdb_connection.register(source.name, source.df)
+
+    def register_tools(self, tools: list[BaseTool]) -> None:
+        """Register additional LangChain tools and invalidate the cached compiled graph."""
+        self._extra_tools.extend(tools)
+
+    @abstractmethod
+    def _compile_graph(
+        self, llm_config: LLMConfig, agent_config: AgentConfig, domain: Domain
+    ) -> CompiledStateGraph[Any]:
+        """Build and return a fresh compiled graph. Called by _get_compiled_graph when needed."""
+
+    def _get_compiled_graph(
+        self, llm_config: LLMConfig, agent_config: AgentConfig, domain: Domain
+    ) -> CompiledStateGraph[Any]:
+        """Return a cached compiled graph, recompiling when extra tools have changed."""
+        tools_changed = len(self._extra_tools) != self._compiled_extra_tools_count
+        if self._compiled_graph is None or tools_changed:
+            self._compiled_graph = self._compile_graph(llm_config, agent_config, domain)
+            self._compiled_extra_tools_count = len(self._extra_tools)
+        return self._compiled_graph
 
     def _process_opas(self, opas: list[Opa], cache: Cache) -> list[Any]:
         """

@@ -145,7 +145,7 @@ class DbtProjectGraph:
             "answer_submitted": state.get("answer_df") is not None,
         }
 
-    def make_tools(self) -> list[BaseTool]:
+    def make_tools(self, extra_tools: list[BaseTool] | None = None) -> list[BaseTool]:
         @tool(parse_docstring=True)
         def run_database_explore(project_dir: str) -> str:
             """
@@ -443,7 +443,7 @@ class DbtProjectGraph:
             finally:
                 runner.close()
 
-        return [
+        tools: list[BaseTool] = [
             run_database_explore,
             run_sql,
             run_dbt,
@@ -455,8 +455,18 @@ class DbtProjectGraph:
             submit_answer,
         ]
 
-    def compile(self, model_config: LLMConfig, agent_config: AgentConfig) -> CompiledStateGraph[Any]:
-        tools = self.make_tools()
+        if extra_tools:
+            tools.extend(extra_tools)
+
+        return tools
+
+    def compile(
+        self,
+        model_config: LLMConfig,
+        agent_config: AgentConfig,
+        extra_tools: list[BaseTool] | None = None,
+    ) -> CompiledStateGraph[Any]:
+        tools = self.make_tools(extra_tools=extra_tools)
         llm_model = model_config.new_chat_model()
 
         if llm.is_openai_model(model_config.name):

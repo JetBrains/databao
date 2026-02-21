@@ -51,7 +51,6 @@ class DbtProjectExecutor(GraphExecutor):
             query_runner_factory=self._make_query_runner,
             post_dbt_run_hook=self._post_dbt_run_hook,
         )
-        self._compiled_graph: CompiledStateGraph[Any] | None = None
         self._current_cache_scope: str | None = None
         self._dbt_dirty: bool = True
 
@@ -95,10 +94,11 @@ class DbtProjectExecutor(GraphExecutor):
         )
         return system_prompt.strip()
 
-    def _get_compiled_graph(self, llm_config: LLMConfig, agent_config: AgentConfig) -> CompiledStateGraph[Any]:
-        compiled_graph = self._compiled_graph or self._graph.compile(llm_config, agent_config)
-        self._compiled_graph = compiled_graph
-        return compiled_graph
+    def _compile_graph(
+        self, llm_config: LLMConfig, agent_config: AgentConfig, domain: Domain
+    ) -> CompiledStateGraph[Any]:
+        extra_tools = self._extra_tools if self._extra_tools else None
+        return self._graph.compile(llm_config, agent_config, extra_tools=extra_tools)
 
     def drop_last_opa_group(self, cache: Cache, n: int = 1) -> None:
         messages = cache.get("state", default={}).get("messages", [])
@@ -130,7 +130,7 @@ class DbtProjectExecutor(GraphExecutor):
             self._current_cache_scope = cache_prefix
             self._graph.invalidate_introspect_cache()
 
-        compiled_graph = self._get_compiled_graph(llm_config, agent_config)
+        compiled_graph = self._get_compiled_graph(llm_config, agent_config, domain)
         messages: list[BaseMessage] = self._process_opas(opas, cache)
 
         all_messages_with_system = messages

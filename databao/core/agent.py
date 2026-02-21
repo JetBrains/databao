@@ -1,5 +1,6 @@
+import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, TextIO
+from typing import TYPE_CHECKING, Any, TextIO
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from pandas import DataFrame
@@ -15,6 +16,9 @@ if TYPE_CHECKING:
     from databao.core.cache import Cache
     from databao.core.executor import Executor
     from databao.core.visualizer import Visualizer
+    from databao.mcp.connection import McpConnection
+
+logger = logging.getLogger(__name__)
 
 
 class Agent:
@@ -49,6 +53,9 @@ class Agent:
         self.__visualizer = visualizer
         self.__cache = cache
 
+        # MCP connections (kept alive for tool calls)
+        self.__mcp_connections: list[McpConnection] = []
+
         # Thread defaults
         self.__rows_limit = rows_limit
         self.__lazy_threads = lazy_threads
@@ -76,6 +83,118 @@ class Agent:
         raise NotImplementedError(
             "This method was removed. "
             "Please create a Domain, add a source to it, and initialize the Agent with that Domain."
+        )
+
+    def add_mcp(
+        self,
+        config: dict[str, Any] | str | None = None,
+        *,
+        url: str | None = None,
+        command: str | None = None,
+        args: list[str] | None = None,
+        env: dict[str, str] | None = None,
+        headers: dict[str, Any] | None = None,
+        transport: str | None = None,
+    ) -> None:
+        """Connect to one or more MCP servers and register their tools with this agent.
+
+        Can be called with a Claude-Code-style config dict / JSON, or with explicit keyword
+        arguments for a single server.
+
+        **Config dict** (Claude Code / Anthropic format)::
+
+              agent.add_mcp({
+                  "mcpServers": {
+                      "Name": {
+                          "command": "npx",
+                          "args": ["@command/mcp"],
+                          "env": {"API_TOKEN": "..."}
+                      }
+                  }
+              })
+
+        A JSON string or a path to a ``.json`` file is also accepted::
+
+              agent.add_mcp("/path/to/mcp_servers.json")
+
+        **Keyword arguments** (single server)::
+
+              agent.add_mcp(command="python", args=["my_server.py"])
+              agent.add_mcp(url="http://localhost:8080/sse")
+              agent.add_mcp(url="http://localhost:8080/mcp", transport="streamable_http")
+
+        Args:
+            config: A config dict, a JSON string, or a path to a JSON file.
+                Supports ``{"mcpServers": {name: server_cfg, ...}}``,
+                ``{name: server_cfg, ...}``, or a single ``server_cfg`` dict.
+                Each ``server_cfg`` contains ``command``/``args``/``env`` (stdio)
+                or ``url``/``headers`` (SSE / Streamable HTTP) keys.
+            url: Server URL for SSE or Streamable HTTP transport.
+            command: Executable for stdio transport.
+            args: Command-line arguments for the stdio executable.
+            env: Environment variables for the stdio subprocess.
+            headers: HTTP headers for SSE / Streamable HTTP transport.
+            transport: Explicit transport selection (``"sse"`` or ``"streamable_http"``).
+                Inferred automatically when *url* or *command* is provided.
+        """
+        if config is not None:
+            from databao.mcp.config import parse_mcp_config
+
+            has_kw = any(v is not None for v in (url, command, args, env, headers, transport))
+            if has_kw:
+                raise ValueError("Cannot combine 'config' with keyword arguments; use one or the other")
+
+            servers = parse_mcp_config(config)
+            for server_cfg in servers:
+                self._add_mcp_single(
+                    url=server_cfg.get("url"),
+                    command=server_cfg.get("command"),
+                    args=server_cfg.get("args"),
+                    env=server_cfg.get("env"),
+                    headers=server_cfg.get("headers"),
+                    transport=server_cfg.get("transport"),
+                )
+        else:
+            self._add_mcp_single(
+                url=url, command=command, args=args, env=env, headers=headers, transport=transport
+            )
+
+    def _add_mcp_single(
+        self,
+        *,
+        url: str | None = None,
+        command: str | None = None,
+        args: list[str] | None = None,
+        env: dict[str, str] | None = None,
+        headers: dict[str, Any] | None = None,
+        transport: str | None = None,
+    ) -> None:
+        """Connect to a single MCP server."""
+        from databao.mcp.adapter import mcp_tools_to_langchain
+        from databao.mcp.connection import McpConnection
+
+        if command is not None and url is not None:
+            raise ValueError("Specify either 'command' (stdio) or 'url' (sse/http), not both")
+        if command is None and url is None:
+            raise ValueError("Specify either 'command' (stdio) or 'url' (sse/http)")
+
+        if command is not None:
+            connection = McpConnection.connect_stdio(command, args=args, env=env)
+        elif transport == "streamable_http":
+            assert url is not None
+            connection = McpConnection.connect_streamable_http(url, headers=headers)
+        else:
+            assert url is not None
+            connection = McpConnection.connect_sse(url, headers=headers)
+
+        self.__mcp_connections.append(connection)
+        lc_tools = mcp_tools_to_langchain(connection)
+        self.__executor.register_tools(lc_tools)
+        logger.info(
+            "Registered %d MCP tools from %s: %s",
+            len(lc_tools),
+            connection.server_name,
+            [t.name for t in lc_tools],
         )
 
     def thread(

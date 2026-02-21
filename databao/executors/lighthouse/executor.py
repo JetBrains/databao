@@ -22,7 +22,6 @@ class LighthouseExecutor(GraphExecutor):
         super().__init__(writer=writer)
         self._prompt_template = read_prompt_template(Path("system_prompt.jinja"))
         self._graph: ExecuteSubmit = ExecuteSubmit(self._duckdb_connection)
-        self._compiled_graph: CompiledStateGraph[Any] | None = None
 
     def render_system_prompt(
         self,
@@ -54,14 +53,11 @@ class LighthouseExecutor(GraphExecutor):
 
         return prompt.strip()
 
-    def _get_compiled_graph(
+    def _compile_graph(
         self, llm_config: LLMConfig, agent_config: AgentConfig, domain: Domain
     ) -> CompiledStateGraph[Any]:
-        """Get compiled graph."""
-        compiled_graph = self._compiled_graph or self._graph.compile(llm_config, agent_config, domain)
-        self._compiled_graph = compiled_graph
-
-        return compiled_graph
+        extra_tools = self._extra_tools if self._extra_tools else None
+        return self._graph.compile(llm_config, agent_config, domain, extra_tools=extra_tools)
 
     def drop_last_opa_group(self, cache: Cache, n: int = 1) -> None:
         """Drop last n groups of operations from the message history."""
