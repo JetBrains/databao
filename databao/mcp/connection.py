@@ -16,6 +16,7 @@ from mcp.types import Tool as McpTool
 logger = logging.getLogger(__name__)
 
 _CONNECT_TIMEOUT_SECONDS = 30
+_CALL_TIMEOUT_SECONDS = 120
 
 
 class McpConnection:
@@ -44,7 +45,11 @@ class McpConnection:
         conn = cls()
         conn._server_name = f"stdio:{command}"
         conn._start_loop()
-        conn._run_sync(conn._setup_stdio(command, args or [], env))
+        try:
+            conn._run_sync(conn._setup_stdio(command, args or [], env))
+        except Exception:
+            conn.close()
+            raise
         return conn
 
     @classmethod
@@ -57,7 +62,11 @@ class McpConnection:
         conn = cls()
         conn._server_name = f"sse:{url}"
         conn._start_loop()
-        conn._run_sync(conn._setup_sse(url, headers))
+        try:
+            conn._run_sync(conn._setup_sse(url, headers))
+        except Exception:
+            conn.close()
+            raise
         return conn
 
     @classmethod
@@ -70,7 +79,11 @@ class McpConnection:
         conn = cls()
         conn._server_name = f"http:{url}"
         conn._start_loop()
-        conn._run_sync(conn._setup_streamable_http(url, headers))
+        try:
+            conn._run_sync(conn._setup_streamable_http(url, headers))
+        except Exception:
+            conn.close()
+            raise
         return conn
 
     @property
@@ -85,14 +98,16 @@ class McpConnection:
         """Call an MCP tool synchronously."""
         if self._session is None:
             raise RuntimeError("MCP connection is not established")
-        result: CallToolResult = self._run_sync(self._session.call_tool(name, arguments))
+        result: CallToolResult = self._run_sync(
+            self._session.call_tool(name, arguments), timeout=_CALL_TIMEOUT_SECONDS
+        )
         return result
 
     def close(self) -> None:
         """Shut down the MCP connection and background event loop."""
         if self._exit_stack is not None:
             try:
-                self._run_sync(self._exit_stack.aclose())
+                self._run_sync(self._exit_stack.aclose(), timeout=5)
             except Exception:
                 logger.warning("Error closing MCP connection %s", self._server_name, exc_info=True)
         if self._loop is not None:
@@ -111,10 +126,19 @@ class McpConnection:
         self._thread = threading.Thread(target=self._loop.run_forever, daemon=True, name=f"mcp-{id(self)}")
         self._thread.start()
 
-    def _run_sync(self, coro: Any) -> Any:
-        assert self._loop is not None
+    def _run_sync(self, coro: Any, *, timeout: int = _CONNECT_TIMEOUT_SECONDS) -> Any:
+        if self._loop is None:
+            raise RuntimeError("MCP event loop is not running")
         future = asyncio.run_coroutine_threadsafe(coro, self._loop)
-        return future.result(timeout=_CONNECT_TIMEOUT_SECONDS)
+        return future.result(timeout=timeout)
+
+    async def _finalize_session(self) -> None:
+        """Initialize the session, list tools, and log. Called by all _setup_* methods."""
+        assert self._session is not None
+        await self._session.initialize()
+        result = await self._session.list_tools()
+        self._tools = list(result.tools)
+        logger.info("Connected to MCP server %s, %d tools available", self._server_name, len(self._tools))
 
     async def _setup_stdio(
         self, command: str, args: list[str], env: dict[str, str] | None
@@ -123,19 +147,13 @@ class McpConnection:
         server_params = StdioServerParameters(command=command, args=args, env=env)
         read, write = await self._exit_stack.enter_async_context(stdio_client(server_params))
         self._session = await self._exit_stack.enter_async_context(ClientSession(read, write))
-        await self._session.initialize()
-        result = await self._session.list_tools()
-        self._tools = list(result.tools)
-        logger.info("Connected to MCP server %s, %d tools available", self._server_name, len(self._tools))
+        await self._finalize_session()
 
     async def _setup_sse(self, url: str, headers: dict[str, Any] | None) -> None:
         self._exit_stack = AsyncExitStack()
         read, write = await self._exit_stack.enter_async_context(sse_client(url, headers=headers))
         self._session = await self._exit_stack.enter_async_context(ClientSession(read, write))
-        await self._session.initialize()
-        result = await self._session.list_tools()
-        self._tools = list(result.tools)
-        logger.info("Connected to MCP server %s, %d tools available", self._server_name, len(self._tools))
+        await self._finalize_session()
 
     async def _setup_streamable_http(self, url: str, headers: dict[str, str] | None) -> None:
         self._exit_stack = AsyncExitStack()
@@ -143,7 +161,4 @@ class McpConnection:
             streamablehttp_client(url, headers=headers)
         )
         self._session = await self._exit_stack.enter_async_context(ClientSession(read, write))
-        await self._session.initialize()
-        result = await self._session.list_tools()
-        self._tools = list(result.tools)
-        logger.info("Connected to MCP server %s, %d tools available", self._server_name, len(self._tools))
+        await self._finalize_session()

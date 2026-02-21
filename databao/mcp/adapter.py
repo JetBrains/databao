@@ -59,7 +59,7 @@ def _format_tool_result(result: Any) -> str:
                 parts.append(block.text)
             else:
                 parts.append(str(block))
-        text = "\n".join(parts)
+        text = "\n".join(parts) if parts else "(no output)"
         if hasattr(result, "isError") and result.isError:
             return f"[MCP Error] {text}"
         return text
@@ -79,7 +79,9 @@ def _make_langchain_tool(mcp_tool: McpTool, connection: McpConnection) -> BaseTo
     args_schema = _json_schema_to_pydantic(mcp_tool.name, mcp_tool.inputSchema)
 
     def call_mcp(**kwargs: Any) -> str:
-        result = connection.call_tool(mcp_tool.name, kwargs)
+        required = set(mcp_tool.inputSchema.get("required", []))
+        filtered = {k: v for k, v in kwargs.items() if k in required or v is not None}
+        result = connection.call_tool(mcp_tool.name, filtered)
         return _format_tool_result(result)
 
     return StructuredTool(

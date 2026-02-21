@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -385,3 +386,152 @@ class TestAgentAddMcpConfig:
         calls = mock_connect.call_args_list
         assert calls[0] == (("a",), {"args": ["--flag"], "env": None})
         assert calls[1] == (("b",), {"args": None, "env": None})
+
+
+# ---------------------------------------------------------------------------
+# New tests for fixed issues
+# ---------------------------------------------------------------------------
+
+
+class TestFormatToolResultSentinel:
+    def test_empty_content_returns_sentinel(self) -> None:
+        result = MagicMock()
+        result.content = []
+        result.isError = False
+        assert _format_tool_result(result) == "(no output)"
+
+
+class TestAgentAddMcpTransportValidation:
+    def test_invalid_transport_raises(self, domain: Domain) -> None:
+        agent = _new_agent(domain)
+        with pytest.raises(ValueError, match="Unknown transport"):
+            agent.add_mcp(url="http://localhost:8080/mcp", transport="invalid_transport")
+
+    def test_typo_transport_raises(self, domain: Domain) -> None:
+        agent = _new_agent(domain)
+        with pytest.raises(ValueError, match="Unknown transport"):
+            agent.add_mcp(url="http://localhost:8080/mcp", transport="streamable-http")
+
+
+class TestParseMcpConfigEdgeCases:
+    def test_empty_dict_returns_empty_list(self) -> None:
+        result = parse_mcp_config({})
+        assert result == []
+
+    def test_format3_returns_copy(self) -> None:
+        original = {"command": "npx", "args": ["pkg"]}
+        servers = parse_mcp_config(original)
+        assert len(servers) == 1
+        # Mutating the returned dict must not affect the original
+        servers[0]["command"] = "changed"
+        assert original["command"] == "npx"
+
+
+class TestAgentToolNameCollision:
+    @patch("databao.mcp.connection.McpConnection.connect_stdio")
+    def test_tool_name_collision_warns(
+        self, mock_connect: MagicMock, domain: Domain, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        tool_a = McpTool(
+            name="shared_tool",
+            description="First registration",
+            inputSchema={"type": "object", "properties": {}, "required": []},
+        )
+        tool_b = McpTool(
+            name="shared_tool",
+            description="Second registration — same name",
+            inputSchema={"type": "object", "properties": {}, "required": []},
+        )
+
+        mock_conn_a = MagicMock(spec=McpConnection)
+        mock_conn_a.server_name = "stdio:server_a"
+        mock_conn_a.tools = [tool_a]
+
+        mock_conn_b = MagicMock(spec=McpConnection)
+        mock_conn_b.server_name = "stdio:server_b"
+        mock_conn_b.tools = [tool_b]
+
+        mock_connect.side_effect = [mock_conn_a, mock_conn_b]
+
+        agent = _new_agent(domain)
+        with caplog.at_level(logging.WARNING, logger="databao.core.agent"):
+            agent.add_mcp(command="server_a")
+            agent.add_mcp(command="server_b")
+
+        assert any("collision" in record.message for record in caplog.records)
+
+
+class TestAgentMcpServers:
+    @patch("databao.mcp.connection.McpConnection.connect_stdio")
+    @patch("databao.mcp.adapter.mcp_tools_to_langchain")
+    def test_mcp_servers_returns_names(
+        self,
+        mock_to_lc: MagicMock,
+        mock_connect: MagicMock,
+        domain: Domain,
+    ) -> None:
+        mock_to_lc.return_value = []
+
+        conn_a = MagicMock(spec=McpConnection)
+        conn_a.server_name = "stdio:a"
+        conn_a.tools = []
+        conn_b = MagicMock(spec=McpConnection)
+        conn_b.server_name = "stdio:b"
+        conn_b.tools = []
+        mock_connect.side_effect = [conn_a, conn_b]
+
+        agent = _new_agent(domain)
+        assert agent.mcp_servers == []
+
+        agent.add_mcp(command="a")
+        assert agent.mcp_servers == ["stdio:a"]
+
+        agent.add_mcp(command="b")
+        assert set(agent.mcp_servers) == {"stdio:a", "stdio:b"}
+
+    @patch("databao.mcp.connection.McpConnection.connect_stdio")
+    @patch("databao.mcp.adapter.mcp_tools_to_langchain")
+    def test_duplicate_server_replaces_and_warns(
+        self,
+        mock_to_lc: MagicMock,
+        mock_connect: MagicMock,
+        domain: Domain,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        mock_to_lc.return_value = []
+
+        conn_old = MagicMock(spec=McpConnection)
+        conn_old.server_name = "stdio:x"
+        conn_old.tools = []
+        conn_new = MagicMock(spec=McpConnection)
+        conn_new.server_name = "stdio:x"
+        conn_new.tools = []
+        mock_connect.side_effect = [conn_old, conn_new]
+
+        agent = _new_agent(domain)
+        agent.add_mcp(command="x")
+        with caplog.at_level(logging.WARNING, logger="databao.core.agent"):
+            agent.add_mcp(command="x")
+
+        conn_old.close.assert_called_once()
+        assert agent.mcp_servers == ["stdio:x"]
+        assert any("more than once" in r.message for r in caplog.records)
+
+
+class TestAgentClose:
+    @patch("databao.mcp.connection.McpConnection.connect_stdio")
+    def test_close_calls_connection_close(
+        self, mock_connect: MagicMock, domain: Domain
+    ) -> None:
+        mock_conn = MagicMock(spec=McpConnection)
+        mock_conn.server_name = "stdio:test"
+        mock_conn.tools = []
+        mock_connect.return_value = mock_conn
+
+        agent = _new_agent(domain)
+        agent.add_mcp(command="test")
+        agent.close()
+
+        mock_conn.close.assert_called_once()
+        assert agent.mcp_servers == []
+

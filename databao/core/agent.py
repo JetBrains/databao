@@ -28,20 +28,20 @@ class Agent:
     """
 
     def __init__(
-        self,
-        domain: "_Domain",
-        llm: "LLMConfig",
-        agent_config: "AgentConfig",
-        data_executor: "Executor",
-        visualizer: "Visualizer",
-        cache: "Cache",
-        *,
-        name: str = "default_agent",
-        rows_limit: int,
-        stream_ask: bool = True,
-        stream_plot: bool = False,
-        lazy_threads: bool = False,
-        auto_output_modality: bool = True,
+            self,
+            domain: "_Domain",
+            llm: "LLMConfig",
+            agent_config: "AgentConfig",
+            data_executor: "Executor",
+            visualizer: "Visualizer",
+            cache: "Cache",
+            *,
+            name: str = "default_agent",
+            rows_limit: int,
+            stream_ask: bool = True,
+            stream_plot: bool = False,
+            lazy_threads: bool = False,
+            auto_output_modality: bool = True,
     ):
         self.__domain = domain
         self.__name = name
@@ -53,8 +53,8 @@ class Agent:
         self.__visualizer = visualizer
         self.__cache = cache
 
-        # MCP connections (kept alive for tool calls)
-        self.__mcp_connections: list[McpConnection] = []
+        # MCP server name → connection (kept alive for tool calls)
+        self.__mcp_connections: dict[str, McpConnection] = {}
 
         # Thread defaults
         self.__rows_limit = rows_limit
@@ -86,15 +86,15 @@ class Agent:
         )
 
     def add_mcp(
-        self,
-        config: dict[str, Any] | str | None = None,
-        *,
-        url: str | None = None,
-        command: str | None = None,
-        args: list[str] | None = None,
-        env: dict[str, str] | None = None,
-        headers: dict[str, Any] | None = None,
-        transport: str | None = None,
+            self,
+            config: dict[str, Any] | str | None = None,
+            *,
+            url: str | None = None,
+            command: str | None = None,
+            args: list[str] | None = None,
+            env: dict[str, str] | None = None,
+            headers: dict[str, Any] | None = None,
+            transport: str | None = None,
     ) -> None:
         """Connect to one or more MCP servers and register their tools with this agent.
 
@@ -159,15 +159,21 @@ class Agent:
                 url=url, command=command, args=args, env=env, headers=headers, transport=transport
             )
 
+    def close(self) -> None:
+        """Close all MCP connections."""
+        for conn in self.__mcp_connections.values():
+            conn.close()
+        self.__mcp_connections.clear()
+
     def _add_mcp_single(
-        self,
-        *,
-        url: str | None = None,
-        command: str | None = None,
-        args: list[str] | None = None,
-        env: dict[str, str] | None = None,
-        headers: dict[str, Any] | None = None,
-        transport: str | None = None,
+            self,
+            *,
+            url: str | None = None,
+            command: str | None = None,
+            args: list[str] | None = None,
+            env: dict[str, str] | None = None,
+            headers: dict[str, Any] | None = None,
+            transport: str | None = None,
     ) -> None:
         """Connect to a single MCP server."""
         from databao.mcp.adapter import mcp_tools_to_langchain
@@ -178,34 +184,58 @@ class Agent:
         if command is None and url is None:
             raise ValueError("Specify either 'command' (stdio) or 'url' (sse/http)")
 
+        _VALID_TRANSPORTS = ("sse", "streamable_http")
+        if transport is not None and transport not in _VALID_TRANSPORTS:
+            raise ValueError(f"Unknown transport {transport!r}; expected one of {_VALID_TRANSPORTS}")
+
         if command is not None:
             connection = McpConnection.connect_stdio(command, args=args, env=env)
         elif transport == "streamable_http":
-            assert url is not None
+            if url is None:
+                raise ValueError("url must not be None")
             connection = McpConnection.connect_streamable_http(url, headers=headers)
         else:
-            assert url is not None
+            if url is None:
+                raise ValueError("url must not be None")
             connection = McpConnection.connect_sse(url, headers=headers)
 
-        self.__mcp_connections.append(connection)
+        server_name = connection.server_name
+        if server_name in self.__mcp_connections:
+            logger.warning("MCP server %r registered more than once; replacing previous connection", server_name)
+            self.__mcp_connections[server_name].close()
+        self.__mcp_connections[server_name] = connection
         lc_tools = mcp_tools_to_langchain(connection)
+
+        existing_names = {t.name for c in self.__mcp_connections.values() if c is not connection for t in c.tools}
+        for tool in lc_tools:
+            if tool.name in existing_names:
+                logger.warning(
+                    "MCP tool name collision: '%s' from %s shadows an existing tool",
+                    tool.name,
+                    connection.server_name,
+                )
+
         self.__executor.register_tools(lc_tools)
-        logger.info(
-            "Registered %d MCP tools from %s: %s",
-            len(lc_tools),
-            connection.server_name,
-            [t.name for t in lc_tools],
-        )
+
+        if not lc_tools:
+            logger.warning("MCP server %s registered 0 tools", connection.server_name)
+        else:
+            logger.info(
+                "Registered %d MCP tools from %s: %s",
+                len(lc_tools),
+                connection.server_name,
+                [t.name for t in lc_tools],
+            )
 
     def thread(
-        self,
-        *,
-        stream_ask: bool | None = None,
-        stream_plot: bool | None = None,
-        lazy: bool | None = None,
-        auto_output_modality: bool | None = None,
-        cache_scope: str | None = None,
-        writer: TextIO | None = None,
+            self,
+            *,
+            stream_ask: bool | None = None,
+            stream_plot: bool | None = None,
+            lazy: bool | None = None,
+            auto_output_modality: bool | None = None,
+            cache_scope: str | None = None,
+            writer: TextIO | None = None,
     ) -> Thread:
         """Start a new thread in this agent."""
         return Thread(
@@ -269,3 +299,8 @@ class Agent:
     def additional_context(self) -> list[str]:
         """General additional context not specific to any one data source."""
         return self.sources.additional_context
+
+    @property
+    def mcp_servers(self) -> list[str]:
+        """Return names of connected MCP servers."""
+        return list(self.__mcp_connections)

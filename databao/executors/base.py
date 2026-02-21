@@ -39,7 +39,7 @@ class GraphExecutor(Executor, ABC):
         self._registered_dfs: dict[str, Any] = {}
         self._extra_tools: list[BaseTool] = []
         self._compiled_graph: CompiledStateGraph[Any] | None = None
-        self._compiled_extra_tools_count: int = 0
+        self._compiled_extra_tools_names: frozenset[str] = frozenset()
 
     def register_db(self, source: DBDataSource) -> None:
         """Register a database source into the shared DuckDB connection."""
@@ -76,10 +76,11 @@ class GraphExecutor(Executor, ABC):
         self, llm_config: LLMConfig, agent_config: AgentConfig, domain: Domain
     ) -> CompiledStateGraph[Any]:
         """Return a cached compiled graph, recompiling when extra tools have changed."""
-        tools_changed = len(self._extra_tools) != self._compiled_extra_tools_count
+        current_names = frozenset(t.name for t in self._extra_tools)
+        tools_changed = current_names != self._compiled_extra_tools_names
         if self._compiled_graph is None or tools_changed:
             self._compiled_graph = self._compile_graph(llm_config, agent_config, domain)
-            self._compiled_extra_tools_count = len(self._extra_tools)
+            self._compiled_extra_tools_names = current_names
         return self._compiled_graph
 
     def _process_opas(self, opas: list[Opa], cache: Cache) -> list[Any]:
@@ -147,7 +148,8 @@ class GraphExecutor(Executor, ABC):
             if mode == "values":
                 last_state = chunk
         frontend.end()
-        assert last_state is not None
+        if last_state is None:
+            raise RuntimeError("Graph execution produced no output state")
         return last_state
 
     @staticmethod
@@ -171,5 +173,6 @@ class GraphExecutor(Executor, ABC):
             if mode == "values":
                 last_state = chunk
         frontend.end()
-        assert last_state is not None
+        if last_state is None:
+            raise RuntimeError("Graph execution produced no output state")
         return last_state

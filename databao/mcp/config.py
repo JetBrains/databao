@@ -36,13 +36,16 @@ def parse_mcp_config(config: dict[str, Any] | str) -> list[dict[str, Any]]:
     if not isinstance(config, dict):
         raise TypeError(f"Expected a dict or str, got {type(config).__name__}")
 
+    if not config:
+        return []
+
     # Format 1: {"mcpServers": {...}}
     if "mcpServers" in config:
         return _parse_servers_dict(config["mcpServers"])
 
     # Format 3: single server config  (has "command" or "url" at the top level)
     if _SERVER_KEYS & config.keys():
-        return [config]
+        return [dict(config)]
 
     # Format 2: bare servers dict  {"name": {server_cfg}, ...}
     if config and all(isinstance(v, dict) for v in config.values()):
