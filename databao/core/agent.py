@@ -199,6 +199,9 @@ class Agent:
         if transport is not None and transport not in _VALID_TRANSPORTS:
             raise ValueError(f"Unknown transport {transport!r}; expected one of {_VALID_TRANSPORTS}")
 
+        if transport is None and url is not None and url.rstrip("/").endswith("/sse"):
+            transport = "sse"
+
         resolved_auth = self._resolve_auth(auth, url)
 
         if command is not None:
