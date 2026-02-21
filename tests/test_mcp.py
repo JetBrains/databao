@@ -214,7 +214,7 @@ class TestAgentAddMcpValidation:
         agent = _new_agent(domain)
         agent.add_mcp(url="http://localhost:8080/sse")
 
-        mock_connect.assert_called_once_with("http://localhost:8080/sse", headers=None)
+        mock_connect.assert_called_once_with("http://localhost:8080/sse", headers=None, auth=None)
 
     @patch("databao.mcp.connection.McpConnection.connect_streamable_http")
     @patch("databao.mcp.adapter.mcp_tools_to_langchain")
@@ -232,7 +232,7 @@ class TestAgentAddMcpValidation:
         agent = _new_agent(domain)
         agent.add_mcp(url="http://localhost:8080/mcp", transport="streamable_http")
 
-        mock_connect.assert_called_once_with("http://localhost:8080/mcp", headers=None)
+        mock_connect.assert_called_once_with("http://localhost:8080/mcp", headers=None, auth=None)
 
 
 # ---------------------------------------------------------------------------
@@ -534,4 +534,151 @@ class TestAgentClose:
 
         mock_conn.close.assert_called_once()
         assert agent.mcp_servers == []
+
+
+# ---------------------------------------------------------------------------
+# OAuth / auth parameter
+# ---------------------------------------------------------------------------
+
+
+class TestAgentAuthParameter:
+    def test_auth_with_stdio_raises(self, domain: Domain) -> None:
+        agent = _new_agent(domain)
+        with pytest.raises(ValueError, match="requires a URL"):
+            agent.add_mcp(command="test", auth="oauth")
+
+    def test_invalid_auth_type_raises(self, domain: Domain) -> None:
+        agent = _new_agent(domain)
+        with pytest.raises(TypeError, match=r"httpx\.Auth"):
+            agent.add_mcp(url="http://localhost/sse", auth=42)
+
+    def test_oauth_string_triggers_provider(self, domain: Domain) -> None:
+        from databao.core.agent import Agent
+
+        result = Agent._resolve_auth("oauth", "http://example.com/sse")
+        from mcp.client.auth import OAuthClientProvider
+
+        assert isinstance(result, OAuthClientProvider)
+
+    def test_oauth_true_triggers_provider(self, domain: Domain) -> None:
+        from databao.core.agent import Agent
+
+        result = Agent._resolve_auth(True, "http://example.com/sse")
+        from mcp.client.auth import OAuthClientProvider
+
+        assert isinstance(result, OAuthClientProvider)
+
+    def test_false_returns_none(self) -> None:
+        from databao.core.agent import Agent
+
+        assert Agent._resolve_auth(False, "http://x") is None
+
+    def test_none_returns_none(self) -> None:
+        from databao.core.agent import Agent
+
+        assert Agent._resolve_auth(None, "http://x") is None
+
+    def test_httpx_auth_passthrough(self) -> None:
+        import httpx
+
+        from databao.core.agent import Agent
+
+        custom_auth = httpx.BasicAuth("user", "pass")
+        assert Agent._resolve_auth(custom_auth, "http://x") is custom_auth
+
+    def test_oauth_without_url_raises(self) -> None:
+        from databao.core.agent import Agent
+
+        with pytest.raises(ValueError, match="requires a URL"):
+            Agent._resolve_auth("oauth", None)
+
+    @patch("databao.mcp.connection.McpConnection.connect_sse")
+    @patch("databao.mcp.adapter.mcp_tools_to_langchain")
+    def test_auth_passed_to_connect_sse(
+        self,
+        mock_to_lc: MagicMock,
+        mock_connect: MagicMock,
+        domain: Domain,
+    ) -> None:
+        import httpx
+
+        mock_conn = MagicMock(spec=McpConnection)
+        mock_conn.server_name = "sse:http://x"
+        mock_conn.tools = []
+        mock_connect.return_value = mock_conn
+        mock_to_lc.return_value = []
+
+        custom_auth = httpx.BasicAuth("user", "pass")
+        agent = _new_agent(domain)
+        agent.add_mcp(url="http://localhost/sse", auth=custom_auth)
+
+        mock_connect.assert_called_once_with("http://localhost/sse", headers=None, auth=custom_auth)
+
+    @patch("databao.mcp.connection.McpConnection.connect_streamable_http")
+    @patch("databao.mcp.adapter.mcp_tools_to_langchain")
+    def test_auth_passed_to_connect_streamable_http(
+        self,
+        mock_to_lc: MagicMock,
+        mock_connect: MagicMock,
+        domain: Domain,
+    ) -> None:
+        import httpx
+
+        mock_conn = MagicMock(spec=McpConnection)
+        mock_conn.server_name = "http:http://x"
+        mock_conn.tools = []
+        mock_connect.return_value = mock_conn
+        mock_to_lc.return_value = []
+
+        custom_auth = httpx.BasicAuth("user", "pass")
+        agent = _new_agent(domain)
+        agent.add_mcp(url="http://localhost/mcp", transport="streamable_http", auth=custom_auth)
+
+        mock_connect.assert_called_once_with("http://localhost/mcp", headers=None, auth=custom_auth)
+
+
+class TestFileTokenStorage:
+    @pytest.fixture
+    def storage(self, tmp_path: Path) -> Any:
+        from databao.mcp.oauth import FileTokenStorage
+
+        storage = FileTokenStorage("http://test-server")
+        storage._dir = tmp_path
+        storage._tokens_path = tmp_path / "tokens.json"
+        storage._client_path = tmp_path / "client.json"
+        return storage
+
+    def test_roundtrip_tokens(self, storage: Any) -> None:
+        import asyncio
+
+        from mcp.shared.auth import OAuthToken
+
+        async def _run() -> None:
+            tokens = OAuthToken(access_token="abc123", token_type="bearer")
+            await storage.set_tokens(tokens)
+            loaded = await storage.get_tokens()
+            assert loaded is not None
+            assert loaded.access_token == "abc123"
+
+        asyncio.run(_run())
+
+    def test_get_tokens_returns_none_when_missing(self, storage: Any) -> None:
+        import asyncio
+
+        assert asyncio.run(storage.get_tokens()) is None
+
+    def test_get_client_info_returns_none_when_missing(self, storage: Any) -> None:
+        import asyncio
+
+        assert asyncio.run(storage.get_client_info()) is None
+
+
+class TestCreateOauthProvider:
+    def test_returns_oauth_client_provider(self) -> None:
+        from mcp.client.auth import OAuthClientProvider
+
+        from databao.mcp.oauth import create_oauth_provider
+
+        provider = create_oauth_provider("http://example.com/sse")
+        assert isinstance(provider, OAuthClientProvider)
 

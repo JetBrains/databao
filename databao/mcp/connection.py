@@ -6,6 +6,7 @@ import threading
 from contextlib import AsyncExitStack
 from typing import Any
 
+import httpx
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 from mcp.client.stdio import StdioServerParameters, stdio_client
@@ -16,6 +17,7 @@ from mcp.types import Tool as McpTool
 logger = logging.getLogger(__name__)
 
 _CONNECT_TIMEOUT_SECONDS = 30
+_CONNECT_TIMEOUT_AUTH_SECONDS = 300
 _CALL_TIMEOUT_SECONDS = 120
 
 
@@ -57,13 +59,15 @@ class McpConnection:
         cls,
         url: str,
         headers: dict[str, Any] | None = None,
+        auth: httpx.Auth | None = None,
     ) -> McpConnection:
         """Connect to an MCP server via SSE transport."""
         conn = cls()
         conn._server_name = f"sse:{url}"
         conn._start_loop()
+        timeout = _CONNECT_TIMEOUT_AUTH_SECONDS if auth else _CONNECT_TIMEOUT_SECONDS
         try:
-            conn._run_sync(conn._setup_sse(url, headers))
+            conn._run_sync(conn._setup_sse(url, headers, auth=auth), timeout=timeout)
         except Exception:
             conn.close()
             raise
@@ -74,13 +78,15 @@ class McpConnection:
         cls,
         url: str,
         headers: dict[str, str] | None = None,
+        auth: httpx.Auth | None = None,
     ) -> McpConnection:
         """Connect to an MCP server via Streamable HTTP transport."""
         conn = cls()
         conn._server_name = f"http:{url}"
         conn._start_loop()
+        timeout = _CONNECT_TIMEOUT_AUTH_SECONDS if auth else _CONNECT_TIMEOUT_SECONDS
         try:
-            conn._run_sync(conn._setup_streamable_http(url, headers))
+            conn._run_sync(conn._setup_streamable_http(url, headers, auth=auth), timeout=timeout)
         except Exception:
             conn.close()
             raise
@@ -105,11 +111,12 @@ class McpConnection:
 
     def close(self) -> None:
         """Shut down the MCP connection and background event loop."""
-        if self._exit_stack is not None:
+        if self._exit_stack is not None and self._loop is not None:
             try:
-                self._run_sync(self._exit_stack.aclose(), timeout=5)
+                future = asyncio.run_coroutine_threadsafe(self._exit_stack.aclose(), self._loop)
+                future.result(timeout=5)
             except Exception:
-                logger.warning("Error closing MCP connection %s", self._server_name, exc_info=True)
+                logger.debug("Could not cleanly close MCP connection %s", self._server_name, exc_info=True)
         if self._loop is not None:
             self._loop.call_soon_threadsafe(self._loop.stop)
         if self._thread is not None:
@@ -126,7 +133,7 @@ class McpConnection:
         self._thread = threading.Thread(target=self._loop.run_forever, daemon=True, name=f"mcp-{id(self)}")
         self._thread.start()
 
-    def _run_sync(self, coro: Any, *, timeout: int = _CONNECT_TIMEOUT_SECONDS) -> Any:
+    def _run_sync(self, coro: Any, *, timeout: float = _CONNECT_TIMEOUT_SECONDS) -> Any:
         if self._loop is None:
             raise RuntimeError("MCP event loop is not running")
         future = asyncio.run_coroutine_threadsafe(coro, self._loop)
@@ -149,16 +156,20 @@ class McpConnection:
         self._session = await self._exit_stack.enter_async_context(ClientSession(read, write))
         await self._finalize_session()
 
-    async def _setup_sse(self, url: str, headers: dict[str, Any] | None) -> None:
+    async def _setup_sse(
+        self, url: str, headers: dict[str, Any] | None, *, auth: httpx.Auth | None = None
+    ) -> None:
         self._exit_stack = AsyncExitStack()
-        read, write = await self._exit_stack.enter_async_context(sse_client(url, headers=headers))
+        read, write = await self._exit_stack.enter_async_context(sse_client(url, headers=headers, auth=auth))
         self._session = await self._exit_stack.enter_async_context(ClientSession(read, write))
         await self._finalize_session()
 
-    async def _setup_streamable_http(self, url: str, headers: dict[str, str] | None) -> None:
+    async def _setup_streamable_http(
+        self, url: str, headers: dict[str, str] | None, *, auth: httpx.Auth | None = None
+    ) -> None:
         self._exit_stack = AsyncExitStack()
         read, write, _ = await self._exit_stack.enter_async_context(
-            streamablehttp_client(url, headers=headers)
+            streamablehttp_client(url, headers=headers, auth=auth)
         )
         self._session = await self._exit_stack.enter_async_context(ClientSession(read, write))
         await self._finalize_session()

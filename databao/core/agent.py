@@ -95,6 +95,7 @@ class Agent:
             env: dict[str, str] | None = None,
             headers: dict[str, Any] | None = None,
             transport: str | None = None,
+            auth: Any | None = None,
     ) -> None:
         """Connect to one or more MCP servers and register their tools with this agent.
 
@@ -122,6 +123,7 @@ class Agent:
               agent.add_mcp(command="python", args=["my_server.py"])
               agent.add_mcp(url="http://localhost:8080/sse")
               agent.add_mcp(url="http://localhost:8080/mcp", transport="streamable_http")
+              agent.add_mcp(url="http://example.com/sse", auth="oauth")
 
         Args:
             config: A config dict, a JSON string, or a path to a JSON file.
@@ -136,11 +138,15 @@ class Agent:
             headers: HTTP headers for SSE / Streamable HTTP transport.
             transport: Explicit transport selection (``"sse"`` or ``"streamable_http"``).
                 Inferred automatically when *url* or *command* is provided.
+            auth: Authentication for HTTP-based transports (SSE / Streamable HTTP).
+                Pass ``"oauth"`` or ``True`` to trigger the default browser-based
+                OAuth 2.1 flow (tokens are cached to ``~/.databao/mcp-tokens/``).
+                An ``httpx.Auth`` instance can also be passed directly for custom auth.
         """
         if config is not None:
             from databao.mcp.config import parse_mcp_config
 
-            has_kw = any(v is not None for v in (url, command, args, env, headers, transport))
+            has_kw = any(v is not None for v in (url, command, args, env, headers, transport, auth))
             if has_kw:
                 raise ValueError("Cannot combine 'config' with keyword arguments; use one or the other")
 
@@ -153,10 +159,12 @@ class Agent:
                     env=server_cfg.get("env"),
                     headers=server_cfg.get("headers"),
                     transport=server_cfg.get("transport"),
+                    auth=server_cfg.get("auth"),
                 )
         else:
             self._add_mcp_single(
-                url=url, command=command, args=args, env=env, headers=headers, transport=transport
+                url=url, command=command, args=args, env=env, headers=headers, transport=transport,
+                auth=auth,
             )
 
     def close(self) -> None:
@@ -174,6 +182,7 @@ class Agent:
             env: dict[str, str] | None = None,
             headers: dict[str, Any] | None = None,
             transport: str | None = None,
+            auth: Any | None = None,
     ) -> None:
         """Connect to a single MCP server."""
         from databao.mcp.adapter import mcp_tools_to_langchain
@@ -188,16 +197,20 @@ class Agent:
         if transport is not None and transport not in _VALID_TRANSPORTS:
             raise ValueError(f"Unknown transport {transport!r}; expected one of {_VALID_TRANSPORTS}")
 
+        resolved_auth = self._resolve_auth(auth, url)
+
         if command is not None:
+            if resolved_auth is not None:
+                raise ValueError("'auth' is only supported for HTTP-based transports (SSE / Streamable HTTP)")
             connection = McpConnection.connect_stdio(command, args=args, env=env)
         elif transport == "streamable_http":
             if url is None:
                 raise ValueError("url must not be None")
-            connection = McpConnection.connect_streamable_http(url, headers=headers)
+            connection = McpConnection.connect_streamable_http(url, headers=headers, auth=resolved_auth)
         else:
             if url is None:
                 raise ValueError("url must not be None")
-            connection = McpConnection.connect_sse(url, headers=headers)
+            connection = McpConnection.connect_sse(url, headers=headers, auth=resolved_auth)
 
         server_name = connection.server_name
         if server_name in self.__mcp_connections:
@@ -226,6 +239,23 @@ class Agent:
                 connection.server_name,
                 [t.name for t in lc_tools],
             )
+
+    @staticmethod
+    def _resolve_auth(auth: Any, url: str | None) -> Any:
+        """Resolve the *auth* parameter into an ``httpx.Auth`` or ``None``."""
+        if auth is None or auth is False:
+            return None
+        if auth is True or auth == "oauth":
+            if url is None:
+                raise ValueError("OAuth auth requires a URL-based transport")
+            from databao.mcp.oauth import create_oauth_provider
+
+            return create_oauth_provider(url)
+        import httpx
+
+        if isinstance(auth, httpx.Auth):
+            return auth
+        raise TypeError(f"'auth' must be True, 'oauth', or an httpx.Auth instance, got {type(auth).__name__}")
 
     def thread(
             self,
