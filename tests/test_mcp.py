@@ -522,7 +522,7 @@ class TestAgentToolNameCollision:
         mock_connect.side_effect = [mock_conn_a, mock_conn_b]
 
         agent = _new_agent(domain)
-        with caplog.at_level(logging.WARNING, logger="databao.core.agent"):
+        with caplog.at_level(logging.WARNING, logger="databao.mcp.manager"):
             agent.add_mcp(command="server_a")
             agent.add_mcp(command="server_b")
 
@@ -578,7 +578,7 @@ class TestAgentMcpServers:
 
         agent = _new_agent(domain)
         agent.add_mcp(command="x")
-        with caplog.at_level(logging.WARNING, logger="databao.core.agent"):
+        with caplog.at_level(logging.WARNING, logger="databao.mcp.manager"):
             agent.add_mcp(command="x")
 
         conn_old.close.assert_called_once()
@@ -621,44 +621,44 @@ class TestAgentAuthParameter:
             agent.add_mcp(url="http://localhost/sse", auth=42)
 
     def test_oauth_string_triggers_provider(self, domain: Domain) -> None:
-        from databao.core.agent import Agent
+        from databao.mcp.manager import _resolve_auth
 
-        result = Agent._resolve_auth("oauth", "http://example.com/sse")
+        result = _resolve_auth("oauth", "http://example.com/sse")
         from mcp.client.auth import OAuthClientProvider
 
         assert isinstance(result, OAuthClientProvider)
 
     def test_oauth_true_triggers_provider(self, domain: Domain) -> None:
-        from databao.core.agent import Agent
+        from databao.mcp.manager import _resolve_auth
 
-        result = Agent._resolve_auth(True, "http://example.com/sse")
+        result = _resolve_auth(True, "http://example.com/sse")
         from mcp.client.auth import OAuthClientProvider
 
         assert isinstance(result, OAuthClientProvider)
 
     def test_false_returns_none(self) -> None:
-        from databao.core.agent import Agent
+        from databao.mcp.manager import _resolve_auth
 
-        assert Agent._resolve_auth(False, "http://x") is None
+        assert _resolve_auth(False, "http://x") is None
 
     def test_none_returns_none(self) -> None:
-        from databao.core.agent import Agent
+        from databao.mcp.manager import _resolve_auth
 
-        assert Agent._resolve_auth(None, "http://x") is None
+        assert _resolve_auth(None, "http://x") is None
 
     def test_httpx_auth_passthrough(self) -> None:
         import httpx
 
-        from databao.core.agent import Agent
+        from databao.mcp.manager import _resolve_auth
 
         custom_auth = httpx.BasicAuth("user", "pass")
-        assert Agent._resolve_auth(custom_auth, "http://x") is custom_auth
+        assert _resolve_auth(custom_auth, "http://x") is custom_auth
 
     def test_oauth_without_url_raises(self) -> None:
-        from databao.core.agent import Agent
+        from databao.mcp.manager import _resolve_auth
 
         with pytest.raises(ValueError, match="requires a URL"):
-            Agent._resolve_auth("oauth", None)
+            _resolve_auth("oauth", None)
 
     @patch("databao.mcp.connection.McpConnection.connect_sse")
     @patch("databao.mcp.adapter.mcp_tools_to_langchain")

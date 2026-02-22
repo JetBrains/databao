@@ -1,4 +1,5 @@
 import logging
+import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TextIO
 
@@ -9,6 +10,7 @@ from databao.core.data_source import DBDataSource, DFDataSource, Sources
 from databao.core.domain import Domain, _Domain
 from databao.core.thread import Thread
 from databao.databases import DBConnection
+from databao.mcp.manager import McpManager
 
 if TYPE_CHECKING:
     from databao.configs.agent import AgentConfig
@@ -16,7 +18,6 @@ if TYPE_CHECKING:
     from databao.core.cache import Cache
     from databao.core.executor import Executor
     from databao.core.visualizer import Visualizer
-    from databao.mcp.connection import McpConnection
 
 logger = logging.getLogger(__name__)
 
@@ -52,9 +53,7 @@ class Agent:
         self.__executor = data_executor
         self.__visualizer = visualizer
         self.__cache = cache
-
-        # MCP server name → connection (kept alive for tool calls)
-        self.__mcp_connections: dict[str, McpConnection] = {}
+        self.__mcp: McpManager = McpManager()
 
         # Thread defaults
         self.__rows_limit = rows_limit
@@ -98,6 +97,9 @@ class Agent:
             auth: Any | None = None,
     ) -> None:
         """Connect to one or more MCP servers and register their tools with this agent.
+
+        .. warning::
+            This feature is **experimental** and may change in future releases.
 
         Can be called with a Claude-Code-style config dict / JSON, or with explicit keyword
         arguments for a single server.
@@ -143,124 +145,25 @@ class Agent:
                 OAuth 2.1 flow (tokens are cached to ``~/.databao/mcp-tokens/``).
                 An ``httpx.Auth`` instance can also be passed directly for custom auth.
         """
+        warnings.warn(
+            "add_mcp() is an experimental feature and may change in future releases.",
+            stacklevel=2,
+        )
         if config is not None:
-            from databao.mcp.config import parse_mcp_config
-
             has_kw = any(v is not None for v in (url, command, args, env, headers, transport, auth))
             if has_kw:
                 raise ValueError("Cannot combine 'config' with keyword arguments; use one or the other")
-
-            servers = parse_mcp_config(config)
-            for server_cfg in servers:
-                self._add_mcp_single(
-                    name=server_cfg.get("name"),
-                    url=server_cfg.get("url"),
-                    command=server_cfg.get("command"),
-                    args=server_cfg.get("args"),
-                    env=server_cfg.get("env"),
-                    headers=server_cfg.get("headers"),
-                    transport=server_cfg.get("transport"),
-                    auth=server_cfg.get("auth"),
-                )
+            lc_tools = self.__mcp.connect_from_config(config)
         else:
-            self._add_mcp_single(
-                url=url, command=command, args=args, env=env, headers=headers, transport=transport,
-                auth=auth,
+            lc_tools = self.__mcp.connect(
+                url=url, command=command, args=args, env=env, headers=headers,
+                transport=transport, auth=auth,
             )
+        self.__executor.register_tools(lc_tools)
 
     def close(self) -> None:
         """Close all MCP connections."""
-        for conn in self.__mcp_connections.values():
-            conn.close()
-        self.__mcp_connections.clear()
-
-    def _add_mcp_single(
-            self,
-            *,
-            name: str | None = None,
-            url: str | None = None,
-            command: str | None = None,
-            args: list[str] | None = None,
-            env: dict[str, str] | None = None,
-            headers: dict[str, Any] | None = None,
-            transport: str | None = None,
-            auth: Any | None = None,
-    ) -> None:
-        """Connect to a single MCP server."""
-        from databao.mcp.adapter import mcp_tools_to_langchain
-        from databao.mcp.connection import McpConnection
-
-        if command is not None and url is not None:
-            raise ValueError("Specify either 'command' (stdio) or 'url' (sse/http), not both")
-        if command is None and url is None:
-            raise ValueError("Specify either 'command' (stdio) or 'url' (sse/http)")
-
-        _VALID_TRANSPORTS = ("sse", "streamable_http")
-        if transport is not None and transport not in _VALID_TRANSPORTS:
-            raise ValueError(f"Unknown transport {transport!r}; expected one of {_VALID_TRANSPORTS}")
-
-        if transport is None and url is not None and url.rstrip("/").endswith("/sse"):
-            transport = "sse"
-
-        resolved_auth = self._resolve_auth(auth, url)
-
-        if command is not None:
-            if resolved_auth is not None:
-                raise ValueError("'auth' is only supported for HTTP-based transports (SSE / Streamable HTTP)")
-            connection = McpConnection.connect_stdio(command, args=args, env=env)
-        elif transport == "sse":
-            if url is None:
-                raise ValueError("url must not be None")
-            connection = McpConnection.connect_sse(url, headers=headers, auth=resolved_auth)
-        else:
-            if url is None:
-                raise ValueError("url must not be None")
-            connection = McpConnection.connect_streamable_http(url, headers=headers, auth=resolved_auth)
-
-        server_name = name or connection.server_name
-        if server_name in self.__mcp_connections:
-            logger.warning("MCP server %r registered more than once; replacing previous connection", server_name)
-            self.__mcp_connections[server_name].close()
-        self.__mcp_connections[server_name] = connection
-        lc_tools = mcp_tools_to_langchain(connection)
-
-        existing_names = {t.name for c in self.__mcp_connections.values() if c is not connection for t in c.tools}
-        for tool in lc_tools:
-            if tool.name in existing_names:
-                logger.warning(
-                    "MCP tool name collision: '%s' from %s shadows an existing tool",
-                    tool.name,
-                    connection.server_name,
-                )
-
-        self.__executor.register_tools(lc_tools)
-
-        if not lc_tools:
-            logger.warning("MCP server %s registered 0 tools", connection.server_name)
-        else:
-            logger.info(
-                "Registered %d MCP tools from %s: %s",
-                len(lc_tools),
-                connection.server_name,
-                [t.name for t in lc_tools],
-            )
-
-    @staticmethod
-    def _resolve_auth(auth: Any, url: str | None) -> Any:
-        """Resolve the *auth* parameter into an ``httpx.Auth`` or ``None``."""
-        if auth is None or auth is False:
-            return None
-        if auth is True or auth == "oauth":
-            if url is None:
-                raise ValueError("OAuth auth requires a URL-based transport")
-            from databao.mcp.oauth import create_oauth_provider
-
-            return create_oauth_provider(url)
-        import httpx
-
-        if isinstance(auth, httpx.Auth):
-            return auth
-        raise TypeError(f"'auth' must be True, 'oauth', or an httpx.Auth instance, got {type(auth).__name__}")
+        self.__mcp.close()
 
     def thread(
             self,
@@ -338,4 +241,4 @@ class Agent:
     @property
     def mcp_servers(self) -> list[str]:
         """Return names of connected MCP servers."""
-        return list(self.__mcp_connections)
+        return self.__mcp.servers
