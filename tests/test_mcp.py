@@ -163,6 +163,58 @@ class TestMcpToolsToLangchain:
         assert result == "Sunny, 72F"
         mock_conn.call_tool.assert_called_once_with("get_weather", {"city": "Paris"})
 
+    def test_extra_fields_not_passed_to_call_tool(self) -> None:
+        """Extra args like graph_state should be filtered before calling the MCP server."""
+        mcp_tool = McpTool(
+            name="my_tool",
+            description="A tool",
+            inputSchema={
+                "type": "object",
+                "properties": {"name": {"type": "string"}},
+                "required": ["name"],
+            },
+        )
+
+        mock_conn = MagicMock(spec=McpConnection)
+        mock_conn.tools = [mcp_tool]
+        mock_result = MagicMock()
+        mock_result.content = [TextContent(type="text", text="ok")]
+        mock_result.isError = False
+        mock_conn.call_tool.return_value = mock_result
+
+        lc_tools = mcp_tools_to_langchain(mock_conn)
+        lc_tools[0].invoke({"name": "test", "graph_state": {"messages": []}})
+
+        mock_conn.call_tool.assert_called_once_with("my_tool", {"name": "test"})
+
+    def test_optional_falsy_values_preserved(self) -> None:
+        """Optional params with falsy values (0, False, empty string) must not be dropped."""
+        mcp_tool = McpTool(
+            name="my_tool",
+            description="A tool",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "count": {"type": "integer"},
+                    "flag": {"type": "boolean"},
+                },
+                "required": ["name"],
+            },
+        )
+
+        mock_conn = MagicMock(spec=McpConnection)
+        mock_conn.tools = [mcp_tool]
+        mock_result = MagicMock()
+        mock_result.content = [TextContent(type="text", text="ok")]
+        mock_result.isError = False
+        mock_conn.call_tool.return_value = mock_result
+
+        lc_tools = mcp_tools_to_langchain(mock_conn)
+        lc_tools[0].invoke({"name": "", "count": 0, "flag": False})
+
+        mock_conn.call_tool.assert_called_once_with("my_tool", {"name": "", "count": 0, "flag": False})
+
 
 # ---------------------------------------------------------------------------
 # Agent.add_mcp validation

@@ -58,7 +58,7 @@ class McpManager:
 
         if command is not None:
             if resolved_auth is not None:
-                raise ValueError("'auth' is only supported for HTTP-based transports (SSE / Streamable HTTP)")
+                raise ValueError("'auth' requires a URL-based transport (SSE or Streamable HTTP), not stdio")
             connection = McpConnection.connect_stdio(command, args=args, env=env)
         elif transport == "sse":
             if url is None:

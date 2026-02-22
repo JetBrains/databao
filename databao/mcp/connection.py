@@ -77,7 +77,7 @@ class McpConnection:
     def connect_streamable_http(
         cls,
         url: str,
-        headers: dict[str, str] | None = None,
+        headers: dict[str, Any] | None = None,
         auth: httpx.Auth | None = None,
     ) -> McpConnection:
         """Connect to an MCP server via Streamable HTTP transport."""
@@ -139,7 +139,8 @@ class McpConnection:
 
     async def _finalize_session(self) -> None:
         """Initialize the session, list tools, and log. Called by all _setup_* methods."""
-        assert self._session is not None
+        if self._session is None:
+            raise RuntimeError("Session not initialized")
         await self._session.initialize()
         result = await self._session.list_tools()
         self._tools = list(result.tools)
@@ -159,7 +160,7 @@ class McpConnection:
         await self._finalize_session()
 
     async def _setup_streamable_http(
-        self, url: str, headers: dict[str, str] | None, *, auth: httpx.Auth | None = None
+        self, url: str, headers: dict[str, Any] | None, *, auth: httpx.Auth | None = None
     ) -> None:
         self._exit_stack = AsyncExitStack()
         read, write, _ = await self._exit_stack.enter_async_context(

@@ -3,6 +3,7 @@ from typing import Any, TextIO, cast
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
+from langchain_core.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
 
 from databao.configs import LLMConfig
@@ -54,9 +55,8 @@ class LighthouseExecutor(GraphExecutor):
         return prompt.strip()
 
     def _compile_graph(
-        self, llm_config: LLMConfig, agent_config: AgentConfig, domain: Domain
+        self, llm_config: LLMConfig, agent_config: AgentConfig, domain: Domain, extra_tools: list[BaseTool] | None
     ) -> CompiledStateGraph[Any]:
-        extra_tools = self._extra_tools if self._extra_tools else None
         return self._graph.compile(llm_config, agent_config, domain, extra_tools=extra_tools)
 
     def drop_last_opa_group(self, cache: Cache, n: int = 1) -> None:

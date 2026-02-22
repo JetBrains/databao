@@ -3,6 +3,7 @@ from typing import Any, TextIO
 
 from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
+from langchain_core.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
 
 from databao.configs.agent import AgentConfig
@@ -19,11 +20,13 @@ class ReactDuckDBExecutor(GraphExecutor):
     def __init__(self, writer: Any = None) -> None:
         """Initialize agent with lazy graph compilation."""
         super().__init__(writer=writer)
-        self._compiled_graph: CompiledStateGraph[Any] | None = None
 
-    def _create_graph(self, data_connection: Any, llm_config: LLMConfig, domain: Domain) -> CompiledStateGraph[Any]:
-        """Create and compile the ReAct DuckDB agent graph."""
-        return make_react_duckdb_agent(data_connection, llm_config.new_chat_model(), domain)
+    def _compile_graph(
+        self, llm_config: LLMConfig, agent_config: AgentConfig, domain: Domain, extra_tools: list[BaseTool] | None
+    ) -> CompiledStateGraph[Any]:
+        return make_react_duckdb_agent(
+            self._duckdb_connection, llm_config.new_chat_model(), domain, extra_tools=extra_tools
+        )
 
     def drop_last_opa_group(self, cache: Cache, n: int = 1) -> None:
         """Drop last n groups of operations from the message history."""
@@ -49,8 +52,7 @@ class ReactDuckDBExecutor(GraphExecutor):
         stream: bool = True,
         writer: TextIO | None = None,
     ) -> ExecutionResult:
-        # Get or create graph (cached after first use)
-        compiled_graph = self._compiled_graph or self._create_graph(self._duckdb_connection, llm_config, domain)
+        compiled_graph = self._get_compiled_graph(llm_config, agent_config, domain)
 
         # Process the opa and get messages
         messages = self._process_opas(opas, cache)

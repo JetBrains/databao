@@ -79,8 +79,8 @@ def _make_langchain_tool(mcp_tool: McpTool, connection: McpConnection) -> BaseTo
     args_schema = _json_schema_to_pydantic(mcp_tool.name, mcp_tool.inputSchema)
 
     def call_mcp(**kwargs: Any) -> str:
-        required = set(mcp_tool.inputSchema.get("required", []))
-        filtered = {k: v for k, v in kwargs.items() if k in required or v is not None}
+        schema_properties = mcp_tool.inputSchema.get("properties", {})
+        filtered = {k: v for k, v in kwargs.items() if k in schema_properties}
         result = connection.call_tool(mcp_tool.name, filtered)
         return _format_tool_result(result)
 

@@ -68,7 +68,11 @@ class GraphExecutor(Executor, ABC):
 
     @abstractmethod
     def _compile_graph(
-        self, llm_config: LLMConfig, agent_config: AgentConfig, domain: Domain
+        self,
+        llm_config: LLMConfig,
+        agent_config: AgentConfig,
+        domain: Domain,
+        extra_tools: list[BaseTool] | None,
     ) -> CompiledStateGraph[Any]:
         """Build and return a fresh compiled graph. Called by _get_compiled_graph when needed."""
 
@@ -79,7 +83,8 @@ class GraphExecutor(Executor, ABC):
         current_names = frozenset(t.name for t in self._extra_tools)
         tools_changed = current_names != self._compiled_extra_tools_names
         if self._compiled_graph is None or tools_changed:
-            self._compiled_graph = self._compile_graph(llm_config, agent_config, domain)
+            extra = self._extra_tools or None
+            self._compiled_graph = self._compile_graph(llm_config, agent_config, domain, extra)
             self._compiled_extra_tools_names = current_names
         return self._compiled_graph
 
