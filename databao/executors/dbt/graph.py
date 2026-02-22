@@ -150,31 +150,6 @@ class DbtProjectGraph:
 
     def make_tools(self, domain: Domain) -> list[BaseTool]:
         @tool(parse_docstring=True)
-        def run_database_explore(project_dir: str) -> str:
-            """
-            Explore the provided database schema. Can only be called once at the beginning.
-
-            Args:
-                project_dir: The directory of the dbt project
-
-            Returns:
-                A markdown representation of the schema of the provided database.
-            """
-            if self._query_runner_factory is None:
-                return _json_dumps({"error": "SQL executor factory not provided."})
-
-            executor = self._query_runner_factory()
-            try:
-                schema_df = executor.introspect()
-                self._introspect_cache = schema_df
-                result = schema_df.to_markdown(index=False)
-                return result
-            except Exception as e:
-                return f"ERROR: could not introspect database: {e}"
-            finally:
-                executor.close()
-
-        @tool(parse_docstring=True)
         def run_sql(sql: str, sample_rows: int = 5) -> dict[str, Any]:
             """
             Run a SQL query against the database.
