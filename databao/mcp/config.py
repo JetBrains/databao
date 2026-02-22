@@ -52,8 +52,7 @@ def parse_mcp_config(config: dict[str, Any] | str) -> list[dict[str, Any]]:
         return _parse_servers_dict(config)
 
     raise ValueError(
-        "Unrecognised MCP config format. "
-        "Expected {\"mcpServers\": {...}}, a servers dict, or a single server config."
+        'Unrecognised MCP config format. Expected {"mcpServers": {...}}, a servers dict, or a single server config.'
     )
 
 

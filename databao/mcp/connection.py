@@ -104,9 +104,7 @@ class McpConnection:
         """Call an MCP tool synchronously."""
         if self._session is None:
             raise RuntimeError("MCP connection is not established")
-        result: CallToolResult = self._run_sync(
-            self._session.call_tool(name, arguments), timeout=_CALL_TIMEOUT_SECONDS
-        )
+        result: CallToolResult = self._run_sync(self._session.call_tool(name, arguments), timeout=_CALL_TIMEOUT_SECONDS)
         return result
 
     def close(self) -> None:
@@ -147,18 +145,14 @@ class McpConnection:
         self._tools = list(result.tools)
         logger.info("Connected to MCP server %s, %d tools available", self._server_name, len(self._tools))
 
-    async def _setup_stdio(
-        self, command: str, args: list[str], env: dict[str, str] | None
-    ) -> None:
+    async def _setup_stdio(self, command: str, args: list[str], env: dict[str, str] | None) -> None:
         self._exit_stack = AsyncExitStack()
         server_params = StdioServerParameters(command=command, args=args, env=env)
         read, write = await self._exit_stack.enter_async_context(stdio_client(server_params))
         self._session = await self._exit_stack.enter_async_context(ClientSession(read, write))
         await self._finalize_session()
 
-    async def _setup_sse(
-        self, url: str, headers: dict[str, Any] | None, *, auth: httpx.Auth | None = None
-    ) -> None:
+    async def _setup_sse(self, url: str, headers: dict[str, Any] | None, *, auth: httpx.Auth | None = None) -> None:
         self._exit_stack = AsyncExitStack()
         read, write = await self._exit_stack.enter_async_context(sse_client(url, headers=headers, auth=auth))
         self._session = await self._exit_stack.enter_async_context(ClientSession(read, write))

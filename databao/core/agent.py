@@ -29,20 +29,20 @@ class Agent:
     """
 
     def __init__(
-            self,
-            domain: "_Domain",
-            llm: "LLMConfig",
-            agent_config: "AgentConfig",
-            data_executor: "Executor",
-            visualizer: "Visualizer",
-            cache: "Cache",
-            *,
-            name: str = "default_agent",
-            rows_limit: int,
-            stream_ask: bool = True,
-            stream_plot: bool = False,
-            lazy_threads: bool = False,
-            auto_output_modality: bool = True,
+        self,
+        domain: "_Domain",
+        llm: "LLMConfig",
+        agent_config: "AgentConfig",
+        data_executor: "Executor",
+        visualizer: "Visualizer",
+        cache: "Cache",
+        *,
+        name: str = "default_agent",
+        rows_limit: int,
+        stream_ask: bool = True,
+        stream_plot: bool = False,
+        lazy_threads: bool = False,
+        auto_output_modality: bool = True,
     ):
         self.__domain = domain
         self.__name = name
@@ -85,16 +85,16 @@ class Agent:
         )
 
     def add_mcp(
-            self,
-            config: dict[str, Any] | str | None = None,
-            *,
-            url: str | None = None,
-            command: str | None = None,
-            args: list[str] | None = None,
-            env: dict[str, str] | None = None,
-            headers: dict[str, Any] | None = None,
-            transport: str | None = None,
-            auth: Any | None = None,
+        self,
+        config: dict[str, Any] | str | None = None,
+        *,
+        url: str | None = None,
+        command: str | None = None,
+        args: list[str] | None = None,
+        env: dict[str, str] | None = None,
+        headers: dict[str, Any] | None = None,
+        transport: str | None = None,
+        auth: Any | None = None,
     ) -> None:
         """Connect to one or more MCP servers and register their tools with this agent.
 
@@ -156,8 +156,13 @@ class Agent:
             lc_tools = self.__mcp.connect_from_config(config)
         else:
             lc_tools = self.__mcp.connect(
-                url=url, command=command, args=args, env=env, headers=headers,
-                transport=transport, auth=auth,
+                url=url,
+                command=command,
+                args=args,
+                env=env,
+                headers=headers,
+                transport=transport,
+                auth=auth,
             )
         self.__executor.register_tools(lc_tools)
 
@@ -166,14 +171,14 @@ class Agent:
         self.__mcp.close()
 
     def thread(
-            self,
-            *,
-            stream_ask: bool | None = None,
-            stream_plot: bool | None = None,
-            lazy: bool | None = None,
-            auto_output_modality: bool | None = None,
-            cache_scope: str | None = None,
-            writer: TextIO | None = None,
+        self,
+        *,
+        stream_ask: bool | None = None,
+        stream_plot: bool | None = None,
+        lazy: bool | None = None,
+        auto_output_modality: bool | None = None,
+        cache_scope: str | None = None,
+        writer: TextIO | None = None,
     ) -> Thread:
         """Start a new thread in this agent."""
         return Thread(

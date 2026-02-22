@@ -102,8 +102,7 @@ class _CallbackHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", "text/html")
         self.end_headers()
-        self.wfile.write(b"<html><body><h2>Authorization successful.</h2>"
-                         b"<p>You can close this tab.</p></body></html>")
+        self.wfile.write(b"<html><body><h2>Authorization successful.</h2><p>You can close this tab.</p></body></html>")
         self._event.set()
 
     def log_message(self, format: str, *args: Any) -> None:

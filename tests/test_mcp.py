@@ -343,7 +343,7 @@ class TestParseMcpConfig:
 
     def test_unrecognised_dict_raises(self) -> None:
         with pytest.raises(ValueError, match="Unrecognised"):
-            parse_mcp_config({"foo": 42})  # type: ignore[arg-type]
+            parse_mcp_config({"foo": 42})
 
     def test_bad_type_raises(self) -> None:
         with pytest.raises(TypeError, match="Expected"):
@@ -375,12 +375,14 @@ class TestAgentAddMcpConfig:
         mock_to_lc.return_value = []
 
         agent = _new_agent(domain)
-        agent.add_mcp({
-            "mcpServers": {
-                "server_a": {"command": "a", "args": ["--flag"]},
-                "server_b": {"command": "b"},
+        agent.add_mcp(
+            {
+                "mcpServers": {
+                    "server_a": {"command": "a", "args": ["--flag"]},
+                    "server_b": {"command": "b"},
+                }
             }
-        })
+        )
 
         assert mock_connect.call_count == 2
         calls = mock_connect.call_args_list
@@ -588,9 +590,7 @@ class TestAgentMcpServers:
 
 class TestAgentClose:
     @patch("databao.mcp.connection.McpConnection.connect_stdio")
-    def test_close_calls_connection_close(
-        self, mock_connect: MagicMock, domain: Domain
-    ) -> None:
+    def test_close_calls_connection_close(self, mock_connect: MagicMock, domain: Domain) -> None:
         mock_conn = MagicMock(spec=McpConnection)
         mock_conn.server_name = "stdio:test"
         mock_conn.tools = []
@@ -749,4 +749,3 @@ class TestCreateOauthProvider:
 
         provider = create_oauth_provider("http://example.com/sse")
         assert isinstance(provider, OAuthClientProvider)
-
