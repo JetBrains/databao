@@ -45,7 +45,9 @@ def parse_mcp_config(config: dict[str, Any] | str) -> list[dict[str, Any]]:
 
     # Format 3: single server config  (has "command" or "url" at the top level)
     if _SERVER_KEYS & config.keys():
-        return [dict(config)]
+        entry = dict(config)
+        entry.setdefault("name", "default")
+        return [entry]
 
     # Format 2: bare servers dict  {"name": {server_cfg}, ...}
     if config and all(isinstance(v, dict) for v in config.values()):

@@ -37,9 +37,10 @@ class GraphExecutor(Executor, ABC):
         self._duckdb_connection: duckdb.DuckDBPyConnection = duckdb.connect(":memory:")
         self._attached_db_paths: dict[str, str] = {}
         self._registered_dfs: dict[str, Any] = {}
-        self._extra_tools: list[BaseTool] = []
+        self._extra_tools: dict[str, BaseTool] = {}
         self._compiled_graph: CompiledStateGraph[Any] | None = None
-        self._compiled_extra_tools_names: frozenset[str] = frozenset()
+        self._compiled_tools_version: int = 0
+        self._compiled_at_version: int = -1
 
     def register_db(self, source: DBDataSource) -> None:
         """Register a database source into the shared DuckDB connection."""
@@ -64,7 +65,9 @@ class GraphExecutor(Executor, ABC):
 
     def register_tools(self, tools: list[BaseTool]) -> None:
         """Register additional LangChain tools and invalidate the cached compiled graph."""
-        self._extra_tools.extend(tools)
+        for t in tools:
+            self._extra_tools[t.name] = t
+        self._compiled_tools_version += 1
 
     @abstractmethod
     def _compile_graph(
@@ -80,12 +83,10 @@ class GraphExecutor(Executor, ABC):
         self, llm_config: LLMConfig, agent_config: AgentConfig, domain: Domain
     ) -> CompiledStateGraph[Any]:
         """Return a cached compiled graph, recompiling when extra tools have changed."""
-        current_names = frozenset(t.name for t in self._extra_tools)
-        tools_changed = current_names != self._compiled_extra_tools_names
-        if self._compiled_graph is None or tools_changed:
-            extra = self._extra_tools or None
+        if self._compiled_graph is None or self._compiled_at_version != self._compiled_tools_version:
+            extra = list(self._extra_tools.values()) or None
             self._compiled_graph = self._compile_graph(llm_config, agent_config, domain, extra)
-            self._compiled_extra_tools_names = current_names
+            self._compiled_at_version = self._compiled_tools_version
         return self._compiled_graph
 
     def _process_opas(self, opas: list[Opa], cache: Cache) -> list[Any]:

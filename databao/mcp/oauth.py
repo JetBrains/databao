@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import os
 import socket
 import threading
 import webbrowser
@@ -37,7 +38,7 @@ class FileTokenStorage:
     def __init__(self, server_url: str) -> None:
         url_hash = hashlib.sha256(server_url.encode()).hexdigest()[:16]
         self._dir = _TOKEN_DIR / url_hash
-        self._dir.mkdir(parents=True, exist_ok=True)
+        self._dir.mkdir(parents=True, exist_ok=True, mode=0o700)
         self._tokens_path = self._dir / "tokens.json"
         self._client_path = self._dir / "client.json"
 
@@ -67,6 +68,7 @@ class FileTokenStorage:
     @staticmethod
     def _write_json(path: Path, data: Any) -> None:
         path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        os.chmod(path, 0o600)
 
 
 # ---------------------------------------------------------------------------
@@ -137,14 +139,19 @@ def _make_handlers(
         webbrowser.open(authorization_url)
 
     async def callback_handler() -> tuple[str, str | None]:
-        await asyncio.get_event_loop().run_in_executor(None, event.wait)
-        if server is not None:
-            server.server_close()
-        code = _CallbackHandler.code
-        state = _CallbackHandler.state
-        if not code:
-            raise RuntimeError("OAuth callback did not receive an authorization code")
-        return code, state
+        loop = asyncio.get_running_loop()
+        try:
+            completed = await loop.run_in_executor(None, lambda: event.wait(_DEFAULT_TIMEOUT))
+            if not completed:
+                raise TimeoutError(f"Timed out waiting for OAuth callback on http://127.0.0.1:{port}")
+            code = _CallbackHandler.code
+            state = _CallbackHandler.state
+            if not code:
+                raise RuntimeError("OAuth callback did not receive an authorization code")
+            return code, state
+        finally:
+            if server is not None:
+                server.server_close()
 
     return redirect_handler, callback_handler
 

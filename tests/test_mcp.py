@@ -317,7 +317,7 @@ class TestExtraToolsRegistration:
 
         assert isinstance(agent.executor, GraphExecutor)
         assert len(agent.executor._extra_tools) == 1
-        assert agent.executor._extra_tools[0].name == "my_tool"
+        assert "my_tool" in agent.executor._extra_tools
 
 
 # ---------------------------------------------------------------------------
@@ -369,12 +369,14 @@ class TestParseMcpConfig:
         servers = parse_mcp_config(cfg)
         assert len(servers) == 1
         assert servers[0]["command"] == "npx"
+        assert servers[0]["name"] == "default"
 
     def test_single_server_url(self) -> None:
         cfg = {"url": "http://localhost:8080/sse"}
         servers = parse_mcp_config(cfg)
         assert len(servers) == 1
         assert servers[0]["url"] == "http://localhost:8080/sse"
+        assert servers[0]["name"] == "default"
 
     def test_json_string(self) -> None:
         raw = json.dumps({"mcpServers": {"s": {"command": "x"}}})
