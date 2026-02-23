@@ -75,12 +75,17 @@ After creating the necessary sql files, adhere to the general guidelines and the
 - **submit_answer(sql, description)**: submit the final answer SQL query to the user. The SQL will be executed and returned as the result DataFrame. Call this AFTER verifying your query works with `run_sql`.
 
 # Model Creation Philosophy #
-When completing tasks, consider whether the work you're doing would be valuable to persist:
-- **Reusable metrics**: If you calculate a metric (e.g., "90-day repeat purchase rate"), consider whether it should become a dbt model
-- **Common transformations**: Intermediate transformations that join/filter data in ways likely to be reused
-- **Business logic**: Calculations encoding domain knowledge that shouldn't be reimplemented each time
+When completing tasks, consider whether creating a dbt model is truly justified.
+Default to **NOT** creating new models unless there is a clear, strong reason to do so:
+- **Do NOT create a model** if the task can be answered with a single SQL query or a short one-liner — just use `run_sql` and `submit_answer` directly.
+- **Do NOT create a model** for ad-hoc or one-off analysis questions (e.g., "what was revenue last month?").
+- **Do NOT create a model** for simple aggregations, filters, or lookups that are unlikely to be reused.
+- **DO create a model** only when the transformation encodes **reusable business logic** that would otherwise need to be re-implemented — e.g., a repeat-purchase-rate metric used across multiple reports.
+- **DO create a model** when the query involves **complex, multi-step joins or transformations** that form a meaningful, named dataset other models or analysts would build on top of.
 
-Models you create should follow dbt best practices:
+If in doubt, do NOT create a model — just answer the question with SQL.
+
+When you do create models, follow dbt best practices:
 - Staging models for source cleaning
 - Intermediate models for business logic
 - Mart models for final metrics/aggregations
