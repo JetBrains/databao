@@ -23,12 +23,15 @@ from typing_extensions import TypedDict
 from databao.configs import llm
 from databao.configs.agent import AgentConfig
 from databao.configs.llm import LLMConfig
+from databao.core import Domain
 from databao.executors.dbt.dbt_runner import (
     PostDbtRunHook,
     noop_post_run_hook,
     run_dbt_subprocess,
 )
 from databao.executors.dbt.query_runner import QueryRunnerFactory
+from databao.executors.query_expansion import QueryExpansionConfig
+from databao.executors.tools import make_search_context_tool
 
 
 @dataclass(frozen=True)
@@ -97,13 +100,13 @@ class DbtProjectGraph:
         *,
         query_runner_factory: QueryRunnerFactory | None = None,
         post_dbt_run_hook: PostDbtRunHook = noop_post_run_hook,
+        expansion_llm: BaseChatModel | None = None,
+        expansion_config: QueryExpansionConfig | None = None,
     ) -> None:
         self._query_runner_factory = query_runner_factory
         self._post_dbt_run_hook = post_dbt_run_hook
-        self._introspect_cache: pd.DataFrame | None = None
-
-    def invalidate_introspect_cache(self) -> None:
-        self._introspect_cache = None
+        self._expansion_llm = expansion_llm
+        self._expansion_config = expansion_config
 
     def init_state(
         self,
@@ -145,38 +148,7 @@ class DbtProjectGraph:
             "answer_submitted": state.get("answer_df") is not None,
         }
 
-    def make_tools(self, extra_tools: list[BaseTool] | None = None) -> list[BaseTool]:
-        @tool(parse_docstring=True)
-        def run_database_explore(project_dir: str) -> str:
-            """
-            Explore the provided database schema. Can only be called once at the beginning.
-
-            Args:
-                project_dir: The directory of the dbt project
-
-            Returns:
-                A markdown representation of the schema of the provided database.
-            """
-            if self._query_runner_factory is None:
-                return _json_dumps({"error": "SQL executor factory not provided."})
-
-            if self._introspect_cache is not None:
-                return (
-                    "Database schema was already explored earlier in this session. "
-                    "Refer to the previous run_database_explore result in the conversation history.\n"
-                )
-
-            executor = self._query_runner_factory()
-            try:
-                schema_df = executor.introspect()
-                self._introspect_cache = schema_df
-                result = schema_df.to_markdown(index=False)
-                return result
-            except Exception as e:
-                return f"ERROR: could not introspect database: {e}"
-            finally:
-                executor.close()
-
+    def make_tools(self, domain: Domain, extra_tools: list[BaseTool] | None = None) -> list[BaseTool]:
         @tool(parse_docstring=True)
         def run_sql(sql: str, sample_rows: int = 5) -> dict[str, Any]:
             """
@@ -198,7 +170,7 @@ class DbtProjectGraph:
                 return {
                     "error": (
                         "Do NOT use ATTACH in run_sql. The database is already attached. "
-                        "Use fully qualified table names from run_database_explore."
+                        "Use fully qualified table names discovered via search_context."
                     )
                 }
 
@@ -444,7 +416,6 @@ class DbtProjectGraph:
                 runner.close()
 
         tools: list[BaseTool] = [
-            run_database_explore,
             run_sql,
             run_dbt,
             dbt_deps,
@@ -455,6 +426,14 @@ class DbtProjectGraph:
             submit_answer,
         ]
 
+        search_context_tool = make_search_context_tool(
+            domain,
+            expansion_llm=self._expansion_llm,
+            expansion_config=self._expansion_config,
+        )
+        if search_context_tool is not None:
+            tools.append(search_context_tool)
+
         if extra_tools:
             tools.extend(extra_tools)
 
@@ -464,9 +443,10 @@ class DbtProjectGraph:
         self,
         model_config: LLMConfig,
         agent_config: AgentConfig,
+        domain: Domain,
         extra_tools: list[BaseTool] | None = None,
     ) -> CompiledStateGraph[Any]:
-        tools = self.make_tools(extra_tools=extra_tools)
+        tools = self.make_tools(domain, extra_tools=extra_tools)
         llm_model = model_config.new_chat_model()
 
         if llm.is_openai_model(model_config.name):
