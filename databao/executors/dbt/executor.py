@@ -216,9 +216,9 @@ class DbtProjectExecutor(GraphExecutor):
 
         all_messages_with_system = messages
         if not all_messages_with_system or all_messages_with_system[0].type != "system":
+            system_prompt = self.render_system_prompt(sources, project_dir, agent_config.recursion_limit)
             all_messages_with_system = [
-                SystemMessage(self.render_system_prompt(sources, project_dir, agent_config.recursion_limit)),
-                HumanMessage(self._task_instruction),
+                SystemMessage(system_prompt + "\n\n" + self._task_instruction),
                 *all_messages_with_system,
             ]
 
