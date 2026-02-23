@@ -1,9 +1,14 @@
 """Utility functions for multimodal display."""
 
-from typing import Any
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 
-def dataframe_to_html(df: Any) -> str:
+def dataframe_to_html(df: pd.DataFrame) -> str:
     """Convert a DataFrame to HTML, truncating if necessary.
 
     Args:

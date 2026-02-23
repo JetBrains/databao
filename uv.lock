@@ -685,8 +685,14 @@ dependencies = [
 
 [package.optional-dependencies]
 examples = [
+    { name = "anywidget" },
     { name = "notebook" },
     { name = "python-dotenv" },
+    { name = "traitlets" },
+]
+jupyter = [
+    { name = "anywidget" },
+    { name = "traitlets" },
 ]
 
 [package.dev-dependencies]
@@ -707,6 +713,8 @@ requires-dist = [
     { name = "databao-context-engine", extras = ["mysql", "postgresql", "snowflake"], specifier = "~=0.3.0" },
     { name = "dbt-core", specifier = "~=1.9.0" },
     { name = "dbt-duckdb", specifier = ">=1.10.0" },
+    { name = "anywidget", marker = "extra == 'examples'", specifier = ">=0.9.0" },
+    { name = "anywidget", marker = "extra == 'jupyter'", specifier = ">=0.9.0" },
     { name = "diskcache", specifier = ">=5.6.3" },
     { name = "duckdb", specifier = ">=1.3.0" },
     { name = "edaplot-vl", specifier = "~=0.1.4" },
@@ -726,9 +734,14 @@ requires-dist = [
     { name = "snowflake-sqlalchemy", specifier = ">=1.8.2" },
     { name = "sqlalchemy", specifier = ">=2.0.45" },
     { name = "tabulate", specifier = ">=0.9.0" },
+<<<<<<< HEAD
     { name = "watchdog", specifier = ">=6.0.0" },
+=======
+    { name = "traitlets", marker = "extra == 'examples'", specifier = ">=5.0.0" },
+    { name = "traitlets", marker = "extra == 'jupyter'", specifier = ">=5.0.0" },
+>>>>>>> 18b37d9 (Guard Jupyter-specific imports so the package works without)
 ]
-provides-extras = ["examples"]
+provides-extras = ["examples", "jupyter"]
 
 [package.metadata.requires-dev]
 dev = [

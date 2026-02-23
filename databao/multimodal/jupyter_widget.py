@@ -7,8 +7,14 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import anywidget
-import traitlets
+try:
+    import anywidget
+    import traitlets
+except ImportError as e:
+    raise ImportError(
+        "anywidget and traitlets are required for Jupyter notebook support. "
+        "Install them with: pip install databao[jupyter]"
+    ) from e
 from edaplot.data_utils import spec_add_data
 
 from databao.multimodal.utils import dataframe_to_html

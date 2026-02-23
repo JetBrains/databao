@@ -41,9 +41,15 @@ Homepage = "https://databao.app/"
 Source = "https://github.com/JetBrains/databao"
 
 [project.optional-dependencies]
+jupyter = [
+    "anywidget>=0.9.0",
+    "traitlets>=5.0.0",
+]
 examples = [
     "notebook>=7.4.7",
     "python-dotenv>=1.1.1",
+    "anywidget>=0.9.0",
+    "traitlets>=5.0.0",
 ]
 
 [build-system]
