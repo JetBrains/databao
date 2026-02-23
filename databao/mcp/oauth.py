@@ -22,7 +22,11 @@ from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
 
 logger = logging.getLogger(__name__)
 
-_TOKEN_DIR = Path.home() / ".databao" / "mcp-tokens"
+_TOKEN_DIR = (
+    Path(os.environ["DATABAO_MCP_TOKEN_DIR"])
+    if "DATABAO_MCP_TOKEN_DIR" in os.environ
+    else Path.home() / ".databao" / "mcp-tokens"
+)
 _DEFAULT_CALLBACK_PORT_RANGE = (18400, 18500)
 _DEFAULT_TIMEOUT = 300.0
 
@@ -68,7 +72,10 @@ class FileTokenStorage:
     @staticmethod
     def _write_json(path: Path, data: Any) -> None:
         path.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        os.chmod(path, 0o600)
+        try:
+            path.chmod(0o600)
+        except (NotImplementedError, OSError):
+            logger.debug("Could not set permissions on %s", path)
 
 
 # ---------------------------------------------------------------------------
