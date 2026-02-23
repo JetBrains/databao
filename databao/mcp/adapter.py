@@ -42,11 +42,21 @@ def _json_schema_to_pydantic(tool_name: str, schema: dict[str, Any]) -> type[Bas
 
 
 def _resolve_type(prop_schema: dict[str, Any]) -> type[Any]:
-    """Map a JSON Schema type to a Python type."""
+    """Map a JSON Schema type to a Python type.
+
+    Handles ``array`` with nested ``items`` so that the generated Pydantic
+    schema always includes a ``type`` key on every node (required by OpenAI).
+    """
     json_type = prop_schema.get("type", "string")
     if isinstance(json_type, list):
         non_null = [t for t in json_type if t != "null"]
         json_type = non_null[0] if non_null else "string"
+
+    if json_type == "array":
+        items_schema = prop_schema.get("items", {})
+        inner = _resolve_type(items_schema) if items_schema else str
+        return list[inner]  # type: ignore[valid-type]
+
     return _JSON_SCHEMA_TYPE_MAP.get(json_type, str)
 
 

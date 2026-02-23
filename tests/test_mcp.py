@@ -73,7 +73,7 @@ class TestJsonSchemaToPydantic:
             "required": ["s", "i", "f", "b", "a", "o"],
         }
         model = _json_schema_to_pydantic("all_types", schema)
-        instance = model(s="hello", i=42, f=3.14, b=True, a=[1], o={"k": "v"})
+        instance = model(s="hello", i=42, f=3.14, b=True, a=["x"], o={"k": "v"})
         assert instance.s == "hello"  # type: ignore[attr-defined]
         assert instance.i == 42  # type: ignore[attr-defined]
 
@@ -93,6 +93,61 @@ class TestJsonSchemaToPydantic:
         model = _json_schema_to_pydantic("flexible", schema)
         instance = model(name="test", graph_state={"messages": []})
         assert instance.name == "test"  # type: ignore[attr-defined]
+
+    def test_array_with_typed_items(self) -> None:
+        schema = {
+            "type": "object",
+            "properties": {"ids": {"type": "array", "items": {"type": "integer"}}},
+            "required": ["ids"],
+        }
+        model = _json_schema_to_pydantic("typed_arr", schema)
+        instance = model(ids=[1, 2, 3])
+        assert instance.ids == [1, 2, 3]  # type: ignore[attr-defined]
+
+    def test_array_with_untyped_items(self) -> None:
+        """items without a 'type' key should default to str (OpenAI compat)."""
+        schema = {
+            "type": "object",
+            "properties": {"queries": {"type": "array", "items": {"description": "A query"}}},
+            "required": ["queries"],
+        }
+        model = _json_schema_to_pydantic("untyped_arr", schema)
+        instance = model(queries=["hello"])
+        assert instance.queries == ["hello"]  # type: ignore[attr-defined]
+        json_schema = model.model_json_schema()
+        assert json_schema["properties"]["queries"]["items"]["type"] == "string"
+
+    def test_nested_array(self) -> None:
+        schema = {
+            "type": "object",
+            "properties": {
+                "matrix": {
+                    "type": "array",
+                    "items": {"type": "array", "items": {"type": "number"}},
+                },
+            },
+            "required": ["matrix"],
+        }
+        model = _json_schema_to_pydantic("nested_arr", schema)
+        instance = model(matrix=[[1.0, 2.0], [3.0]])
+        assert instance.matrix == [[1.0, 2.0], [3.0]]  # type: ignore[attr-defined]
+
+    def test_array_items_schema_always_has_type(self) -> None:
+        """Verify the generated JSON Schema includes 'type' on items (required by OpenAI)."""
+        schema = {
+            "type": "object",
+            "properties": {
+                "bare": {"type": "array"},
+                "typed": {"type": "array", "items": {"type": "integer"}},
+                "untyped": {"type": "array", "items": {}},
+            },
+            "required": ["bare", "typed", "untyped"],
+        }
+        model = _json_schema_to_pydantic("schema_check", schema)
+        json_schema = model.model_json_schema()
+        for field in ("bare", "typed", "untyped"):
+            items = json_schema["properties"][field]["items"]
+            assert "type" in items, f"'{field}' items missing 'type' key"
 
 
 # ---------------------------------------------------------------------------
