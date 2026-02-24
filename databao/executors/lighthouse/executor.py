@@ -3,6 +3,7 @@ from typing import Any, TextIO, cast
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
+from langchain_core.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
 
 from databao.configs import LLMConfig
@@ -22,7 +23,6 @@ class LighthouseExecutor(GraphExecutor):
         super().__init__(writer=writer)
         self._prompt_template = read_prompt_template(Path("system_prompt.jinja"))
         self._graph: ExecuteSubmit = ExecuteSubmit(self._duckdb_connection)
-        self._compiled_graph: CompiledStateGraph[Any] | None = None
 
     def render_system_prompt(
         self,
@@ -54,14 +54,10 @@ class LighthouseExecutor(GraphExecutor):
 
         return prompt.strip()
 
-    def _get_compiled_graph(
-        self, llm_config: LLMConfig, agent_config: AgentConfig, domain: Domain
+    def _compile_graph(
+        self, llm_config: LLMConfig, agent_config: AgentConfig, domain: Domain, extra_tools: list[BaseTool] | None
     ) -> CompiledStateGraph[Any]:
-        """Get compiled graph."""
-        compiled_graph = self._compiled_graph or self._graph.compile(llm_config, agent_config, domain)
-        self._compiled_graph = compiled_graph
-
-        return compiled_graph
+        return self._graph.compile(llm_config, agent_config, domain, extra_tools=extra_tools)
 
     def drop_last_opa_group(self, cache: Cache, n: int = 1) -> None:
         """Drop last n groups of operations from the message history."""

@@ -1,3 +1,4 @@
+import json
 from collections.abc import Sequence
 from typing import Annotated, Any, Literal
 
@@ -110,7 +111,7 @@ class ExecuteSubmit:
             )
         return result
 
-    def make_tools(self, domain: Domain) -> list[BaseTool]:
+    def make_tools(self, domain: Domain, extra_tools: list[BaseTool] | None = None) -> list[BaseTool]:
         @tool(parse_docstring=True)
         def run_sql_query(sql: str, graph_state: Annotated[AgentState, InjectedState]) -> dict[str, Any]:
             """
@@ -152,15 +153,24 @@ class ExecuteSubmit:
             """
             return f"Query {query_id} submitted successfully. Your response is now visible to the user."
 
-        tools = [run_sql_query, submit_result]
+        tools: list[BaseTool] = [run_sql_query, submit_result]
         search_context_tool = make_search_context_tool(domain)
         if search_context_tool is not None:
             tools.append(search_context_tool)
 
+        if extra_tools:
+            tools.extend(extra_tools)
+
         return tools
 
-    def compile(self, model_config: LLMConfig, agent_config: AgentConfig, domain: Domain) -> CompiledStateGraph[Any]:
-        tools = self.make_tools(domain)
+    def compile(
+        self,
+        model_config: LLMConfig,
+        agent_config: AgentConfig,
+        domain: Domain,
+        extra_tools: list[BaseTool] | None = None,
+    ) -> CompiledStateGraph[Any]:
+        tools = self.make_tools(domain, extra_tools=extra_tools)
         llm_model = model_config.new_chat_model()
 
         if llm.is_openai_model(model_config.name):
@@ -263,6 +273,11 @@ class ExecuteSubmit:
                     visualization_prompt = tool_call["args"].get("visualization_prompt", "")
                     sql = state["query_ids"][query_id].artifact["sql"]
                     df = state["query_ids"][query_id].artifact["df"]
+                else:
+                    if isinstance(result, dict):
+                        content = json.dumps(result, ensure_ascii=False, default=str)
+                    else:
+                        content = str(result)
                 tool_messages.append(ToolMessage(content=content, tool_call_id=tool_call_id, artifact=result))
                 if name == "submit_result":
                     return {

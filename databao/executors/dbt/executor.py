@@ -9,6 +9,7 @@ import duckdb
 import jinja2
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
+from langchain_core.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
 
 from databao.configs import LLMConfig
@@ -59,7 +60,6 @@ class DbtProjectExecutor(GraphExecutor):
             query_runner_factory=self._make_query_runner,
             post_dbt_run_hook=self._post_dbt_run_hook,
         )
-        self._compiled_graph: CompiledStateGraph[Any] | None = None
         self._dbt_dirty: bool = True
 
     def _detach_all_databases(self) -> None:
@@ -171,15 +171,13 @@ class DbtProjectExecutor(GraphExecutor):
             entries.append({"name": df_name, "description": desc, "type": "dataframe"})
         return entries
 
-    def _get_compiled_graph(
-        self, llm_config: LLMConfig, agent_config: AgentConfig, domain: Domain
+    def _compile_graph(
+        self, llm_config: LLMConfig, agent_config: AgentConfig, domain: Domain, extra_tools: list[BaseTool] | None
     ) -> CompiledStateGraph[Any]:
-        if self._compiled_graph is None:
-            expansion_llm = llm_config.new_chat_model() if self._expansion_config else None
-            self._graph._expansion_llm = expansion_llm
-            self._graph._expansion_config = self._expansion_config
-            self._compiled_graph = self._graph.compile(llm_config, agent_config, domain)
-        return self._compiled_graph
+        expansion_llm = llm_config.new_chat_model() if self._expansion_config else None
+        self._graph._expansion_llm = expansion_llm
+        self._graph._expansion_config = self._expansion_config
+        return self._graph.compile(llm_config, agent_config, domain, extra_tools=extra_tools)
 
     def drop_last_opa_group(self, cache: Cache, n: int = 1) -> None:
         messages = cache.get("state", default={}).get("messages", [])

@@ -148,7 +148,7 @@ class DbtProjectGraph:
             "answer_submitted": state.get("answer_df") is not None,
         }
 
-    def make_tools(self, domain: Domain) -> list[BaseTool]:
+    def make_tools(self, domain: Domain, extra_tools: list[BaseTool] | None = None) -> list[BaseTool]:
         @tool(parse_docstring=True)
         def run_sql(sql: str, sample_rows: int = 5) -> dict[str, Any]:
             """
@@ -434,10 +434,19 @@ class DbtProjectGraph:
         if search_context_tool is not None:
             tools.append(search_context_tool)
 
+        if extra_tools:
+            tools.extend(extra_tools)
+
         return tools
 
-    def compile(self, model_config: LLMConfig, agent_config: AgentConfig, domain: Domain) -> CompiledStateGraph[Any]:
-        tools = self.make_tools(domain)
+    def compile(
+        self,
+        model_config: LLMConfig,
+        agent_config: AgentConfig,
+        domain: Domain,
+        extra_tools: list[BaseTool] | None = None,
+    ) -> CompiledStateGraph[Any]:
+        tools = self.make_tools(domain, extra_tools=extra_tools)
         llm_model = model_config.new_chat_model()
 
         if llm.is_openai_model(model_config.name):
