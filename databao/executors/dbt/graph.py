@@ -37,6 +37,7 @@ from databao.executors.tools import make_search_context_tool
 logger = logging.getLogger(__name__)
 
 _MAX_DBT_APPLY_RETRIES = 3
+_MAX_HEAL_RETRIES = 10
 
 
 @dataclass(frozen=True)
@@ -70,6 +71,8 @@ class DbtAgentState(TypedDict):
     needs_dbt_changes: bool
     dbt_apply_attempts: int
     dbt_error_context: str | None
+    heal_attempts: int
+    initial_dbt_error: str | None
 
 
 def _now() -> float:
@@ -151,6 +154,8 @@ class DbtProjectGraph:
             needs_dbt_changes=False,
             dbt_apply_attempts=0,
             dbt_error_context=None,
+            heal_attempts=0,
+            initial_dbt_error=None,
         )
 
     def get_result(self, state: DbtAgentState) -> dict[str, Any]:
@@ -583,8 +588,6 @@ class DbtProjectGraph:
 
         assess_model = model_config.new_chat_model()
 
-        # ── [1] initial_dbt_run (deterministic) ──
-
         def initial_dbt_run(state: DbtAgentState) -> dict[str, Any]:
             ctx = state["context"]
             if not state.get("dbt_dirty", True):
@@ -601,22 +604,93 @@ class DbtProjectGraph:
                 post_run_hook=post_hook,
             )
             returncode = result.get("returncode", -1)
-            dbt_dirty = returncode != 0
             summary = _json_dumps(result)
-            status = "succeeded" if returncode == 0 else f"failed (rc={returncode})"
-            msg = f"[system] Initial dbt run {status}.\n{summary}"
-            logger.info("Initial dbt run %s", status)
-            return {
-                "phase": "react",
-                "last_dbt_returncode": returncode,
-                "dbt_dirty": dbt_dirty,
-                "messages": [SystemMessage(content=msg)],
-            }
+            if returncode == 0:
+                logger.info("Initial dbt run succeeded")
+                return {
+                    "phase": "react",
+                    "last_dbt_returncode": 0,
+                    "dbt_dirty": False,
+                    "messages": [SystemMessage(content=f"[system] Initial dbt run succeeded.\n{summary}")],
+                }
+            else:
+                logger.warning("Initial dbt run failed (rc=%d), entering heal phase", returncode)
+                return {
+                    "phase": "heal",
+                    "last_dbt_returncode": returncode,
+                    "dbt_dirty": True,
+                    "initial_dbt_error": summary,
+                    "messages": [SystemMessage(content=f"[system] Initial dbt run failed (rc={returncode}).\n{summary}")],
+                }
+
+        def initial_dbt_router(state: DbtAgentState) -> Literal["react_llm", "heal_dbt_llm"]:
+            return "heal_dbt_llm" if state.get("phase") == "heal" else "react_llm"
+
+        def heal_dbt_llm(state: DbtAgentState) -> dict[str, Any]:
+            heal_instruction = (
+                "[system] The dbt project failed to build. Your job is to FIX it.\n"
+                "1. Read the error output above to understand which models failed and why.\n"
+                "2. Use `read_tool` and `grep_tool` to inspect the broken model SQL files.\n"
+                "3. Use `write_tool` or `edit_tool` to fix the SQL (fix references, missing columns, bad joins).\n"
+                "4. Run `run_dbt` to verify the fix.\n"
+                "5. If it passes, stop calling tools. If it fails, read the new errors and retry.\n\n"
+                "IMPORTANT:\n"
+                "- Do NOT modify pre-existing files that are not broken.\n"
+                "- If a model fails because a SOURCE TABLE is genuinely missing from the warehouse "
+                "(not a dbt model, but a raw table), you CANNOT fix that — just note it and stop.\n"
+                "- Focus only on dbt model compilation/runtime errors you can fix by editing SQL."
+            )
+            messages = list(state["messages"])
+
+            if not any(
+                isinstance(m, SystemMessage)
+                and "[system] The dbt project failed to build" in (m.content if isinstance(m.content, str) else "")
+                for m in messages
+            ):
+                messages.append(SystemMessage(content=heal_instruction))
+
+            error_ctx = state.get("initial_dbt_error")
+            if error_ctx and state.get("heal_attempts", 0) > 0:
+                messages.append(
+                    SystemMessage(content=f"[system] dbt run still failing after fix attempt. Latest output:\n{error_ctx}")
+                )
+
+            response = self._chat(messages, model_config, apply_model)
+            return {"messages": [response[-1]]}
+
+        def heal_dbt_tools(state: DbtAgentState) -> dict[str, Any]:
+            updates = self._execute_tools(state, dbt_tools, post_hook)
+            dbt_rc = updates.get("last_dbt_returncode", state.get("last_dbt_returncode"))
+            attempts = state.get("heal_attempts", 0)
+            if dbt_rc is not None and dbt_rc != 0:
+                tool_msgs = updates.get("messages", [])
+                error_text = tool_msgs[-1].content if tool_msgs else ""
+                updates["initial_dbt_error"] = error_text
+                updates["heal_attempts"] = attempts + 1
+            return updates
+
+        def heal_router(state: DbtAgentState) -> Literal["heal_dbt_tools", "react_llm"]:
+            last = state["messages"][-1]
+            if isinstance(last, AIMessage) and last.tool_calls:
+                return "heal_dbt_tools"
+            # LLM stopped calling tools — either it fixed things or gave up
+            dbt_rc = state.get("last_dbt_returncode")
+            if dbt_rc == 0 or not state.get("dbt_dirty", True):
+                logger.info("Heal phase succeeded, proceeding to analysis")
+                return "react_llm"
+            if state.get("heal_attempts", 0) >= _MAX_HEAL_RETRIES:
+                logger.warning(
+                    "Heal phase exhausted %d retries, proceeding to analysis with broken project",
+                    _MAX_HEAL_RETRIES,
+                )
+                return "react_llm"
+            # Still broken but LLM gave up on tools — nudge it back
+            return "react_llm"
 
         def react_llm(state: DbtAgentState) -> dict[str, Any]:
             messages = state["messages"]
             response = self._chat(messages, model_config, react_model)
-            return {"messages": [response[-1]]}
+            return {"messages": [response[-1]], "phase": "react"}
 
         def react_tools(state: DbtAgentState) -> dict[str, Any]:
             return self._execute_tools(state, analysis_tools, post_hook)
@@ -624,8 +698,6 @@ class DbtProjectGraph:
         def react_router(state: DbtAgentState) -> Literal["react_tools", "assess_dbt_changes"]:
             last = state["messages"][-1]
             if isinstance(last, AIMessage) and last.tool_calls:
-                # If finalize_analysis was just called, we'll execute it first,
-                # then on the next LLM turn it should stop calling tools → route to assess
                 return "react_tools"
             return "assess_dbt_changes"
 
@@ -663,7 +735,6 @@ class DbtProjectGraph:
             return "apply_dbt_llm" if state.get("needs_dbt_changes") else "submit_answer"
 
         def apply_dbt_llm(state: DbtAgentState) -> dict[str, Any]:
-            # Inject a scoped system instruction on first entry
             apply_instruction = (
                 "[system] You are now in dbt-apply mode. Your job:\n"
                 "1. Create/edit dbt model SQL files and documentation YAML as needed.\n"
@@ -676,7 +747,6 @@ class DbtProjectGraph:
             )
             messages = list(state["messages"])
 
-            # Add instruction only once per apply phase
             if not any(
                 isinstance(m, SystemMessage)
                 and "[system] You are now in dbt-apply mode" in (m.content if isinstance(m.content, str) else "")
@@ -693,11 +763,9 @@ class DbtProjectGraph:
 
         def apply_dbt_tools(state: DbtAgentState) -> dict[str, Any]:
             updates = self._execute_tools(state, dbt_tools, post_hook)
-            # Track dbt run results for retry logic
             dbt_rc = updates.get("last_dbt_returncode", state.get("last_dbt_returncode"))
             attempts = state.get("dbt_apply_attempts", 0)
             if dbt_rc is not None and dbt_rc != 0:
-                # Extract error from the last tool message for context
                 tool_msgs = updates.get("messages", [])
                 error_text = tool_msgs[-1].content if tool_msgs else ""
                 updates["dbt_error_context"] = error_text
@@ -708,13 +776,12 @@ class DbtProjectGraph:
             last = state["messages"][-1]
             if isinstance(last, AIMessage) and last.tool_calls:
                 return "apply_dbt_tools"
-            # LLM stopped calling tools → check if dbt succeeded
             dbt_rc = state.get("last_dbt_returncode")
             if state.get("dbt_dirty", True) and dbt_rc != 0:
                 if state.get("dbt_apply_attempts", 0) >= _MAX_DBT_APPLY_RETRIES:
                     logger.warning("dbt apply failed after %d retries, falling back to react", _MAX_DBT_APPLY_RETRIES)
                     return "react_llm"
-                return "apply_dbt_tools"  # let it try again
+                return "apply_dbt_tools"
             return "submit_answer"
 
         def submit_answer(state: DbtAgentState) -> dict[str, Any]:
@@ -726,7 +793,6 @@ class DbtProjectGraph:
             if df is None:
                 df = state.get("last_df")
 
-            # Re-execute if we have SQL but no DF (e.g. came through dbt path)
             if sql and df is None and self._query_runner_factory is not None:
                 runner = self._query_runner_factory()
                 try:
@@ -747,6 +813,8 @@ class DbtProjectGraph:
         graph = StateGraph(DbtAgentState)
 
         graph.add_node("initial_dbt_run", initial_dbt_run)
+        graph.add_node("heal_dbt_llm", heal_dbt_llm)
+        graph.add_node("heal_dbt_tools", heal_dbt_tools)
         graph.add_node("react_llm", react_llm)
         graph.add_node("react_tools", react_tools)
         graph.add_node("assess_dbt_changes", assess_dbt_changes)
@@ -755,7 +823,25 @@ class DbtProjectGraph:
         graph.add_node("submit_answer", submit_answer)
 
         graph.add_edge(START, "initial_dbt_run")
-        graph.add_edge("initial_dbt_run", "react_llm")
+        graph.add_conditional_edges(
+            "initial_dbt_run",
+            initial_dbt_router,
+            {
+                "react_llm": "react_llm",
+                "heal_dbt_llm": "heal_dbt_llm",
+            },
+        )
+        # Heal sub-loop
+        graph.add_conditional_edges(
+            "heal_dbt_llm",
+            heal_router,
+            {
+                "heal_dbt_tools": "heal_dbt_tools",
+                "react_llm": "react_llm",
+            },
+        )
+        graph.add_edge("heal_dbt_tools", "heal_dbt_llm")
+        # Analysis loop
         graph.add_conditional_edges(
             "react_llm",
             react_router,
@@ -765,6 +851,7 @@ class DbtProjectGraph:
             },
         )
         graph.add_edge("react_tools", "react_llm")
+        # Assessment gate
         graph.add_conditional_edges(
             "assess_dbt_changes",
             assess_router,
@@ -773,6 +860,7 @@ class DbtProjectGraph:
                 "submit_answer": "submit_answer",
             },
         )
+        # Apply sub-loop
         graph.add_conditional_edges(
             "apply_dbt_llm",
             apply_router,
