@@ -1,7 +1,7 @@
 [project]
 name = "databao"
 description = "databao: NL queries for data"
-dynamic = ["version"]  # Based on the git tag
+version = "0.1.4.dev3"
 requires-python = ">=3.11, <3.15"
 readme = "README.md"
 license = "Apache-2.0 AND LicenseRef-Additional-Terms"
@@ -28,7 +28,7 @@ dependencies = [
     "diskcache>=5.6.3",
     "sqlalchemy>=2.0.45",
     "snowflake-sqlalchemy>=1.8.2",
-    "databao-context-engine[postgresql,mysql,snowflake] @ git+https://github.com/JetBrains/databao-context-engine.git@main",
+    "databao-context-engine[postgresql,mysql,snowflake]>=0.4.0",
     "watchdog>=6.0.0",
     "pandas-stubs~=2.3.3",
     # dbt agent-related deps
@@ -47,21 +47,8 @@ examples = [
 ]
 
 [build-system]
-requires = ["hatchling", "uv-dynamic-versioning"]
+requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-[tool.hatch.version]
-source = "uv-dynamic-versioning"
-
-[tool.uv-dynamic-versioning]
-# Use `git tag -a v0.0.0 -m "v0.0.0"` to create a tag.
-vcs = "git"
-style = "pep440"
-fallback-version = "0.0.0"  # https://github.com/ninoseki/uv-dynamic-versioning/blob/main/docs/tips.md
-bump = true
-
-[tool.hatch.metadata]
-allow-direct-references = true
 
 [tool.hatch.build.targets.sdist]
 include = ["/databao"]
