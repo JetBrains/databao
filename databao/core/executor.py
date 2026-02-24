@@ -3,6 +3,7 @@ import re
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, TextIO
 
+from langchain_core.tools import BaseTool
 from pandas import DataFrame
 from pydantic import BaseModel, ConfigDict
 
@@ -151,6 +152,10 @@ class Executor(ABC):
     @abstractmethod
     def register_df(self, source: DFDataSource) -> None:
         pass
+
+    @abstractmethod
+    def register_tools(self, tools: list[BaseTool]) -> None:
+        """Register additional LangChain tools to be available during execution."""
 
     @abstractmethod
     def drop_last_opa_group(self, cache: "Cache", n: int = 1) -> None:

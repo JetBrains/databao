@@ -9,8 +9,24 @@ from typing import Any
 
 import duckdb
 
-# Post-run hook type alias (project convention: simple Callable aliases)
 PostDbtRunHook = Callable[[Path], None]
+
+_EXCLUDED_DIR_NAMES: frozenset[str] = frozenset(
+    {
+        "target",
+        "dbt_packages",
+        "dbt_modules",
+        "logs",
+        ".venv",
+        ".git",
+        "node_modules",
+        "__pycache__",
+        ".mypy_cache",
+        ".pytest_cache",
+    }
+)
+
+_MAX_SUMMARY_FILES = 1000
 
 
 def duckdb_post_run_hook(project_dir: Path) -> None:
@@ -21,7 +37,9 @@ def duckdb_post_run_hook(project_dir: Path) -> None:
             con.execute("CHECKPOINT")
             con.close()
         except Exception:
-            pass  # Best effort
+            # If we can't checkpoint (e.g. lock held), WAL will be applied
+            # on the next read-only ATTACH automatically by DuckDB.
+            pass
 
 
 def noop_post_run_hook(project_dir: Path) -> None:
@@ -72,72 +90,53 @@ def run_dbt_subprocess(
     }
 
 
-def assemble_dbt_project_summary(project_dir: Path, max_file_chars: int | None = 8000) -> str:
-    """Deterministically gather important dbt project files into a single string.
+def assemble_dbt_project_summary(project_dir: Path) -> str:
+    """Build a compact tree-style overview of the dbt project structure.
 
-    The function looks for `dbt_project.yml`, model schema YAMLs under `models/`,
-    SQL model files under `models/`, macros, and seeds. Files are read in a
-    stable, sorted order and truncated if they exceed `max_file_chars` per file.
+    Returns a directory tree listing all files with their sizes — no file
+    contents are read.  The agent can later call ``read_tool(path)`` for any
+    file it actually needs.
+
+    Directories listed in ``_EXCLUDED_DIR_NAMES`` (e.g. target, dbt_packages,
+    logs) are skipped to avoid bloating the system prompt after dbt deps/run.
+    The listing is also capped at ``_MAX_SUMMARY_FILES`` entries.
     """
-    parts: list[str] = []
     if not project_dir or not project_dir.exists():
         return f"DBT project directory not found at {project_dir}"
-    # deterministic patterns and order
-    patterns = [
-        "dbt_project.yml",
-        "models/**/*.yml",
-        "models/**/*.yaml",
-        "models/**/*.sql",
-        "macros/**/*.sql",
-        "seeds/**/*.csv",
-        "*.md",
-    ]
-    seen_paths: dict[str, Path] = {}
-    for pat in patterns:
-        for p in sorted(project_dir.glob(pat)):
-            # use resolved path string as key to dedupe
-            key = str(p.resolve())
-            if key not in seen_paths:
-                seen_paths[key] = p
-    # sort by relative path to project_dir for deterministic ordering
-    files = sorted(seen_paths.values(), key=lambda p: str(p.relative_to(project_dir)))
-    for p in files:
-        try:
-            text = p.read_text(errors="replace")
-        except Exception as exc:  # pragma: no cover - IO/read failure
-            text = f"<failed to read file {p}: {exc}>"
-        if max_file_chars is not None and len(text) > max_file_chars:
-            text = text[:max_file_chars] + "\n...TRUNCATED..."
-        parts.append(f"### PATH: {p.relative_to(project_dir)} ###\n{text}\n")
 
-    # Now, walk the project_dir recursively. Any file not already in seen_paths is simply listed with its size
-    other_files: list[tuple[Path, int]] = []
-    for dirpath, _dirnames, filenames in os.walk(project_dir):
+    files: list[tuple[Path, int]] = []
+    for dirpath, dirnames, filenames in os.walk(project_dir):
+        dirnames[:] = [d for d in dirnames if d not in _EXCLUDED_DIR_NAMES]
+
         for fname in sorted(filenames):
             fpath = Path(dirpath) / fname
-            key = str(fpath.resolve())
-            if key not in seen_paths:
-                try:
-                    size = fpath.stat().st_size
-                except Exception:
-                    size = -1
-                other_files.append((fpath.relative_to(project_dir), size))
-    if other_files:
-        listing_lines = [
-            f"### NON-SUMMARIZED FILE: {f} (size: {size} bytes)"
-            if size >= 0
-            else f"### NON-SUMMARIZED FILE: {f} (size: unknown)"
-            for f, size in sorted(other_files)
-        ]
-        parts.append("\n".join(listing_lines))
-    if not parts:
-        return (
-            f"DBT project directory present at {project_dir} "
-            "but no matching files found under models/, macros/, or seeds/."
+            rel = fpath.relative_to(project_dir)
+            try:
+                size = fpath.stat().st_size
+            except Exception:
+                size = -1
+            files.append((rel, size))
+            if len(files) >= _MAX_SUMMARY_FILES:
+                break
+        if len(files) >= _MAX_SUMMARY_FILES:
+            break
+
+    files.sort()
+
+    if not files:
+        return f"DBT project directory present at {project_dir} but no files found."
+
+    truncated = len(files) >= _MAX_SUMMARY_FILES
+    lines: list[str] = [f"dbt project structure ({len(files)}{'+ (truncated)' if truncated else ''} files):"]
+    for rel, size in files:
+        size_str = f"{size} bytes" if size >= 0 else "unknown size"
+        lines.append(f"  {rel}  ({size_str})")
+
+    if truncated:
+        lines.append(
+            f"\n  ... listing capped at {_MAX_SUMMARY_FILES} files. Use read_tool / grep_tool to explore further."
         )
-    header = (
-        f"Assembled dbt project files from {project_dir}:\n"
-        f"Found {len(files)} files with content. "
-        f"Listed {len(other_files)} other files by size.\n"
-    )
-    return header + "\n".join(parts)
+
+    lines.append("")
+    lines.append("Use read_tool(path) to inspect any file contents as needed.")
+    return "\n".join(lines)

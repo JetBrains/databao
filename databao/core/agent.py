@@ -1,5 +1,7 @@
+import logging
+import warnings
 from pathlib import Path
-from typing import TYPE_CHECKING, TextIO
+from typing import TYPE_CHECKING, Any, TextIO
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from pandas import DataFrame
@@ -8,6 +10,7 @@ from databao.core.data_source import DBDataSource, DFDataSource, Sources
 from databao.core.domain import Domain, _Domain
 from databao.core.thread import Thread
 from databao.databases import DBConnection
+from databao.mcp.manager import McpManager
 
 if TYPE_CHECKING:
     from databao.configs.agent import AgentConfig
@@ -15,6 +18,8 @@ if TYPE_CHECKING:
     from databao.core.cache import Cache
     from databao.core.executor import Executor
     from databao.core.visualizer import Visualizer
+
+logger = logging.getLogger(__name__)
 
 
 class Agent:
@@ -48,6 +53,7 @@ class Agent:
         self.__executor = data_executor
         self.__visualizer = visualizer
         self.__cache = cache
+        self.__mcp: McpManager = McpManager()
 
         # Thread defaults
         self.__rows_limit = rows_limit
@@ -77,6 +83,92 @@ class Agent:
             "This method was removed. "
             "Please create a Domain, add a source to it, and initialize the Agent with that Domain."
         )
+
+    def add_mcp(
+        self,
+        config: dict[str, Any] | str | None = None,
+        *,
+        url: str | None = None,
+        command: str | None = None,
+        args: list[str] | None = None,
+        env: dict[str, str] | None = None,
+        headers: dict[str, Any] | None = None,
+        transport: str | None = None,
+        auth: Any | None = None,
+    ) -> None:
+        """Connect to one or more MCP servers and register their tools with this agent.
+
+        .. warning::
+            This feature is **experimental** and may change in future releases.
+
+        Can be called with a Claude-Code-style config dict / JSON, or with explicit keyword
+        arguments for a single server.
+
+        **Config dict** (Claude Code / Anthropic format)::
+
+              agent.add_mcp({
+                  "mcpServers": {
+                      "Name": {
+                          "command": "npx",
+                          "args": ["@command/mcp"],
+                          "env": {"API_TOKEN": "..."}
+                      }
+                  }
+              })
+
+        A JSON string or a path to a ``.json`` file is also accepted::
+
+              agent.add_mcp("/path/to/mcp_servers.json")
+
+        **Keyword arguments** (single server)::
+
+              agent.add_mcp(command="python", args=["my_server.py"])
+              agent.add_mcp(url="http://localhost:8080/sse")
+              agent.add_mcp(url="http://localhost:8080/mcp", transport="streamable_http")
+              agent.add_mcp(url="http://example.com/sse", auth="oauth")
+
+        Args:
+            config: A config dict, a JSON string, or a path to a JSON file.
+                Supports ``{"mcpServers": {name: server_cfg, ...}}``,
+                ``{name: server_cfg, ...}``, or a single ``server_cfg`` dict.
+                Each ``server_cfg`` contains ``command``/``args``/``env`` (stdio)
+                or ``url``/``headers`` (SSE / Streamable HTTP) keys.
+            url: Server URL for SSE or Streamable HTTP transport.
+            command: Executable for stdio transport.
+            args: Command-line arguments for the stdio executable.
+            env: Environment variables for the stdio subprocess.
+            headers: HTTP headers for SSE / Streamable HTTP transport.
+            transport: Explicit transport selection (``"sse"`` or ``"streamable_http"``).
+                Inferred automatically when *url* or *command* is provided.
+            auth: Authentication for HTTP-based transports (SSE / Streamable HTTP).
+                Pass ``"oauth"`` or ``True`` to trigger the default browser-based
+                OAuth 2.1 flow (tokens are cached to ``~/.databao/mcp-tokens/``).
+                An ``httpx.Auth`` instance can also be passed directly for custom auth.
+        """
+        warnings.warn(
+            "add_mcp() is an experimental feature and may change in future releases.",
+            stacklevel=2,
+        )
+        if config is not None:
+            has_kw = any(v is not None for v in (url, command, args, env, headers, transport, auth))
+            if has_kw:
+                raise ValueError("Cannot combine 'config' with keyword arguments; use one or the other")
+            lc_tools = self.__mcp.connect_from_config(config)
+        else:
+            lc_tools = self.__mcp.connect(
+                url=url,
+                command=command,
+                args=args,
+                env=env,
+                headers=headers,
+                transport=transport,
+                auth=auth,
+            )
+        self.__executor.register_tools(lc_tools)
+
+    def close(self) -> None:
+        """Close all MCP connections."""
+        self.__mcp.close()
 
     def thread(
         self,
@@ -150,3 +242,8 @@ class Agent:
     def additional_context(self) -> list[str]:
         """General additional context not specific to any one data source."""
         return self.sources.additional_context
+
+    @property
+    def mcp_servers(self) -> list[str]:
+        """Return names of connected MCP servers."""
+        return self.__mcp.servers

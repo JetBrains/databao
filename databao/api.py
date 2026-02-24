@@ -6,6 +6,7 @@ from databao.configs.agent import DEFAULT_AGENT_CONFIG, AgentConfig
 from databao.configs.llm import LLMConfig, LLMConfigDirectory
 from databao.core import Agent, Cache, Executor, Visualizer
 from databao.core.domain import Domain, _Domain, _InMemoryDomain, _PersistentDomain
+from databao.executors import ReactDuckDBExecutor
 from databao.executors.dbt.config import DbtConfig
 from databao.executors.dbt.executor import DbtProjectExecutor
 from databao.executors.lighthouse.executor import LighthouseExecutor
@@ -36,15 +37,16 @@ def agent(
     llm_config = llm_config if llm_config else LLMConfigDirectory.DEFAULT
     agent_config = agent_config if agent_config else DEFAULT_AGENT_CONFIG
 
-    # Create executor if not provided
     if data_executor is None:
         match executor_type:
             case "lighthouse":
                 data_executor = LighthouseExecutor(writer=writer)
             case "dbt":
                 if dbt_config is None:
-                    raise ValueError("dbt_config must be provided when executor_type='dbt'")
+                    dbt_config = DbtConfig()
                 data_executor = DbtProjectExecutor(dbt_config=dbt_config, writer=writer)
+            case "react_duckdb":
+                data_executor = ReactDuckDBExecutor(writer=writer)
             case _:
                 raise ValueError(f"Invalid executor type: {executor_type}")
 
