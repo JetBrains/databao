@@ -136,6 +136,14 @@ Optional for local/OpenAI-compatible servers:
 | `OPENAI_BASE_URL` | Custom endpoint (aka `api_base_url` in code)    |
 | `OLLAMA_HOST`     | Ollama server address (e.g., `127.0.0.1:11434`) |
 
+Optional for tracing:
+
+| Variable            | Description                                                  |
+|:--------------------|:-------------------------------------------------------------|
+| `LANGSMITH_TRACING` | Set to `true` to enable LangSmith tracing (default: `false`) |
+| `LANGCHAIN_PROJECT` | LangSmith project name for organizing traces                 |
+| `LANGCHAIN_API_KEY` | API key from [smith.langchain.com](https://smith.langchain.com) |
+
 ## Local Models
 
 Databao agent works great with local LLMs — your data never leaves your machine.

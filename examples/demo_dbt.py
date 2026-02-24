@@ -3,6 +3,7 @@ import tempfile
 from pathlib import Path
 
 from databao_context_engine import DatasourceType
+from dotenv import load_dotenv
 
 import databao
 from databao import LLMConfig
@@ -11,6 +12,8 @@ from databao.configs.agent import AgentConfig
 from databao.databases import DBConnectionConfig
 from databao.executors.dbt import DbtProjectExecutor
 from databao.executors.query_expansion import QueryExpansionConfig
+
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 
