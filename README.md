@@ -138,11 +138,11 @@ Optional for local/OpenAI-compatible servers:
 
 Optional for tracing:
 
-| Variable            | Description                                                  |
-|:--------------------|:-------------------------------------------------------------|
-| `LANGSMITH_TRACING` | Set to `true` to enable LangSmith tracing (default: `false`) |
-| `LANGCHAIN_PROJECT` | LangSmith project name for organizing traces                 |
-| `LANGCHAIN_API_KEY` | API key from [smith.langchain.com](https://smith.langchain.com) |
+| Variable            | Description                                                                      |
+|:--------------------|:---------------------------------------------------------------------------------|
+| `LANGSMITH_TRACING` | Set to `true` to enable LangSmith tracing (default: `false`)                     |
+| `LANGCHAIN_PROJECT` | LangSmith project name for organizing traces                                     |
+| `LANGCHAIN_API_KEY` | API key from [smith.langchain.com](https://smith.langchain.com/settings/apikeys) |
 
 ## Local Models
 
