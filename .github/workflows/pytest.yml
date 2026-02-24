@@ -49,3 +49,6 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }} # Real API key for integration tests
         run: uv run pytest tests -v
+
+      - name: Check frontend assets are bundled in wheel
+        run: uv run pytest tests/test_frontend_assets.py -m packaging -v

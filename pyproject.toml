@@ -155,4 +155,5 @@ cache-keys = [{ file = "pyproject.toml" }, { git = { commit = true, tags = true 
 addopts = ["--strict-markers"]
 markers = [
     "apikey: marks tests that require an API key",
+    "packaging: marks tests that build the package",
 ]
