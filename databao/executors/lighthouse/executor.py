@@ -2,7 +2,6 @@ from pathlib import Path
 from typing import Any, TextIO, cast
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
-from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
 
@@ -96,7 +95,7 @@ class LighthouseExecutor(GraphExecutor):
         cleaned_messages = clean_tool_history(all_messages_with_system, llm_config.max_tokens_before_cleaning)
 
         init_state = self._graph.init_state(cleaned_messages, limit_max_rows=rows_limit)
-        invoke_config = RunnableConfig(recursion_limit=agent_config.recursion_limit)
+        invoke_config = self._build_invoke_config(agent_config, opas)
         last_state = self._invoke_graph_sync(
             compiled_graph, init_state, config=invoke_config, stream=stream, writer=writer
         )
