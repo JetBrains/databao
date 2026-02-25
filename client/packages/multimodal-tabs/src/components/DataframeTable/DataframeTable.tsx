@@ -18,14 +18,26 @@ export function DataframeTable(props: DataframeTableProps) {
     status: dataServiceStatus,
   } = useDataService(props.dataframeCsvData);
 
-  const getStatus = (contentStatus: Status, dataStatus: Status): Status => {
-    if (contentStatus === "failed" || dataStatus === "failed") {
+  const getStatus = (
+    contentGenerationStatus: Status,
+    dataServiceStatus: Status,
+  ): Status => {
+    if (
+      contentGenerationStatus === "failed" ||
+      dataServiceStatus === "failed"
+    ) {
       return "failed";
     }
-    if (contentStatus === "loaded" && dataStatus === "loaded") {
+    if (
+      contentGenerationStatus === "loaded" &&
+      dataServiceStatus === "loaded"
+    ) {
       return "loaded";
     }
-    if (contentStatus === "loading" || dataStatus === "loading") {
+    if (
+      contentGenerationStatus === "loading" ||
+      dataServiceStatus === "loading"
+    ) {
       return "loading";
     }
     return "initial";

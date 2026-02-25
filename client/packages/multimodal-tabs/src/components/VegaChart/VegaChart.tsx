@@ -19,14 +19,17 @@ export function VegaChart(props: VegaChartProps) {
     status: dataServiceStatus,
   } = useDataService(props.specData);
 
-  const getStatus = (specStatus: Status, chartStatus: Status): Status => {
-    if (specStatus === "failed" || chartStatus === "failed") {
+  const getStatus = (
+    specGenerationStatus: Status,
+    dataServiceStatus: Status,
+  ): Status => {
+    if (specGenerationStatus === "failed" || dataServiceStatus === "failed") {
       return "failed";
     }
-    if (specStatus === "loaded" && chartStatus === "loaded") {
+    if (specGenerationStatus === "loaded" && dataServiceStatus === "loaded") {
       return "loaded";
     }
-    if (specStatus === "loading" || chartStatus === "loading") {
+    if (specGenerationStatus === "loading" || dataServiceStatus === "loading") {
       return "loading";
     }
     return "initial";
