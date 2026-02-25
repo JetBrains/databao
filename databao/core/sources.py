@@ -42,6 +42,10 @@ class SourcesManager:
     def add_dbt(
         self, dbt_dir: Path, *, name: str | None = None, description: str | Path | None = None
     ) -> DBTDataSource | None:
+        for dbt in self._sources.dbts.values():
+            if dbt.dir == dbt_dir:
+                return None
+
         name = name or f"dbt{len(self._sources.dbts) + 1}"
         self._check_source_can_be_added(name)
 
