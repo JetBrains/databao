@@ -3,6 +3,7 @@ from typing import Any, TextIO, cast
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
+from langchain_core.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
 
 from databao.configs import LLMConfig
@@ -12,8 +13,8 @@ from databao.core.domain import _Domain
 from databao.core.executor import OutputModalityHints
 from databao.duckdb.utils import describe_duckdb_schema
 from databao.executors.base import GraphExecutor
+from databao.executors.history_cleaning import clean_tool_history
 from databao.executors.lighthouse.graph import ExecuteSubmit
-from databao.executors.lighthouse.history_cleaning import clean_tool_history
 from databao.executors.lighthouse.utils import get_today_date_str, read_prompt_template
 
 
@@ -22,7 +23,6 @@ class LighthouseExecutor(GraphExecutor):
         super().__init__(writer=writer)
         self._prompt_template = read_prompt_template(Path("system_prompt.jinja"))
         self._graph: ExecuteSubmit = ExecuteSubmit(self._duckdb_connection)
-        self._compiled_graph: CompiledStateGraph[Any] | None = None
 
     def render_system_prompt(
         self,
@@ -36,15 +36,15 @@ class LighthouseExecutor(GraphExecutor):
         domain = cast(_Domain, domain)
         sources = domain.sources
         context_text = ""
-        for db_name, source in sources.dbs.items():
-            if source.context:
-                context_text += f"## Context for DB {db_name}\n\n{source.context}\n\n"
-        for df_name, source in sources.dfs.items():
-            if source.context:
-                context_text += (
-                    f"## Context for DF {df_name} (fully qualified name 'temp.main.{df_name}')\n\n{source.context}\n\n"
-                )
-        for idx, add_ctx in enumerate(sources.additional_context, start=1):
+        for name, source in sources.dbs.items():
+            if source.description:
+                desc = source.description
+                context_text += f"## Context for DB {name}\n\n{desc}\n\n"
+        for name, source in sources.dfs.items():
+            if source.description:
+                desc = source.description
+                context_text += f"## Context for DF {name} (fully qualified name 'temp.main.{name}')\n\n{desc}\n\n"
+        for idx, add_ctx in enumerate(sources.additional_description, start=1):
             context_text += f"## General information {idx}\n\n{add_ctx.strip()}\n\n"
         context_text = context_text.strip()
 
@@ -54,14 +54,10 @@ class LighthouseExecutor(GraphExecutor):
 
         return prompt.strip()
 
-    def _get_compiled_graph(
-        self, llm_config: LLMConfig, agent_config: AgentConfig, domain: Domain
+    def _compile_graph(
+        self, llm_config: LLMConfig, agent_config: AgentConfig, domain: Domain, extra_tools: list[BaseTool] | None
     ) -> CompiledStateGraph[Any]:
-        """Get compiled graph."""
-        compiled_graph = self._compiled_graph or self._graph.compile(llm_config, agent_config, domain)
-        self._compiled_graph = compiled_graph
-
-        return compiled_graph
+        return self._graph.compile(llm_config, agent_config, domain, extra_tools=extra_tools)
 
     def drop_last_opa_group(self, cache: Cache, n: int = 1) -> None:
         """Drop last n groups of operations from the message history."""

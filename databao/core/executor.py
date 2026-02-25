@@ -3,11 +3,12 @@ import re
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, TextIO
 
+from langchain_core.tools import BaseTool
 from pandas import DataFrame
 from pydantic import BaseModel, ConfigDict
 
-from databao.core.data_source import DBDataSource, DFDataSource
-from databao.core.domain import Domain, _PersistentDomain
+from databao.core.data_source import DBDataSource, DBTDataSource, DFDataSource
+from databao.core.domain import Domain
 
 if TYPE_CHECKING:
     from databao import LLMConfig
@@ -153,6 +154,14 @@ class Executor(ABC):
         pass
 
     @abstractmethod
+    def register_dbt(self, source: DBTDataSource) -> None:
+        pass
+
+    @abstractmethod
+    def register_tools(self, tools: list[BaseTool]) -> None:
+        """Register additional LangChain tools to be available during execution."""
+
+    @abstractmethod
     def drop_last_opa_group(self, cache: "Cache", n: int = 1) -> None:
         pass
 
@@ -186,5 +195,5 @@ class Executor(ABC):
 
     @staticmethod
     def prepare_for_execution(domain: "Domain") -> None:
-        if isinstance(domain, _PersistentDomain):
+        if domain.supports_context:
             domain.build_context()

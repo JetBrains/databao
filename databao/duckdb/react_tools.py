@@ -79,13 +79,20 @@ def make_duckdb_tool(con: DuckDBPyConnection) -> Any:
     return execute_sql
 
 
-def make_react_duckdb_agent(con: DuckDBPyConnection, llm: BaseChatModel, domain: Domain) -> CompiledStateGraph[Any]:
+def make_react_duckdb_agent(
+    con: DuckDBPyConnection,
+    llm: BaseChatModel,
+    domain: Domain,
+    extra_tools: list[Any] | None = None,
+) -> CompiledStateGraph[Any]:
     """
     Create a ReAct agent configured to work with DuckDB.
 
     Args:
         con: DuckDB connection to execute queries against.
         llm: Language model to use for the agent.
+        domain: Domain with schema and context.
+        extra_tools: Optional additional tools (e.g. from MCP servers).
 
     Returns:
         A compiled LangGraph ReAct agent.
@@ -113,6 +120,8 @@ def make_react_duckdb_agent(con: DuckDBPyConnection, llm: BaseChatModel, domain:
     search_context_tool = make_search_context_tool(domain)
     if search_context_tool is not None:
         tools.append(search_context_tool)
+    if extra_tools:
+        tools.extend(extra_tools)
 
     # LangGraph prebuilt ReAct agent
     agent = create_react_agent(

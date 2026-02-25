@@ -1,12 +1,17 @@
 from abc import ABC, abstractmethod
+from typing import Any
 
 from _duckdb import DuckDBPyConnection
 from databao_context_engine import DatasourceType
+from databao_context_engine.pluginlib.build_plugin import AbstractConfigFile
 
-from databao.databases.database_connection import DBConnection, DBConnectionConfig, DBConnectionRuntime
+from databao.databases.database_connection import (
+    DBConnection,
+    DBConnectionConfig,
+    DBConnectionRuntime,
+)
 
 
-# TODO (dce): extract the common part of the implementations
 class DatabaseAdapter(ABC):
     @classmethod
     @abstractmethod
@@ -14,15 +19,19 @@ class DatabaseAdapter(ABC):
 
     @classmethod
     @abstractmethod
-    def main_property_keys(cls) -> set[str]: ...
-
-    @classmethod
-    @abstractmethod
     def accept(cls, conn: DBConnection) -> bool: ...
 
     @classmethod
     @abstractmethod
-    def convert_to_config(cls, run_conn: DBConnectionRuntime) -> DBConnectionConfig | None: ...
+    def create_config_file(cls, config: DBConnectionConfig, name: str) -> AbstractConfigFile: ...
+
+    @classmethod
+    @abstractmethod
+    def create_config_from_runtime(cls, run_conn: DBConnectionRuntime) -> DBConnectionConfig: ...
+
+    @classmethod
+    @abstractmethod
+    def create_config_from_content(cls, content: dict[str, Any]) -> DBConnectionConfig: ...
 
     @classmethod
     @abstractmethod

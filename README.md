@@ -21,6 +21,12 @@
 
 ---
 
+<p align="center">
+ 🏆 <a href="https://jb.gg/ne7897"><b>Ranked #1</b> in the DBT track</a> of the Spider 2.0 Text2SQL benchmark
+</p>
+
+---
+
 ## What is Databao Agent?
 
 Databao Agent is an **open-source AI agent** that lets you query your data sources using natural language. 
@@ -135,6 +141,14 @@ Optional for local/OpenAI-compatible servers:
 |:------------------|:------------------------------------------------|
 | `OPENAI_BASE_URL` | Custom endpoint (aka `api_base_url` in code)    |
 | `OLLAMA_HOST`     | Ollama server address (e.g., `127.0.0.1:11434`) |
+
+Optional for tracing:
+
+| Variable            | Description                                                                      |
+|:--------------------|:---------------------------------------------------------------------------------|
+| `LANGSMITH_TRACING` | Set to `true` to enable LangSmith tracing (default: `false`)                     |
+| `LANGCHAIN_PROJECT` | LangSmith project name for organizing traces                                     |
+| `LANGCHAIN_API_KEY` | API key from [smith.langchain.com](https://smith.langchain.com/settings/apikeys) |
 
 ## Local Models
 

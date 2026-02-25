@@ -43,7 +43,7 @@ def main() -> None:
         project_dir.mkdir(parents=True)
 
     domain = databao.domain(project_dir)
-    domain.add_source(engine)
+    domain.add_db(engine)
 
     agent = databao.agent(domain=domain, name="my_agent", llm_config=LLMConfig(name="gpt-5.1", temperature=0))
 

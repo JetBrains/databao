@@ -14,14 +14,14 @@ def run_scenario() -> bool:
 
     db_path = file_path / "web_shop_orders/data/web_shop.duckdb"
     conn = duckdb.connect(db_path, read_only=True)
-    domain.add_source(conn)
+    domain.add_db(conn)
 
     llm_config = databao.LLMConfig.from_yaml(file_path / "configs/gpt-oss-20b-ollama.yaml")
     # llm_config = databao.LLMConfig(name="claude-sonnet-4-5")
 
     # llm_config = databao.LLMConfig.from_yaml("configs/qwen3-8b-ollama.yaml")  # Use a custom config file
     # llm_config = databao.LLMConfigDirectory.QWEN3_8B_OLLAMA  # Use one of the preconfigured configs
-    agent = databao.agent(domain, "my_agent", llm_config=llm_config, stream_ask=False)
+    agent = databao.agent(domain, name="my_agent", llm_config=llm_config, stream_ask=False)
 
     thread = agent.thread(lazy=True)
     thread.ask(
