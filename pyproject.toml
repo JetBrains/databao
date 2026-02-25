@@ -115,7 +115,7 @@ disable_error_code = ["no-any-return"]
 
 [tool.ruff]
 line-length = 120
-extend-exclude = ["*.ipynb"]
+extend-exclude = ["*.ipynb", "databao/databases/database_connection.py"]
 
 [tool.ruff.lint]
 select = [

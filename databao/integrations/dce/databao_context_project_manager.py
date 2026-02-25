@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Any
 
 from databao_context_engine import (
     BuildDatasourceResult,
@@ -9,20 +8,22 @@ from databao_context_engine import (
     DatasourceId,
     DatasourceType,
 )
+from databao_context_engine.pluginlib.build_plugin import AbstractConfigFile
 
 
 class DatabaoContextProjectManagerApi:
     def __init__(self, delegate: DatabaoContextProjectManager):
         self._delegate = delegate
 
-    def create_datasource_config(
-        self, datasource_type: DatasourceType, datasource_name: str, config_content: dict[str, Any]
-    ) -> ConfiguredDatasource:
-        return self._delegate.create_datasource_config(datasource_type, datasource_name, config_content)
+    def create_datasource_config(self, config_file: AbstractConfigFile) -> ConfiguredDatasource:
+        datasource_type = DatasourceType(full_type=config_file.type)
+        datasource_name = config_file.name
+        return self._delegate.create_datasource_config(datasource_type, datasource_name, config_file)
 
     def get_configured_datasource_list(self) -> list[ConfiguredDatasource]:
         return self._delegate.get_configured_datasource_list()
 
+    # TODO (dce): should be present only in DatabaoContextEngineApi
     def get_introspected_datasource_list(self) -> list[Datasource]:
         return self._delegate.get_engine_for_project().get_introspected_datasource_list()
 

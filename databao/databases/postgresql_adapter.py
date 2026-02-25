@@ -1,11 +1,13 @@
+from typing import Any
+
 from _duckdb import DuckDBPyConnection
-from databao_context_engine import DatasourceType
+from databao_context_engine import DatasourceType, PostgresConfigFile, PostgresConnectionProperties
+from databao_context_engine.pluginlib.build_plugin import AbstractConfigFile
 from sqlalchemy import URL, Connection, Engine, make_url
 
 from databao.databases.database_adapter import DatabaseAdapter
 from databao.databases.database_connection import DBConnection, DBConnectionConfig, DBConnectionRuntime
-
-POSTGRES_TYPE = DatasourceType(full_type="postgres")
+from databao.databases.utils import str_dict
 
 USER_KEY = "user"
 PASSWORD_KEY = "password"
@@ -15,62 +17,82 @@ DATABASE_KEY = "database"
 
 MAIN_KEYS = {USER_KEY, PASSWORD_KEY, HOST_KEY, PORT_KEY, DATABASE_KEY}
 
+EXCLUDED_QUERY_KEYS = {*MAIN_KEYS}
+
 
 class PostgreSQLAdapter(DatabaseAdapter):
     @classmethod
     def type(cls) -> DatasourceType:
-        return POSTGRES_TYPE
+        full_type = PostgresConfigFile.model_fields["type"].default
+        return DatasourceType(full_type=full_type)
 
     @classmethod
-    def main_property_keys(cls) -> set[str]:
-        return MAIN_KEYS
-
-    @classmethod
-    def accept(self, conn: DBConnection) -> bool:
+    def accept(cls, conn: DBConnection) -> bool:
         if isinstance(conn, (Engine, Connection)):
             dialect = conn.dialect
             return dialect.name.startswith("postgres")
-        if isinstance(conn, DBConnectionConfig):
-            return conn.type == POSTGRES_TYPE  # type: ignore[no-any-return]
-        return False
+        return isinstance(conn, PostgresConnectionProperties)
 
     @classmethod
-    def convert_to_config(cls, run_conn: DBConnectionRuntime) -> DBConnectionConfig | None:
+    def create_config_file(cls, config: DBConnectionConfig, name: str) -> AbstractConfigFile:
+        if not isinstance(config, PostgresConnectionProperties):
+            raise ValueError(
+                f"Invalid connection config type: expected PostgresConnectionProperties, got {type(config)}."
+            )
+        return PostgresConfigFile(connection=config, name=name)
+
+    @classmethod
+    def create_config_from_runtime(cls, run_conn: DBConnectionRuntime) -> DBConnectionConfig:
         if not isinstance(run_conn, (Engine, Connection)):
-            return None
+            raise ValueError(
+                f"Invalid runtime connection type: expected SQLAlchemy Engine or Connection, got {type(run_conn)}."
+            )
 
         engine = run_conn if isinstance(run_conn, Engine) else run_conn.engine
         dialect = engine.dialect
         if not dialect.name.startswith("postgres"):
-            return None
+            raise ValueError(f'Invalid runtime connection dialect: expected "postgres", got "{dialect.name}".')
 
         sa_url_str = engine.url.render_as_string(hide_password=False)
         sa_url = make_url(sa_url_str)
         content = dict(dialect.create_connect_args(sa_url)[1])
-        if "dbname" in content and "database" not in content:
-            content["database"] = content.pop("dbname")
+        if "dbname" in content:
+            content[DATABASE_KEY] = content.pop("dbname")
 
-        return DBConnectionConfig(type=POSTGRES_TYPE, content=content)
+        return PostgresConnectionProperties(
+            host=sa_url.host,
+            port=sa_url.port,
+            database=sa_url.database,
+            user=sa_url.username,
+            password=sa_url.password,
+            additional_properties={k: v for k, v in content.items() if k not in EXCLUDED_QUERY_KEYS},
+        )
+
+    @classmethod
+    def create_config_from_content(cls, content: dict[str, Any]) -> DBConnectionConfig:
+        config_file = PostgresConfigFile.model_validate({"name": "", **content})
+        return config_file.connection
 
     @classmethod
     def register_in_duckdb(cls, shared_conn: DuckDBPyConnection, config: DBConnectionConfig, name: str) -> None:
+        if not isinstance(config, PostgresConnectionProperties):
+            raise ValueError(
+                f"Invalid connection config type: expected PostgresConnectionProperties, got {type(config)}."
+            )
         url = cls._create_url(config)
         shared_conn.execute("INSTALL postgres;")
         shared_conn.execute("LOAD postgres;")
         shared_conn.execute(f"ATTACH '{url}' AS \"{name}\" (TYPE POSTGRES);")
 
     @staticmethod
-    def _create_url(conn: DBConnectionConfig) -> str:
-        content = conn.content
-
+    def _create_url(config: PostgresConnectionProperties) -> str:
         url = URL.create(
             drivername="postgresql",
-            username=content.get(USER_KEY),
-            password=content.get(PASSWORD_KEY),
-            host=content.get(HOST_KEY),
-            port=content.get(PORT_KEY),
-            database=content.get(DATABASE_KEY),
-            query={k: v for k, v in content.items() if k not in MAIN_KEYS},
+            username=config.user,
+            password=config.password,
+            host=config.host,
+            port=config.port,
+            database=config.database,
+            query=str_dict(config.additional_properties),
         )
-
         return url.render_as_string(hide_password=False)

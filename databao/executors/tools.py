@@ -5,7 +5,7 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.tools import BaseTool, tool
 
 from databao.core import Domain
-from databao.core.domain import _PersistentDomain
+from databao.core.domain import _DCEProjectDomain
 from databao.executors.query_expansion import (
     QueryExpansionConfig,
     expand_queries,
@@ -20,15 +20,25 @@ def make_search_context_tool(
     expansion_llm: BaseChatModel | None = None,
     expansion_config: QueryExpansionConfig | None = None,
 ) -> BaseTool | None:
-    if not isinstance(domain, _PersistentDomain):
+    if not domain.supports_context:
         return None
+    if isinstance(domain, _DCEProjectDomain):
+        return _make_dce_search_context_tool(domain, expansion_llm=expansion_llm, expansion_config=expansion_config)
+    raise ValueError(f"Search context tool is not supported for domain type: {type(domain)}")
 
+
+def _make_dce_search_context_tool(
+    domain: _DCEProjectDomain,
+    *,
+    expansion_llm: BaseChatModel | None = None,
+    expansion_config: QueryExpansionConfig | None = None,
+) -> BaseTool | None:
     if expansion_llm is not None and expansion_config is not None:
-        return _make_expanded_search_tool(domain, expansion_llm, expansion_config)
-    return _make_plain_search_tool(domain)
+        return _make_dce_expanded_search_tool(domain, expansion_llm, expansion_config)
+    return _make_dce_plain_search_tool(domain)
 
 
-def _make_plain_search_tool(domain: _PersistentDomain) -> BaseTool:
+def _make_dce_plain_search_tool(domain: _DCEProjectDomain) -> BaseTool:
     """Build the search_context tool without query expansion."""
 
     @tool(parse_docstring=True)
@@ -45,8 +55,8 @@ def _make_plain_search_tool(domain: _PersistentDomain) -> BaseTool:
     return search_context
 
 
-def _make_expanded_search_tool(
-    domain: _PersistentDomain,
+def _make_dce_expanded_search_tool(
+    domain: _DCEProjectDomain,
     expansion_llm: BaseChatModel,
     expansion_config: QueryExpansionConfig,
 ) -> BaseTool:

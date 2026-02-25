@@ -1,12 +1,30 @@
+from databao_context_engine import (
+    DuckDBConnectionConfig,
+    MySQLConnectionProperties,
+    PostgresConnectionProperties,
+    SnowflakeConnectionProperties,
+    SQLiteConnectionConfig,
+)
+
 from databao.databases.database_connection import DBConnection, DBConnectionConfig, DBConnectionRuntime
-from databao.databases.databases import convert_to_config, is_connectable, register_in_duckdb, supported_db_types
+from databao.databases.databases import (
+    create_db_config_file,
+    create_db_config_from_runtime,
+    register_db_in_duckdb,
+    try_create_db_config_from_content,
+)
 
 __all__ = [
     "DBConnection",
     "DBConnectionConfig",
     "DBConnectionRuntime",
-    "convert_to_config",
-    "is_connectable",
-    "register_in_duckdb",
-    "supported_db_types",
+    "DuckDBConnectionConfig",
+    "MySQLConnectionProperties",
+    "PostgresConnectionProperties",
+    "SQLiteConnectionConfig",
+    "SnowflakeConnectionProperties",
+    "create_db_config_file",
+    "create_db_config_from_runtime",
+    "register_db_in_duckdb",
+    "try_create_db_config_from_content",
 ]

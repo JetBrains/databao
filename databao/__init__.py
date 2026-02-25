@@ -11,7 +11,6 @@ from databao.configs.llm import LLMConfig
 from databao.core import (
     Agent,
     Domain,
-    DomainSource,
     ExecutionResult,
     Executor,
     Opa,
@@ -19,7 +18,7 @@ from databao.core import (
     VisualisationResult,
     Visualizer,
 )
-from databao.databases import DBConnection, DBConnectionConfig, DBConnectionRuntime, supported_db_types
+from databao.databases import DBConnection, DBConnectionConfig, DBConnectionRuntime
 
 __all__ = [
     "Agent",
@@ -27,7 +26,6 @@ __all__ = [
     "DBConnectionConfig",
     "DBConnectionRuntime",
     "Domain",
-    "DomainSource",
     "ExecutionResult",
     "Executor",
     "LLMConfig",
@@ -38,5 +36,4 @@ __all__ = [
     "__version__",
     "agent",
     "domain",
-    "supported_db_types",
 ]

@@ -27,7 +27,7 @@ from databao.mcp.connection import McpConnection
 @pytest.fixture
 def domain() -> Domain:
     d = databao.domain()
-    d.add_source(pd.DataFrame({"x": [1, 2, 3]}))
+    d.add_df(pd.DataFrame({"x": [1, 2, 3]}))
     return d
 
 

@@ -1,18 +1,20 @@
-from dataclasses import dataclass
-from typing import Any
-
 from _duckdb import DuckDBPyConnection
-from databao_context_engine import DatasourceType
+from databao_context_engine import (
+    DuckDBConnectionConfig,
+    MySQLConnectionProperties,
+    PostgresConnectionProperties,
+    SnowflakeConnectionProperties,
+    SQLiteConnectionConfig,
+)
 from sqlalchemy import Connection, Engine
 
-
-@dataclass(frozen=True, eq=True)
-class DBConnectionConfig:
-    type: DatasourceType
-    content: dict[str, Any]
-
+DBConnectionConfig = \
+    DuckDBConnectionConfig \
+    | MySQLConnectionProperties \
+    | PostgresConnectionProperties \
+    | SnowflakeConnectionProperties \
+    | SQLiteConnectionConfig
 
 DBConnectionRuntime = DuckDBPyConnection | Engine | Connection
-
 
 DBConnection = DBConnectionConfig | DBConnectionRuntime

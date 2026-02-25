@@ -1,4 +1,3 @@
-import logging
 from abc import ABC, abstractmethod
 from typing import Any, TextIO
 
@@ -11,11 +10,11 @@ from langgraph.graph.state import CompiledStateGraph
 from databao.configs.agent import AgentConfig
 from databao.configs.llm import LLMConfig
 from databao.core import Cache
-from databao.core.data_source import DBDataSource, DFDataSource
+from databao.core.data_source import DBDataSource, DBTDataSource, DFDataSource
 from databao.core.domain import Domain
 from databao.core.executor import ExecutionResult, Executor, OutputModalityHints
 from databao.core.opa import Opa
-from databao.databases import register_in_duckdb
+from databao.databases import register_db_in_duckdb
 from databao.executors.frontend.text_frontend import TextStreamFrontend
 
 
@@ -35,8 +34,9 @@ class GraphExecutor(Executor, ABC):
         self._graph_recursion_limit = 50
         self._writer = writer
         self._duckdb_connection: duckdb.DuckDBPyConnection = duckdb.connect(":memory:")
-        self._attached_db_paths: dict[str, str] = {}
-        self._registered_dfs: dict[str, Any] = {}
+        self._registered_dbs: dict[str, DBDataSource] = {}
+        self._registered_dfs: dict[str, DFDataSource] = {}
+        self._registered_dbts: dict[str, DBTDataSource] = {}
         self._extra_tools: dict[str, BaseTool] = {}
         self._compiled_graph: CompiledStateGraph[Any] | None = None
         self._compiled_tools_version: int = 0
@@ -44,24 +44,16 @@ class GraphExecutor(Executor, ABC):
 
     def register_db(self, source: DBDataSource) -> None:
         """Register a database source into the shared DuckDB connection."""
-        if not source.connectable:
-            logging.getLogger(__name__).debug(
-                "Skipping non-connectable datasource '%s'",
-                source.name,
-            )
-            return
-
-        register_in_duckdb(self._duckdb_connection, source.config, source.name)
-        db_path = source.config.content.get("database_path")
-        if db_path is None:
-            db_path = source.config.content.get("connection", {}).get("database_path")
-        if db_path is not None:
-            self._attached_db_paths[source.name] = db_path
+        register_db_in_duckdb(self._duckdb_connection, source.config, source.name)
+        self._registered_dbs[source.name] = source
 
     def register_df(self, source: DFDataSource) -> None:
         """Register a DataFrame source into the shared DuckDB connection."""
-        self._registered_dfs[source.name] = source.df
         self._duckdb_connection.register(source.name, source.df)
+        self._registered_dfs[source.name] = source
+
+    def register_dbt(self, source: DBTDataSource) -> None:
+        self._registered_dbts[source.name] = source
 
     def register_tools(self, tools: list[BaseTool]) -> None:
         """Register additional LangChain tools and invalidate the cached compiled graph."""

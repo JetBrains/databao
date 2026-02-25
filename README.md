@@ -21,6 +21,12 @@
 
 ---
 
+<p align="center">
+ 🏆 <a href="https://jb.gg/ne7897"><b>Ranked #1</b> in the DBT track</a> of the Spider 2.0 Text2SQL benchmark
+</p>
+
+---
+
 ## What is Databao Agent?
 
 Databao Agent is an **open-source AI agent** that lets you query your data sources using natural language. 

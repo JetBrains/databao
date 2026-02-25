@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, TextIO
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from pandas import DataFrame
+from typing_extensions import deprecated
 
 from databao.core.data_source import DBDataSource, DFDataSource, Sources
 from databao.core.domain import Domain, _Domain
@@ -23,14 +24,15 @@ logger = logging.getLogger(__name__)
 
 
 class Agent:
-    """An agent manages all databases and Dataframes as well as the context for them.
-    Agent determines what LLM to use, what executor to use and how to visualize data for all threads.
+    """
+    An agent executes requests against a domain of data sources.
+    It determines what LLM to use, what executor to use and how to visualize data for all threads.
     Several threads can be spawned out of the agent.
     """
 
     def __init__(
         self,
-        domain: "_Domain",
+        domain: "Domain",
         llm: "LLMConfig",
         agent_config: "AgentConfig",
         data_executor: "Executor",
@@ -44,7 +46,10 @@ class Agent:
         lazy_threads: bool = False,
         auto_output_modality: bool = True,
     ):
+        if not isinstance(domain, _Domain):
+            raise ValueError("Custom domains are not supported yet.")
         self.__domain = domain
+
         self.__name = name
         self.__llm = llm.new_chat_model()
         self.__llm_config = llm
@@ -65,23 +70,23 @@ class Agent:
         self._init_executor()
 
     def _init_executor(self) -> None:
-        self.__domain.finalize_sources()
         for db_source in self.sources.dbs.values():
-            if db_source.connectable:
-                self.executor.register_db(db_source)
+            self.executor.register_db(db_source)
         for df_source in self.sources.dfs.values():
             self.executor.register_df(df_source)
+        for dbt_source in self.sources.dbts.values():
+            self.executor.register_dbt(dbt_source)
 
+    @deprecated("Use Domain.add_db() and initialize Agent with Domain instead.")
     def add_db(self, conn: DBConnection, *, name: str | None = None, context: str | Path | None = None) -> None:
         raise NotImplementedError(
-            "This method was removed. "
-            "Please create a Domain, add a source to it, and initialize the Agent with that Domain."
+            "This method was removed. Use Domain.add_db() and initialize Agent with Domain instead."
         )
 
+    @deprecated("Use Domain.add_df() and initialize Agent with Domain instead.")
     def add_df(self, df: DataFrame, *, name: str | None = None, context: str | Path | None = None) -> None:
         raise NotImplementedError(
-            "This method was removed. "
-            "Please create a Domain, add a source to it, and initialize the Agent with that Domain."
+            "This method was removed. Use Domain.add_df() and initialize Agent with Domain instead."
         )
 
     def add_mcp(
@@ -239,9 +244,9 @@ class Agent:
         return self.__cache
 
     @property
-    def additional_context(self) -> list[str]:
-        """General additional context not specific to any one data source."""
-        return self.sources.additional_context
+    def additional_description(self) -> list[str]:
+        """General additional information not specific to any one data source."""
+        return self.sources.additional_description
 
     @property
     def mcp_servers(self) -> list[str]:
