@@ -1,7 +1,7 @@
 [![official project](https://jb.gg/badges/official.svg)](https://github.com/JetBrains#jetbrains-on-github)
-[![PyPI version](https://img.shields.io/pypi/v/databao.svg)](https://pypi.org/project/databao)
-[![Python versions](https://img.shields.io/pypi/pyversions/databao.svg)](https://pypi.org/project/databao/)
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/JetBrains/databao/blob/main/LICENSE)
+[![PyPI version](https://img.shields.io/pypi/v/databao-agent.svg)](https://pypi.org/project/databao-agent)
+[![Python versions](https://img.shields.io/pypi/pyversions/databao-agent.svg)](https://pypi.org/project/databao-agent/)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/JetBrains/databao-agent/blob/main/LICENSE.md)
 [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1zYAlVbuOfIA3Ux5LVahM2eBU7wJplO48?usp=sharing)
 
 <h1 align="center">Databao Agent</h1>
@@ -59,7 +59,7 @@ Get back **tables, charts, and explanations** — no SQL or code needed.
 ## Installation
 
 ```bash
-pip install databao
+pip install databao-agent
 ```
 
 ## Supported data sources
