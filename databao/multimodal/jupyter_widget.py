@@ -26,8 +26,11 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-WIDGET_ESM_PATH = Path(__file__).parent.parent.parent / "client" / "out" / "multimodal-jupyter" / "index.js"
-WIDGET_CSS_PATH = Path(__file__).parent.parent.parent / "client" / "out" / "multimodal-jupyter" / "style.css"
+_PROJECT_ROOT = Path(__file__).parent.parent.parent
+_WIDGET_OUT_DIR = _PROJECT_ROOT / "client" / "out" / "multimodal-jupyter"
+
+WIDGET_ESM_PATH = _WIDGET_OUT_DIR / "index.js"
+WIDGET_CSS_PATH = _WIDGET_OUT_DIR / "style.css"
 
 LOADING_STATUS_VALUES = ("initial", "loading", "loaded", "failed")
 

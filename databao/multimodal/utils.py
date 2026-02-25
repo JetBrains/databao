@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    import pandas as pd
+import pandas as pd
 
 
 def dataframe_to_html(df: pd.DataFrame) -> str:
@@ -17,8 +14,6 @@ def dataframe_to_html(df: pd.DataFrame) -> str:
     Returns:
         HTML string representation of the DataFrame.
     """
-    import pandas as pd
-
     if len(df) > 20:
         first_10 = df.head(10)
         last_10 = df.tail(10)
