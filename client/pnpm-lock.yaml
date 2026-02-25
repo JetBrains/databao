@@ -7,8 +7,8 @@ settings:
 catalogs:
   default:
     '@jetbrains/drt':
-      specifier: 0.0.3
-      version: 0.0.3
+      specifier: 0.0.4
+      version: 0.0.4
     '@radix-ui/themes':
       specifier: 3.2.1
       version: 3.2.1
@@ -103,7 +103,7 @@ importers:
         version: link:../../packages/multimodal-tabs
       '@jetbrains/drt':
         specifier: 'catalog:'
-        version: 0.0.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 0.0.4(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@radix-ui/themes':
         specifier: 'catalog:'
         version: 3.2.1(@types/react-dom@18.3.1)(@types/react@18.3.12)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -146,7 +146,7 @@ importers:
         version: link:../../packages/multimodal-tabs
       '@jetbrains/drt':
         specifier: 'catalog:'
-        version: 0.0.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 0.0.4(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@radix-ui/themes':
         specifier: 'catalog:'
         version: 3.2.1(@types/react-dom@18.3.1)(@types/react@18.3.12)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -189,7 +189,7 @@ importers:
     devDependencies:
       '@jetbrains/drt':
         specifier: 'catalog:'
-        version: 0.0.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 0.0.4(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@radix-ui/themes':
         specifier: 'catalog:'
         version: 3.2.1(@types/react-dom@18.3.1)(@types/react@18.3.12)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -1091,8 +1091,8 @@ packages:
     resolution: {integrity: sha512-DmdYgtezMkh3cpU8/1uyXakv3tJRcmcXxBOcO0tbaozPwpmh4YMsnWrQm9ZmZMfa5ocbxzbFk6O4bDPEc/iAnA==}
     engines: {node: ^18.14.0 || ^20.0.0 || ^22.0.0 || >=24.0.0}
 
-  '@jetbrains/drt@0.0.3':
-    resolution: {integrity: sha512-mESwdiSct461IrpGutZuz2Vr2gfTRE6Vk+/T3A3QkfJOHB5yQmACFjv+1Klgdkbp1gghGEgK+fwtP8U+ogxyig==}
+  '@jetbrains/drt@0.0.4':
+    resolution: {integrity: sha512-1WpqsM2hrG5fdlKYnytT6sXQbUCO2uvGk2AJ9tufnMKIS11xeXxZnwWdvA+XJYI8tM0DRZgIfIIQFLS33Tjp/w==}
     peerDependencies:
       react: ^16.8 || ^17.0 || ^18.0 || ^19.0
       react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0
@@ -5376,7 +5376,7 @@ snapshots:
     dependencies:
       '@sinclair/typebox': 0.34.48
 
-  '@jetbrains/drt@0.0.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@jetbrains/drt@0.0.4(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
