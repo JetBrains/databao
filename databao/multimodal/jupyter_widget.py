@@ -49,12 +49,13 @@ class MultimodalWidget(anywidget.AnyWidget):
 
     spec = traitlets.Dict(default_value=None, allow_none=True).tag(sync=True)
     spec_status = traitlets.Enum(values=LOADING_STATUS_VALUES, default_value="initial").tag(sync=True)
+    spec_csv_data = traitlets.Unicode("").tag(sync=True)
 
     text = traitlets.Unicode("").tag(sync=True)
     text_status = traitlets.Enum(values=LOADING_STATUS_VALUES, default_value="initial").tag(sync=True)
 
-    dataframe_html_content = traitlets.Unicode("").tag(sync=True)
-    dataframe_html_content_status = traitlets.Enum(values=LOADING_STATUS_VALUES, default_value="initial").tag(sync=True)
+    dataframe_csv_content = traitlets.Unicode("").tag(sync=True)
+    dataframe_csv_content_status = traitlets.Enum(values=LOADING_STATUS_VALUES, default_value="initial").tag(sync=True)
 
     def __init__(
         self,
