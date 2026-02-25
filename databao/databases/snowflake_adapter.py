@@ -147,23 +147,23 @@ class SnowflakeAdapter(DatabaseAdapter):
 
         auth = config.auth
         if isinstance(auth, SnowflakePasswordAuth):
-            auth[PASSWORD_KEY] = auth.password
+            connection_parameters[PASSWORD_KEY] = auth.password
         if isinstance(auth, SnowflakeKeyPairAuth):
-            auth[AUTH_TYPE_KEY] = AUTH_TYPE_KEY_PAIR
-            auth[PRIVATE_KEY_PASSPHRASE_KEY] = auth.private_key_file_pwd
+            connection_parameters[AUTH_TYPE_KEY] = AUTH_TYPE_KEY_PAIR
+            connection_parameters[PRIVATE_KEY_PASSPHRASE_KEY] = auth.private_key_file_pwd
             if auth.private_key:
-                auth[PRIVATE_KEY_KEY] = auth.private_key
+                connection_parameters[PRIVATE_KEY_KEY] = auth.private_key
             elif auth.private_key_file:
-                auth[PRIVATE_KEY_KEY] = Path(auth.private_key_file).absolute()
+                connection_parameters[PRIVATE_KEY_KEY] = Path(auth.private_key_file).absolute()
             else:
                 raise ValueError("No private key provided.")
-        elif isinstance(auth, SnowflakeSSOAuth) and auth.authenticator is not None:
+        elif isinstance(auth, SnowflakeSSOAuth):
             authenticator = auth.authenticator
             if SnowflakeAdapter._is_okta_url(authenticator):
-                auth[AUTH_TYPE_KEY] = AUTH_TYPE_OKTA
-                auth[OKTA_URL_KEY] = authenticator
+                connection_parameters[AUTH_TYPE_KEY] = AUTH_TYPE_OKTA
+                connection_parameters[OKTA_URL_KEY] = authenticator
             else:
-                auth[AUTH_TYPE_KEY] = authenticator
+                connection_parameters[AUTH_TYPE_KEY] = authenticator
         else:
             raise ValueError("Unsupported Snowflake authentification type.")
 
