@@ -148,7 +148,7 @@ class SnowflakeAdapter(DatabaseAdapter):
         auth = config.auth
         if isinstance(auth, SnowflakePasswordAuth):
             connection_parameters[PASSWORD_KEY] = auth.password
-        elif isinstance(auth, SnowflakeKeyPairAuth):
+        if isinstance(auth, SnowflakeKeyPairAuth):
             connection_parameters[AUTH_TYPE_KEY] = AUTH_TYPE_KEY_PAIR
             connection_parameters[PRIVATE_KEY_PASSPHRASE_KEY] = auth.private_key_file_pwd
             if auth.private_key:
@@ -157,7 +157,7 @@ class SnowflakeAdapter(DatabaseAdapter):
                 connection_parameters[PRIVATE_KEY_KEY] = Path(auth.private_key_file).absolute()
             else:
                 raise ValueError("No private key provided.")
-        elif isinstance(auth, SnowflakeSSOAuth) and auth.authenticator is not None:
+        elif isinstance(auth, SnowflakeSSOAuth):
             authenticator = auth.authenticator
             if SnowflakeAdapter._is_okta_url(authenticator):
                 connection_parameters[AUTH_TYPE_KEY] = AUTH_TYPE_OKTA
