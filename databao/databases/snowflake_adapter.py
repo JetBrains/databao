@@ -148,7 +148,7 @@ class SnowflakeAdapter(DatabaseAdapter):
         auth = config.auth
         if isinstance(auth, SnowflakePasswordAuth):
             connection_parameters[PASSWORD_KEY] = auth.password
-        if isinstance(auth, SnowflakeKeyPairAuth):
+        elif isinstance(auth, SnowflakeKeyPairAuth):
             connection_parameters[AUTH_TYPE_KEY] = AUTH_TYPE_KEY_PAIR
             connection_parameters[PRIVATE_KEY_PASSPHRASE_KEY] = auth.private_key_file_pwd
             if auth.private_key:
