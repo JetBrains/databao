@@ -15,7 +15,6 @@ except ImportError as e:
         "anywidget and traitlets are required for Jupyter notebook support. "
         "Install them with: pip install databao[jupyter]"
     ) from e
-from edaplot.data_utils import spec_add_data
 
 from databao.agent.multimodal.utils import dataframe_to_csv
 from databao.agent.visualizers.vega_chat import VegaChatResult
