@@ -78,6 +78,7 @@ class MultimodalHTTPRequestHandler(BaseHTTPRequestHandler):
             self.send_header("Connection", "keep-alive")
             self.end_headers()
         except Exception:
+            self.shutdown_event.set()
             return
 
         result_queue: queue.Queue[Any] = queue.Queue()
