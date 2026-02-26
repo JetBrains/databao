@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import re
 from abc import ABC
 from pathlib import Path
 from typing import Any, Protocol
-import re
+
 from databao_context_engine import (
     ConfiguredDatasource,
     ContextSearchResult,
@@ -26,6 +27,7 @@ from databao.dbt import create_dbt_config_file, try_extract_dbt_dir_from_content
 from databao.integrations.dce import DatabaoContextApi
 
 _DB_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_]+$")
+
 
 class Domain(Protocol):
     """
@@ -138,8 +140,7 @@ class _Domain(ABC, Domain):
         self, db: DBConnection, name: str | None = None, description: str | Path | None = None
     ) -> DBDataSource | None:
         if re.match(_DB_NAME_PATTERN, name) is None:
-            raise ValueError(f"Invalid database name: {name}. "
-                             f"Database names must match {_DB_NAME_PATTERN.pattern}")
+            raise ValueError(f"Invalid database name: {name}. Database names must match {_DB_NAME_PATTERN.pattern}")
         if isinstance(db, DBConnectionConfig):
             db_config = db
         elif isinstance(db, DBConnectionRuntime):
