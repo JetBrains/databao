@@ -27,8 +27,8 @@ def describe_duckdb_schema(con: DuckDBPyConnection, max_cols_per_table: int = 40
         for db, (schemas, tables) in internal_db_mapping.items():
             cols = con.execute(
                 f"""
-                                SELECT table_schema, 
-                                       table_name, 
+                                SELECT table_schema,
+                                       table_name,
                                        LIST(column_name) AS columns,
                                        LIST(data_type) AS data_types
                                 FROM {db}.information_schema.columns
