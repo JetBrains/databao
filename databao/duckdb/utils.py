@@ -1,5 +1,5 @@
 from duckdb import DuckDBPyConnection
-
+from collections import defaultdict
 
 def describe_duckdb_schema(con: DuckDBPyConnection, max_cols_per_table: int = 40) -> str:
     """Return a compact textual description of tables and columns in DuckDB.
