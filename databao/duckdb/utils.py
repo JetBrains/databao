@@ -13,7 +13,9 @@ def describe_duckdb_schema(con: DuckDBPyConnection, max_cols_per_table: int = 40
                             SELECT table_catalog, table_schema, table_name
                             FROM information_schema.tables
                             WHERE table_type IN ('BASE TABLE', 'VIEW')
-                                AND table_schema NOT IN ('pg_catalog', 'pg_toast', 'information_schema')
+                              AND table_schema NOT ILIKE 'pg_catalog'
+                              AND table_schema NOT ILIKE 'pg_toast'
+                              AND table_schema NOT ILIKE 'information_schema'
                             ORDER BY table_schema, table_name
                             """).fetchall()
 
