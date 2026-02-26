@@ -139,7 +139,7 @@ class _Domain(ABC, Domain):
     def _add_db(
         self, db: DBConnection, name: str | None = None, description: str | Path | None = None
     ) -> DBDataSource | None:
-        if re.match(_DB_NAME_PATTERN, name) is None:
+        if name is not None and re.match(_DB_NAME_PATTERN, name) is None:
             raise ValueError(f"Invalid database name: {name}. Database names must match {_DB_NAME_PATTERN.pattern}")
         if isinstance(db, DBConnectionConfig):
             db_config = db
