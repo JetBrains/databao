@@ -192,20 +192,29 @@ class Thread:
 
         return open_html_content(self)
 
-    def ask(self, query: str, *, rows_limit: int | None = None, stream: bool | None = None) -> Self:
+    def ask(
+        self,
+        query: str,
+        *,
+        metadata: dict[str, Any] | None = None,
+        tags: list[str] | None = None,
+        rows_limit: int | None = None,
+        stream: bool | None = None,
+    ) -> Self:
         """Append a new user query to this thread.
 
         Returns self to allow chaining (e.g., thread.ask("...")).
 
         Setting rows_limit has no effect in lazy mode.
         """
+        opa = Opa(query=query, metadata=metadata, tags=tags)
         # NB. A new Opa is created even if it's identical to the previous one.
         if self._opas_processed_count < len(self._opas):
             assert self._lazy_mode
-            self._opas[-1].append(Opa(query=query))
+            self._opas[-1].append(opa)
         else:
             # Add new Opa group
-            self._opas.append([Opa(query=query)])
+            self._opas.append([opa])
 
         # Invalidate old results so they are not used by repr methods
         self._data_result = None

@@ -3,7 +3,7 @@ from pathlib import Path
 from databao_context_engine import (
     BuildDatasourceResult,
     ConfiguredDatasource,
-    DatabaoContextProjectManager,
+    DatabaoContextDomainManager,
     Datasource,
     DatasourceId,
     DatasourceType,
@@ -12,7 +12,7 @@ from databao_context_engine.pluginlib.build_plugin import AbstractConfigFile
 
 
 class DatabaoContextProjectManagerApi:
-    def __init__(self, delegate: DatabaoContextProjectManager):
+    def __init__(self, delegate: DatabaoContextDomainManager):
         self._delegate = delegate
 
     def create_datasource_config(self, config_file: AbstractConfigFile) -> ConfiguredDatasource:
@@ -37,4 +37,4 @@ class DatabaoContextProjectManagerApi:
 
     @property
     def project_dir(self) -> Path:
-        return self._delegate.project_dir
+        return self._delegate.domain_dir

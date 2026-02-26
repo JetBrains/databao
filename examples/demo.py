@@ -37,7 +37,11 @@ llm_config = None  # Omit the config to use the default config
 agent = databao.agent(domain, name="my_agent", llm_config=llm_config)
 
 thread = agent.thread()
-thread.ask("count cancelled shows by directors")
+thread.ask(
+    "count cancelled shows by directors",
+    metadata={"source": "netflix"},
+)
+
 print(thread.text())
 print(f"\n```\n{thread.code()}\n```\n")
 df = thread.df()

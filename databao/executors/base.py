@@ -107,6 +107,38 @@ class GraphExecutor(Executor, ABC):
         should_visualize = vis_prompt is not None and df is not None and len(df) >= 3
         return OutputModalityHints(visualization_prompt=vis_prompt, should_visualize=should_visualize)
 
+    @classmethod
+    def _executor_tag(cls) -> str:
+        """Derive a short tag from the class name, e.g. 'LighthouseExecutor' → 'lighthouse'."""
+        name = cls.__name__
+        if name.endswith("Executor"):
+            name = name[: -len("Executor")]
+        # CamelCase → kebab-case: "DbtProject" → "dbt-project"
+        import re
+
+        return re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "-", name).lower()
+
+    def _build_invoke_config(self, agent_config: AgentConfig, opas: list[Opa]) -> RunnableConfig:
+        """Build a RunnableConfig with automatic executor tagging and user-provided metadata."""
+        opa = opas[-1] if opas else None
+        executor_tag = self._executor_tag()
+
+        metadata: dict[str, Any] = {"executor": executor_tag}
+        if opa:
+            metadata["question"] = opa.query
+            if opa.metadata:
+                metadata.update(opa.metadata)
+
+        tags = [executor_tag]
+        if opa and opa.tags:
+            tags.extend(opa.tags)
+
+        return RunnableConfig(
+            recursion_limit=max(self._graph_recursion_limit, agent_config.recursion_limit),
+            metadata=metadata,
+            tags=tags,
+        )
+
     @staticmethod
     def _invoke_graph_sync(
         compiled_graph: CompiledStateGraph[Any],

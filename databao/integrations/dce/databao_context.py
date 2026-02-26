@@ -1,11 +1,11 @@
 from pathlib import Path
 
 from databao_context_engine import (
+    DatabaoContextDomainManager,
     DatabaoContextEngine,
-    DatabaoContextProjectManager,
     DatasourceId,
-    init_dce_project,
-    init_or_get_dce_project,
+    init_dce_domain,
+    init_or_get_dce_domain,
 )
 
 from databao.integrations.dce.databao_context_engine import DatabaoContextEngineApi
@@ -15,17 +15,17 @@ from databao.integrations.dce.databao_context_project_manager import DatabaoCont
 class DatabaoContextApi:
     @staticmethod
     def init_dce_project(project_dir: Path) -> DatabaoContextProjectManagerApi:
-        manager = init_dce_project(project_dir)
+        manager = init_dce_domain(project_dir)
         return DatabaoContextProjectManagerApi(manager)
 
     @staticmethod
     def get_dce_project(project_dir: Path) -> DatabaoContextProjectManagerApi:
-        manager = DatabaoContextProjectManager(project_dir)
+        manager = DatabaoContextDomainManager(project_dir)
         return DatabaoContextProjectManagerApi(manager)
 
     @staticmethod
     def init_or_get_dce_project(project_dir: Path) -> DatabaoContextProjectManagerApi:
-        manager = init_or_get_dce_project(project_dir)
+        manager = init_or_get_dce_domain(project_dir)
         return DatabaoContextProjectManagerApi(manager)
 
     @staticmethod

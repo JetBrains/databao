@@ -47,7 +47,10 @@ with tempfile.TemporaryDirectory(prefix="dbt-agent-") as tmp_dce_proj_dir:
 
     thread = agent.thread(stream_ask=True)
 
-    thread.ask("What is our refund rate by month?")
+    thread.ask(
+        "What is our refund rate by month?",
+        metadata={"source": "shopify-dbt"},
+    )
 
     print("\n=== TEXT ===\n")
     print(thread.text())
