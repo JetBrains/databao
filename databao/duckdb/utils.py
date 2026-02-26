@@ -22,9 +22,9 @@ def describe_duckdb_schema(con: DuckDBPyConnection, max_cols_per_table: int = 40
         lines: list[str] = []
         for db, schema, table in rows:
             cols = con.execute(
-                """
+                f"""
                                 SELECT column_name, data_type
-                                FROM information_schema.columns
+                                FROM {db}.information_schema.columns
                                 WHERE table_schema = ?
                                     AND table_name = ?
                                 ORDER BY ordinal_position
