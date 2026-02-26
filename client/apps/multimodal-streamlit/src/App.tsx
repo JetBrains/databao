@@ -47,7 +47,7 @@ function App({ data, setTriggerValue }: AppProps) {
         return;
       }
 
-      if (tab !== MULTIMODAL_TABS.CHART || specStatus === "initial") {
+      if (tab !== MULTIMODAL_TABS.CHART || specStatus !== "initial") {
         return;
       }
 
