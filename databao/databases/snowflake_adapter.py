@@ -143,7 +143,15 @@ class SnowflakeAdapter(DatabaseAdapter):
             if auth.private_key:
                 params["private_key"] = auth.private_key
             elif auth.private_key_file:
-                params["private_key"] = Path(auth.private_key_file).read_text()
+                try:
+                    params["private_key"] = Path(auth.private_key_file).read_text()
+                except OSError as exc:
+                    raise ValueError(
+                        f"Unable to read Snowflake private key file specified in 'private_key_file': "
+                        f"{auth.private_key_file}"
+                    ) from exc
+            else:
+                raise ValueError("No private key provided.")
             if auth.private_key_file_pwd:
                 params["private_key_passphrase"] = auth.private_key_file_pwd
         elif isinstance(auth, SnowflakeSSOAuth):
@@ -153,8 +161,13 @@ class SnowflakeAdapter(DatabaseAdapter):
                 params["okta_url"] = authenticator
             else:
                 params["auth_type"] = authenticator
+        else:
+            raise ValueError("Unsupported Snowflake authentification type.")
 
-        kv = ", ".join(f"{k} '{v}'" for k, v in params.items())
+        def _escape(v: str) -> str:
+            return v.replace("'", "''")
+
+        kv = ", ".join(f"{k} '{_escape(v)}'" for k, v in params.items())
         return f'CREATE OR REPLACE SECRET "{name}" (TYPE snowflake, {kv});'
 
     @staticmethod

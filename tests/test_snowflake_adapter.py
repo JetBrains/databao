@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Any
 
+import pytest
 from databao_context_engine import (
     SnowflakeConnectionProperties,
     SnowflakeKeyPairAuth,
@@ -23,14 +24,14 @@ def _make_config(auth: Any, **kwargs: Any) -> SnowflakeConnectionProperties:
 
 def _parse_secret_sql(sql: str) -> dict[str, str]:
     """Parse 'CREATE OR REPLACE SECRET "name" (TYPE snowflake, k 'v', ...)' into a dict."""
-    # Extract the key-value section between the outer parentheses
+    import re
+
     inner = sql[sql.index("(") + 1 : sql.rindex(")")]
     # Drop the leading "TYPE snowflake, " prefix
     inner = inner.split(", ", 1)[1]
     result: dict[str, str] = {}
-    for part in inner.split(", "):
-        key, _, quoted_value = part.partition(" ")
-        result[key] = quoted_value.strip("'")
+    for m in re.finditer(r"(\w+) '((?:[^']|'')*)'", inner):
+        result[m.group(1)] = m.group(2).replace("''", "'")
     return result
 
 
@@ -186,3 +187,35 @@ def test_secret_sql_name_used_correctly() -> None:
     config = _make_config(SnowflakePasswordAuth(password="pw"))
     sql = SnowflakeAdapter._create_secret_sql(config, "my_secret_name")
     assert 'SECRET "my_secret_name"' in sql
+
+
+# ---------------------------------------------------------------------------
+# _create_secret_sql — single-quote escaping
+# ---------------------------------------------------------------------------
+
+
+def test_secret_sql_escapes_single_quotes_in_password() -> None:
+    config = _make_config(SnowflakePasswordAuth(password="my'password"))
+    sql = SnowflakeAdapter._create_secret_sql(config, "s")
+    assert "my''password" in sql
+    params = _parse_secret_sql(sql)
+    assert params["password"] == "my'password"
+
+
+# ---------------------------------------------------------------------------
+# _create_secret_sql — error handling
+# ---------------------------------------------------------------------------
+
+
+def test_secret_sql_key_pair_no_key_raises() -> None:
+    auth = SnowflakeKeyPairAuth(private_key=None, private_key_file=None)
+    config = _make_config(auth)
+    with pytest.raises(ValueError, match="No private key provided"):
+        SnowflakeAdapter._create_secret_sql(config, "s")
+
+
+def test_secret_sql_key_pair_file_not_found_raises() -> None:
+    auth = SnowflakeKeyPairAuth(private_key_file="/nonexistent/path/key.p8")
+    config = _make_config(auth)
+    with pytest.raises(ValueError, match="Unable to read Snowflake private key file"):
+        SnowflakeAdapter._create_secret_sql(config, "s")
