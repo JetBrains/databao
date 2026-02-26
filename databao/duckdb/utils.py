@@ -46,7 +46,7 @@ def describe_duckdb_schema(con: DuckDBPyConnection, max_cols_per_table: int = 40
                     suffix = " ... (truncated)"
                 else:
                     suffix = ""
-                col_desc = ", ".join(f"{c}: {t}" for c, t in zip(columns, data_types))
+                col_desc = ", ".join(f"{c}: {t}" for c, t in zip(columns, data_types, strict=False))
                 lines.append(f"{db}.{schema}.{table}({col_desc}){suffix}")
     except Exception:
         return "(failed to fetch schema)"
