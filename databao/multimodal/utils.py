@@ -14,10 +14,11 @@ def dataframe_to_csv(df: Any, max_rows: int = 1000000, max_columns: int = 100) -
     Returns:
         CSV string representation of the DataFrame (limited to max_rows and max_columns).
     """
-    if df is not None:
-        if len(df) > max_rows:
-            df = df.head(max_rows)
-        if len(df.columns) > max_columns:
-            df = df.iloc[:, :max_columns]
+    if df is None:
+        return ""
+    if len(df) > max_rows:
+        df = df.head(max_rows)
+    if len(df.columns) > max_columns:
+        df = df.iloc[:, :max_columns]
     csv_result = df.to_csv(index=False)
     return csv_result if csv_result is not None else ""
