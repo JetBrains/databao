@@ -1,14 +1,10 @@
 import json
-from collections.abc import Sequence
 from typing import Annotated, Any, Literal
 
 import pandas as pd
 from duckdb import DuckDBPyConnection
-from langchain_core.language_models import BaseChatModel, LanguageModelInput
 from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
-from langchain_core.runnables import Runnable
 from langchain_core.tools import BaseTool, tool
-from langchain_openai import ChatOpenAI
 from langgraph.constants import END, START
 from langgraph.graph import add_messages
 from langgraph.graph.state import CompiledStateGraph, StateGraph
@@ -21,8 +17,14 @@ from databao.configs.llm import LLMConfig
 from databao.core import Domain, ExecutionResult
 from databao.duckdb.react_tools import execute_duckdb_sql
 from databao.executors.frontend.text_frontend import dataframe_to_markdown
-from databao.executors.lighthouse.utils import exception_to_string
+from databao.executors.llm import chat, model_bind_tools
 from databao.executors.tools import make_search_context_tool
+
+
+def exception_to_string(e: Exception | str) -> str:
+    if isinstance(e, str):
+        return e
+    return f"Exception Name: {type(e).__name__}. Exception Desc: {e}"
 
 
 class AgentState(TypedDict):
@@ -175,15 +177,13 @@ class ExecuteSubmit:
 
         if llm.is_openai_model(model_config.name):
             # Only OpenAI models support parallel tool calls parameter
-            model_with_tools = self._model_bind_tools(
-                llm_model, tools, parallel_tool_calls=agent_config.parallel_tool_calls
-            )
+            model_with_tools = model_bind_tools(llm_model, tools, parallel_tool_calls=agent_config.parallel_tool_calls)
         else:
-            model_with_tools = self._model_bind_tools(llm_model, tools)
+            model_with_tools = model_bind_tools(llm_model, tools)
 
         def llm_node(state: AgentState) -> dict[str, Any]:
             messages = state["messages"]
-            response = self._chat(messages, model_config, model_with_tools)
+            response = chat(messages, model_config, model_with_tools)
             return {"messages": [response[-1]]}
 
         def tool_executor_node(state: AgentState) -> dict[str, Any]:
@@ -317,78 +317,3 @@ class ExecuteSubmit:
         graph.add_conditional_edges("llm_node", should_continue, {"tool_executor": "tool_executor", "end": END})
         graph.add_conditional_edges("tool_executor", should_finish, {"llm_node": "llm_node", "end": END})
         return graph.compile()
-
-    @staticmethod
-    def _model_bind_tools(
-        model: BaseChatModel, tools: Sequence[BaseTool], **kwargs: Any
-    ) -> Runnable[LanguageModelInput, BaseMessage]:
-        if isinstance(model, ChatOpenAI):
-            return model.bind_tools(tools, strict=True, **kwargs)
-        else:
-            return model.bind_tools(tools, **kwargs)
-
-    @staticmethod
-    def _chat(
-        messages: list[BaseMessage],
-        config: LLMConfig,
-        model: Runnable[list[BaseMessage], Any] | None = None,
-    ) -> list[BaseMessage]:
-        if model is None:
-            model = config.new_chat_model()
-        messages = ExecuteSubmit._apply_system_prompt_caching(config, messages)
-        response: AIMessage = ExecuteSubmit._call_model(model, messages)
-        return [*messages, response]
-
-    @staticmethod
-    def _is_anthropic_model(config: LLMConfig) -> bool:
-        """Check if the model is an Anthropic model based on the config name."""
-        return "claude" in config.name.lower()
-
-    @staticmethod
-    def _apply_system_prompt_caching(config: LLMConfig, messages: list[BaseMessage]) -> list[BaseMessage]:
-        """Apply system prompt caching for Anthropic models."""
-        if not (config.cache_system_prompt and ExecuteSubmit._is_anthropic_model(config)):
-            return messages
-        # Assume only the first message can be a system prompt.
-        assert all(m.type != "system" for m in messages[1:])
-        if messages[0].type == "system":
-            messages = [ExecuteSubmit._set_message_cache_breakpoint(config, messages[0]), *messages[1:]]
-        return messages
-
-    @staticmethod
-    def _set_message_cache_breakpoint(config: LLMConfig, message: BaseMessage) -> BaseMessage:
-        """Enable prompt caching for this message (for Anthropic models).
-
-        If you have a list of messages, set a breakpoint only on the last message to automatically
-        cache all previous messages.
-
-        See https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching
-        > Prompt caching references the entire prompt - tools, system, and messages (in that order) up to and including
-            the block designated with cache_control.
-        """
-        if not ExecuteSubmit._is_anthropic_model(config):
-            return message
-        new_content: list[dict[str, Any] | str]
-        match message.content:
-            case str() | dict():
-                new_content = [ExecuteSubmit._set_anthropic_cache_breakpoint(message.content)]
-            case list():
-                # Set checkpoint only for the last message
-                new_content = message.content.copy()
-                new_content[-1] = ExecuteSubmit._set_anthropic_cache_breakpoint(new_content[-1])
-        return message.model_copy(update={"content": new_content})
-
-    @staticmethod
-    def _set_anthropic_cache_breakpoint(content: str | dict[str, Any]) -> dict[str, Any]:
-        if isinstance(content, str):
-            return {"type": "text", "text": content, "cache_control": {"type": "ephemeral"}}
-        elif isinstance(content, dict):
-            d = content.copy()
-            d["cache_control"] = {"type": "ephemeral"}
-            return d
-        else:
-            raise ValueError(f"Unknown content type: {type(content)}")
-
-    @staticmethod
-    def _call_model(model: Runnable[list[BaseMessage], Any], messages: list[BaseMessage]) -> Any:
-        return model.with_retry(wait_exponential_jitter=True, stop_after_attempt=3).invoke(messages)
