@@ -22,4 +22,4 @@ class DatabaoContextEngineApi:
 
     @property
     def project_dir(self) -> Path:
-        return self._delegate.project_dir
+        return self._delegate.domain_dir

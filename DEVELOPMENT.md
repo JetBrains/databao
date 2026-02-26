@@ -23,6 +23,31 @@ gh auth login
 
 Follow the prompts to authenticate with your GitHub account.
 
+## YouTrack MCP Integration
+
+The YouTrack MCP server gives Claude Code direct access to YouTrack — searching issues, creating tickets, adding comments, logging work, and more.
+
+### Setup
+
+**1. Generate a permanent token:**
+
+Go to [JetBrains Hub → Authentication](https://hub.jetbrains.com/users/me?tab=authentication), create a new token with **YouTrack** scope, and copy it.
+
+**2. Add the MCP server to Claude Code:**
+
+```bash
+claude mcp add --transport http --scope user youtrack https://youtrack.jetbrains.com/mcp \
+  --header "Authorization: Bearer <your-token>"
+```
+
+The `--scope user` flag makes it available across all projects.
+
+**3. Restart Claude Code** to pick up the new MCP server.
+
+### Verify
+
+Ask Claude: *"Who am I in YouTrack?"* — it should respond with your name and email via `get_current_user`.
+
 ## Git Workflow
 
 ### Branch Naming Convention
