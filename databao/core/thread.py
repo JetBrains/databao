@@ -98,13 +98,27 @@ class Thread:
             raise RuntimeError("_data_result is None after materialization")
         return self._data_result
 
+    def _collect_user_questions_from_cache(self) -> list[str]:
+        """Extract user question strings from the conversation history in the cache."""
+        from langchain_core.messages import HumanMessage
+
+        cache = self._agent.cache.scoped(self._cache_scope)
+        messages: list[Any] = cache.get("state", {}).get("messages", [])
+        return [str(m.content) for m in messages if isinstance(m, HumanMessage)]
+
     def _materialize_visualization(self, request: str | None, rows_limit: int | None) -> "VisualisationResult":
         """Materialize latest visualization for the given request and current data."""
         data = self._materialize_data(rows_limit)
         if self._visualization_result is None or request != self._visualization_request:
             # TODO Cache visualization results as in Executor.execute()?
             stream = self._stream_plot if self._stream_plot is not None else self._default_stream_plot
-            self._visualization_result = self._agent.visualizer.visualize(request, data, stream=stream)
+            questions = self._collect_user_questions_from_cache()
+            self._visualization_result = self._agent.visualizer.visualize(
+                request,
+                data,
+                questions=questions,
+                stream=stream,
+            )
             self._visualization_request = request
             for key, value in self._visualization_result.meta.items():
                 # We don't want to override existing metadata keys
