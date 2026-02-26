@@ -1,5 +1,7 @@
-from duckdb import DuckDBPyConnection
 from collections import defaultdict
+
+from duckdb import DuckDBPyConnection
+
 
 def describe_duckdb_schema(con: DuckDBPyConnection, max_cols_per_table: int = 40) -> str:
     """Return a compact textual description of tables and columns in DuckDB.
@@ -9,7 +11,7 @@ def describe_duckdb_schema(con: DuckDBPyConnection, max_cols_per_table: int = 40
         max_cols_per_table: Truncate column lists longer than this.
     """
     try:
-        internal_db_mapping = defaultdict(lambda: [set(), set()])
+        internal_db_mapping: dict[str, list[set[str]]] = defaultdict(lambda: [set(), set()])
         rows = con.execute("""
                             SELECT table_catalog, table_schema, table_name
                             FROM information_schema.tables
