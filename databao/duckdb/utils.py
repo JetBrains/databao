@@ -37,7 +37,7 @@ def describe_duckdb_schema(con: DuckDBPyConnection, max_cols_per_table: int = 40
             else:
                 suffix = ""
             col_desc = ", ".join(f"{c} {t}" for c, t in cols)
-            lines.append(f"{db}.{schema}.{table}({col_desc}){suffix}")
+            lines.append(f"{db}.{schema}.{table}" + (f" ({col_desc})" if col_desc else "") +f"{suffix}")
     except Exception:
         return "(failed to fetch schema)"
     return "\n".join(lines) if lines else "(no base tables found)"
