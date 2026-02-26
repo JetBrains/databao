@@ -118,6 +118,44 @@ class SnowflakeAdapter(DatabaseAdapter):
         shared_conn.execute("INSTALL snowflake FROM community;")
         shared_conn.execute("LOAD snowflake;")
         shared_conn.execute(f"ATTACH '{connection_string}' AS \"{name}\" (TYPE snowflake, READ_ONLY);")
+        # Also create a secret under the same name so that snowflake_query('...', '{name}') works.
+        secret_sql = cls._create_secret_sql(config, name)
+        shared_conn.execute(secret_sql)
+
+    @staticmethod
+    def _create_secret_sql(config: SnowflakeConnectionProperties, name: str) -> str:
+        params: dict[str, str] = {
+            "account": config.account,
+            "user": config.user,
+        }
+        if config.database:
+            params["database"] = config.database
+        if config.warehouse:
+            params["warehouse"] = config.warehouse
+        if config.role:
+            params["role"] = config.role
+
+        auth = config.auth
+        if isinstance(auth, SnowflakePasswordAuth):
+            params["password"] = auth.password
+        elif isinstance(auth, SnowflakeKeyPairAuth):
+            params["auth_type"] = AUTH_TYPE_KEY_PAIR
+            if auth.private_key:
+                params["private_key"] = auth.private_key
+            elif auth.private_key_file:
+                params["private_key"] = Path(auth.private_key_file).read_text()
+            if auth.private_key_file_pwd:
+                params["private_key_passphrase"] = auth.private_key_file_pwd
+        elif isinstance(auth, SnowflakeSSOAuth):
+            authenticator = auth.authenticator
+            if SnowflakeAdapter._is_okta_url(authenticator):
+                params["auth_type"] = AUTH_TYPE_OKTA
+                params["okta_url"] = authenticator
+            else:
+                params["auth_type"] = authenticator
+
+        kv = ", ".join(f"{k} '{v}'" for k, v in params.items())
+        return f'CREATE OR REPLACE SECRET "{name}" (TYPE snowflake, {kv});'
 
     @staticmethod
     def _create_auth(content: dict[str, Any]) -> SnowflakePasswordAuth | SnowflakeKeyPairAuth | SnowflakeSSOAuth:
