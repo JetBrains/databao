@@ -37,7 +37,19 @@ Here is a list of "name": "type" pairs of all the attached databases.
   - "{{ name }}": {{ db_type }}
 {% endfor %}
 
-{% endif -%}
+{% if "snowflake" in db_types.values() -%}
+### Snowflake instructions
+
+When querying from Snowflake datasources, you must use the `snowflake_query()` function, like so:
+```sql
+SELECT *
+FROM snowflake_query(
+  'YOUR SQL',
+  'DATASOURCE_NAME'
+);
+```
+{% endif %}
+{% endif %}
 
 ## Full Database schema
 {{ db_schema }}
