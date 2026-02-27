@@ -6,7 +6,9 @@ from duckdb import DuckDBPyConnection
 _LOGGER = logging.getLogger(__name__)
 
 
-def describe_duckdb_schema(con: DuckDBPyConnection, max_cols_per_table: int | None = None) -> str:
+def describe_duckdb_schema(
+    con: DuckDBPyConnection, max_cols_per_table: int | None = None, include_original_catalog_name: bool = False
+) -> str:
     """Return a compact textual description of tables and columns in DuckDB.
 
     Args:
@@ -36,19 +38,20 @@ def describe_duckdb_schema(con: DuckDBPyConnection, max_cols_per_table: int | No
 
             cols = con.execute(
                 f"""
-                                SELECT table_schema,
+                                SELECT table_catalog,
+                                       table_schema,
                                        table_name,
                                        LIST(column_name) AS columns,
                                        LIST(data_type) AS data_types
                                 FROM {db_qualifier}information_schema.columns
                                 WHERE table_schema in ?
                                     AND table_name in ?
-                                group by table_schema, table_name
+                                group by table_catalog, table_schema, table_name
                                 """,
                 [list(schemas), list(tables)],
             ).fetchall()
 
-            for schema, table, columns, data_types in cols:
+            for catalog, schema, table, columns, data_types in cols:
                 if max_cols_per_table is not None and len(columns) > max_cols_per_table:
                     remaining_cols = len(columns) - max_cols_per_table
                     columns = columns[:max_cols_per_table]
@@ -57,7 +60,8 @@ def describe_duckdb_schema(con: DuckDBPyConnection, max_cols_per_table: int | No
                 else:
                     suffix = ""
                 col_desc = ", ".join(f"{c}: {t}" for c, t in zip(columns, data_types, strict=False))
-                lines.append(f"{db}.{schema}.{table}({col_desc}{suffix})")
+                catalog_name = f"{catalog}." if include_original_catalog_name else ""
+                lines.append(f"{db_qualifier}{catalog_name}{schema}.{table}({col_desc}{suffix})")
     except Exception as e:
         _LOGGER.warning(f"Failed to fetch schema: {e}")
         return "(failed to fetch schema)"

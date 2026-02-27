@@ -33,13 +33,26 @@ class LighthouseExecutor(GraphExecutor):
         recursion_limit: int = 50,
     ) -> str:
         """Render system prompt with database schema."""
-        db_schema = describe_duckdb_schema(data_connection, max_cols_per_table=self._max_columns_per_table)
-
         domain = cast(_Domain, domain)
+
+        # As a workaround for snowflake where we execute queries directly using `snowflake_query`
+        # we need the original catalog name for the agent to write correct queries.
+        # For normal duckdb based execution, we instead need the "new" catalog name
+        # which is the user provided name of the attached datasource.
+        need_original_catalog_name = False
 
         db_types = {}
         for name, source in domain.sources.dbs.items():
-            db_types[name] = db_type(source.config).full_type
+            db_type_ = db_type(source.config).full_type
+            db_types[name] = db_type_
+            if db_type_ == "snowflake":
+                need_original_catalog_name = True
+
+        db_schema = describe_duckdb_schema(
+            data_connection,
+            max_cols_per_table=self._max_columns_per_table,
+            include_original_catalog_name=need_original_catalog_name,
+        )
 
         sources = domain.sources
         context_text = ""
