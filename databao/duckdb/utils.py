@@ -50,13 +50,14 @@ def describe_duckdb_schema(con: DuckDBPyConnection, max_cols_per_table: int | No
 
             for schema, table, columns, data_types in cols:
                 if max_cols_per_table is not None and len(columns) > max_cols_per_table:
+                    remaining_cols = len(columns) - max_cols_per_table
                     columns = columns[:max_cols_per_table]
                     data_types = data_types[:max_cols_per_table]
-                    suffix = " ... (truncated)"
+                    suffix = f", ... (truncated {remaining_cols} remaining columns)"
                 else:
                     suffix = ""
                 col_desc = ", ".join(f"{c}: {t}" for c, t in zip(columns, data_types, strict=False))
-                lines.append(f"{db}.{schema}.{table}({col_desc}){suffix}")
+                lines.append(f"{db}.{schema}.{table}({col_desc}{suffix})")
     except Exception as e:
         _LOGGER.warning(f"Failed to fetch schema: {e}")
         return "(failed to fetch schema)"
