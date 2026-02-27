@@ -30,13 +30,16 @@ def describe_duckdb_schema(con: DuckDBPyConnection, max_cols_per_table: int | No
 
         lines: list[str] = []
         for db, (schemas, tables) in internal_db_mapping.items():
+            # dataframes are loaded within the `temp` database and their columns can only be accessed directly from information_schema.columns
+            db_qualifier = f"{db}." if db not in {"temp"} else ""
+
             cols = con.execute(
                 f"""
                                 SELECT table_schema,
                                        table_name,
                                        LIST(column_name) AS columns,
                                        LIST(data_type) AS data_types
-                                FROM {db}.information_schema.columns
+                                FROM {db_qualifier}information_schema.columns
                                 WHERE table_schema in ?
                                     AND table_name in ?
                                 group by table_schema, table_name
