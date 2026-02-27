@@ -115,9 +115,61 @@ class SnowflakeAdapter(DatabaseAdapter):
                 f"Invalid connection config type: expected SnowflakeConnectionProperties, got {type(config)}."
             )
         connection_string = cls._create_connection_string(config)
+        # Build the secret SQL before ATTACH so that preparation errors (e.g. unreadable key file)
+        # don't leave the connection in a partially-registered state.
+        secret_sql = cls._create_secret_sql(config, name)
         shared_conn.execute("INSTALL snowflake FROM community;")
         shared_conn.execute("LOAD snowflake;")
         shared_conn.execute(f"ATTACH '{connection_string}' AS \"{name}\" (TYPE snowflake, READ_ONLY);")
+        shared_conn.execute(secret_sql)
+
+    @staticmethod
+    def _create_secret_sql(config: SnowflakeConnectionProperties, name: str) -> str:
+        params: dict[str, str] = {
+            ACCOUNT_KEY: config.account,
+            USER_KEY: config.user,
+        }
+        if config.database:
+            params[DATABASE_KEY] = config.database
+        if config.warehouse:
+            params[WAREHOUSE_KEY] = config.warehouse
+        if config.role:
+            params["role"] = config.role
+
+        auth = config.auth
+        if isinstance(auth, SnowflakePasswordAuth):
+            params[PASSWORD_KEY] = auth.password
+        elif isinstance(auth, SnowflakeKeyPairAuth):
+            params[AUTH_TYPE_KEY] = AUTH_TYPE_KEY_PAIR
+            if auth.private_key:
+                params[PRIVATE_KEY_KEY] = auth.private_key
+            elif auth.private_key_file:
+                try:
+                    params[PRIVATE_KEY_KEY] = Path(auth.private_key_file).read_text()
+                except OSError as exc:
+                    raise ValueError(
+                        f"Unable to read Snowflake private key file specified in 'private_key_file': "
+                        f"{auth.private_key_file}"
+                    ) from exc
+            else:
+                raise ValueError("No private key provided.")
+            if auth.private_key_file_pwd:
+                params[PRIVATE_KEY_PASSPHRASE_KEY] = auth.private_key_file_pwd
+        elif isinstance(auth, SnowflakeSSOAuth):
+            authenticator = auth.authenticator
+            if SnowflakeAdapter._is_okta_url(authenticator):
+                params[AUTH_TYPE_KEY] = AUTH_TYPE_OKTA
+                params[OKTA_URL_KEY] = authenticator
+            else:
+                params[AUTH_TYPE_KEY] = authenticator
+        else:
+            raise ValueError("Unsupported Snowflake authentication type.")
+
+        def _escape(v: str) -> str:
+            return v.replace("'", "''")
+
+        kv = ", ".join(f"{k} '{_escape(v)}'" for k, v in params.items())
+        return f'CREATE OR REPLACE SECRET "{name}" (TYPE snowflake, {kv});'
 
     @staticmethod
     def _create_auth(content: dict[str, Any]) -> SnowflakePasswordAuth | SnowflakeKeyPairAuth | SnowflakeSSOAuth:
@@ -133,7 +185,7 @@ class SnowflakeAdapter(DatabaseAdapter):
             return SnowflakeSSOAuth(authenticator=AUTH_TYPE_OAUTH)
         if OKTA_URL_KEY in content:
             return SnowflakeSSOAuth(authenticator=content[OKTA_URL_KEY])
-        raise ValueError("Unsupported Snowflake authentification type.")
+        raise ValueError("Unsupported Snowflake authentication type.")
 
     @staticmethod
     def _create_connection_string(config: SnowflakeConnectionProperties) -> str:
@@ -165,7 +217,7 @@ class SnowflakeAdapter(DatabaseAdapter):
             else:
                 connection_parameters[AUTH_TYPE_KEY] = authenticator
         else:
-            raise ValueError("Unsupported Snowflake authentification type.")
+            raise ValueError("Unsupported Snowflake authentication type.")
 
         return ";".join(f"{k}={v!s}" for k, v in connection_parameters.items() if v is not None)
 
