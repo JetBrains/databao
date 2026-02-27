@@ -10,6 +10,7 @@ from databao.configs.agent import AgentConfig
 from databao.core import Cache, Domain, ExecutionResult, Opa
 from databao.core.domain import _Domain
 from databao.core.executor import OutputModalityHints
+from databao.databases.databases import db_type
 from databao.duckdb.utils import describe_duckdb_schema
 from databao.executors.base import GraphExecutor
 from databao.executors.history_cleaning import clean_tool_history
@@ -35,6 +36,11 @@ class LighthouseExecutor(GraphExecutor):
         db_schema = describe_duckdb_schema(data_connection, max_cols_per_table=self._max_columns_per_table)
 
         domain = cast(_Domain, domain)
+
+        db_types = {}
+        for name, source in domain.sources.dbs.items():
+            db_types[name] = db_type(source.config).full_type
+
         sources = domain.sources
         context_text = ""
         for name, source in sources.dbs.items():
@@ -50,7 +56,11 @@ class LighthouseExecutor(GraphExecutor):
         context_text = context_text.strip()
 
         prompt = self._prompt_template.render(
-            date=get_today_date_str(), db_schema=db_schema, context=context_text, tool_limit=recursion_limit // 2
+            date=get_today_date_str(),
+            db_schema=db_schema,
+            context=context_text,
+            tool_limit=recursion_limit // 2,
+            db_types=db_types,
         )
 
         return prompt.strip()

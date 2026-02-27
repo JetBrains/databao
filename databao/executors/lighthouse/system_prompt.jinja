@@ -28,6 +28,17 @@ Today's date is: {{ date }} (YYYY-MM-DD).
 
 
 # Database schema
+{% if db_types -%}
+## Attached Databases
+
+Here is a list of "name": "type" pairs of all the attached datasources.
+
+{% for name, db_type in db_types.items() -%}
+  - "{{ name }}": {{ db_type }}
+{% endfor %}
+{% endif -%}
+
+## Full Database schema
 {{ db_schema }}
 
 
