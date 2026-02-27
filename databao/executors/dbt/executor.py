@@ -185,7 +185,6 @@ class DbtProjectExecutor(GraphExecutor):
             init_state=init_state,
             get_result=self._graph.get_result,
             extra_preamble=[HumanMessage(self._task_instruction)],
-            rows_limit=rows_limit,
             stream=stream,
             writer=writer,
         )

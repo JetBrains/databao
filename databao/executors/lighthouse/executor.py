@@ -70,7 +70,6 @@ class LighthouseExecutor(GraphExecutor):
             system_prompt=system_prompt,
             init_state=init_state,
             get_result=self._graph.get_result,
-            rows_limit=rows_limit,
             stream=stream,
             writer=writer,
         )

@@ -119,7 +119,6 @@ class GraphExecutor(Executor, ABC):
         init_state: Any,
         get_result: Callable[[Any], ExecutionResult],
         extra_preamble: list[Any] | None = None,
-        rows_limit: int = 100,
         stream: bool = True,
         writer: TextIO | None = None,
     ) -> tuple[ExecutionResult, Any]:
@@ -135,7 +134,6 @@ class GraphExecutor(Executor, ABC):
             init_state: Pre-built initial state for the graph (graph-specific).
             get_result: Callable that extracts an ExecutionResult from the final graph state.
             extra_preamble: Optional extra messages after system message (e.g. task instruction).
-            rows_limit: Preferred row limit.
             stream: Whether to stream output.
             writer: Optional output writer.
 

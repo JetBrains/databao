@@ -10,12 +10,8 @@ if TYPE_CHECKING:
     from databao.core.data_source import Sources
 
 
-def get_today_date_str(*, include_day_name: bool = True) -> str:
+def get_today_date_str() -> str:
     """Return today's date as a formatted string.
-
-    Args:
-        include_day_name: If True, includes the day name (e.g. "Thursday, 2026-02-26").
-            If False, returns just "2026-02-26".
     """
     return datetime.datetime.now().strftime("%A, %Y-%m-%d")
 
