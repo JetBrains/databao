@@ -42,14 +42,23 @@ def _make_dce_plain_search_tool(domain: _DCEProjectDomain) -> BaseTool:
     """Build the search_context tool without query expansion."""
 
     @tool(parse_docstring=True)
-    def search_context(retrieve_text: str, datasource_name: str | None = None) -> list[dict[str, Any]]:
+    def search_context(query: str, datasource_name: str | None = None) -> list[dict[str, Any]]:
         """Search the context for relevant information matching the given query text.
 
+        Use this tool to find additional information about the database (e.g., table and column descriptions) and
+        any attached data sources (e.g., dbt projects).
+
+        Prefer using this tool to get detailed database schema insights as opposed to running
+        your own database inspection SQL queries.
+
+        Your natural language query will be matched against a semantic search index to find relevant results.
+        Include specific information in the query (e.g., table names, column names) to get the best results.
+
         Args:
-            retrieve_text: Natural language query to search the context for relevant results.
+            query: Natural language query to search the context for relevant results.
             datasource_name: Optional datasource name to restrict the search to a specific data source.
         """
-        search_result_list = domain.search_context(retrieve_text, datasource_name=datasource_name)
+        search_result_list = domain.search_context(query, datasource_name=datasource_name)
         return list(map(_search_result_to_dict, search_result_list))
 
     return search_context
