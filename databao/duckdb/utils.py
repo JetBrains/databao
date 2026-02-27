@@ -3,7 +3,7 @@ from collections import defaultdict
 from duckdb import DuckDBPyConnection
 
 
-def describe_duckdb_schema(con: DuckDBPyConnection, max_cols_per_table: int = 40) -> str:
+def describe_duckdb_schema(con: DuckDBPyConnection, max_cols_per_table: int | None = None) -> str:
     """Return a compact textual description of tables and columns in DuckDB.
 
     Args:
@@ -42,7 +42,7 @@ def describe_duckdb_schema(con: DuckDBPyConnection, max_cols_per_table: int = 40
             ).fetchall()
 
             for schema, table, columns, data_types in cols:
-                if len(columns) > max_cols_per_table:
+                if max_cols_per_table is not None and len(columns) > max_cols_per_table:
                     columns = columns[:max_cols_per_table]
                     data_types = data_types[:max_cols_per_table]
                     suffix = " ... (truncated)"
