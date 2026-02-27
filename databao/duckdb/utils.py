@@ -30,7 +30,8 @@ def describe_duckdb_schema(con: DuckDBPyConnection, max_cols_per_table: int | No
 
         lines: list[str] = []
         for db, (schemas, tables) in internal_db_mapping.items():
-            # dataframes are loaded within the `temp` database and their columns can only be accessed directly from information_schema.columns
+            # dataframes are loaded within the `temp` database and their columns
+            # can only be accessed directly from information_schema.columns
             db_qualifier = f"{db}." if db not in {"temp"} else ""
 
             cols = con.execute(
