@@ -24,7 +24,7 @@ class LighthouseExecutor(GraphExecutor):
         self._prompt_template = read_prompt_template(Path("system_prompt.jinja"))
         self._graph: ExecuteSubmit = ExecuteSubmit(self._duckdb_connection)
 
-        self._max_columns_per_table: int | None = 40
+        self._max_columns_per_table: int | None = None
 
     def render_system_prompt(
         self,
