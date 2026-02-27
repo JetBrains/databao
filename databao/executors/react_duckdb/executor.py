@@ -39,6 +39,8 @@ class ReactDuckDBExecutor(GraphExecutor):
         stream: bool = True,
         writer: TextIO | None = None,
     ) -> ExecutionResult:
+        # Initialize sources from domain before execution
+        self._init_sources_from_domain(domain)
         compiled_graph = self._get_compiled_graph(llm_config, agent_config, domain)
 
         # Process the opa and get messages

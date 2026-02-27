@@ -7,7 +7,6 @@ from langchain_core.tools import BaseTool
 from pandas import DataFrame
 from pydantic import BaseModel, ConfigDict
 
-from databao.core.data_source import DBDataSource, DBTDataSource, DFDataSource
 from databao.core.domain import Domain
 
 if TYPE_CHECKING:
@@ -144,18 +143,6 @@ class Executor(ABC):
     Methods:
         execute: Abstract method to execute a single OPA within an agent.
     """
-
-    @abstractmethod
-    def register_db(self, source: DBDataSource) -> None:
-        pass
-
-    @abstractmethod
-    def register_df(self, source: DFDataSource) -> None:
-        pass
-
-    @abstractmethod
-    def register_dbt(self, source: DBTDataSource) -> None:
-        pass
 
     @abstractmethod
     def register_tools(self, tools: list[BaseTool]) -> None:
