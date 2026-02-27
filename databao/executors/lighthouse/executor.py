@@ -23,6 +23,8 @@ class LighthouseExecutor(GraphExecutor):
         self._prompt_template = read_prompt_template(Path("system_prompt.jinja"))
         self._graph: ExecuteSubmit = ExecuteSubmit(self._duckdb_connection)
 
+        self._max_columns_per_table: int | None = 40
+
     def render_system_prompt(
         self,
         data_connection: Any,
@@ -30,7 +32,7 @@ class LighthouseExecutor(GraphExecutor):
         recursion_limit: int = 50,
     ) -> str:
         """Render system prompt with database schema."""
-        db_schema = describe_duckdb_schema(data_connection)
+        db_schema = describe_duckdb_schema(data_connection, max_cols_per_table=self._max_columns_per_table)
 
         domain = cast(_Domain, domain)
         sources = domain.sources
