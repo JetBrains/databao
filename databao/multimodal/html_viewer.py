@@ -34,6 +34,7 @@ class MultimodalHTTPRequestHandler(BaseHTTPRequestHandler):
     thread: "Thread"
     html_bytes: bytes
     html_path: str
+    shutdown_event: threading.Event
 
     def do_GET(self) -> None:
         path = self.path.split("?", 1)[0]
@@ -78,6 +79,7 @@ class MultimodalHTTPRequestHandler(BaseHTTPRequestHandler):
             self.send_header("Connection", "keep-alive")
             self.end_headers()
         except Exception:
+            self.shutdown_event.set()
             return
 
         result_queue: queue.Queue[Any] = queue.Queue()
@@ -180,7 +182,7 @@ class MultimodalHTTPRequestHandler(BaseHTTPRequestHandler):
                 )
         finally:
             _send_sse(event="close", data=None)
-            threading.Thread(target=self.server.shutdown).start()
+            self.shutdown_event.set()
 
     def log_message(self, format: str, *args: Any) -> None:
         return
@@ -219,22 +221,25 @@ def open_html_content(thread: "Thread") -> str:
     html = template.replace(DATA_PLACEHOLDER, f"window.__DATA__ = {data_json};")
     html_bytes = html.encode("utf-8")
 
+    shutdown_event = threading.Event()
+
     MultimodalHTTPRequestHandler.thread = thread
     MultimodalHTTPRequestHandler.html_bytes = html_bytes
     MultimodalHTTPRequestHandler.html_path = _generate_short_id()
+    MultimodalHTTPRequestHandler.shutdown_event = shutdown_event
 
     server = HTTPServer(("127.0.0.1", 0), MultimodalHTTPRequestHandler)
     port = server.server_port
     url = f"http://127.0.0.1:{port}/"
 
-    def run_server_and_cleanup() -> None:
-        server.serve_forever()
-        server.server_close()
-
-    server_thread = threading.Thread(target=run_server_and_cleanup)
+    server_thread = threading.Thread(target=server.serve_forever, daemon=True)
     server_thread.start()
 
     webbrowser.open(url, new=2, autoraise=True)
+
+    shutdown_event.wait()
+    server.shutdown()
+    server.server_close()
 
     return url
 

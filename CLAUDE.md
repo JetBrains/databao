@@ -1,5 +1,26 @@
 # Claude Code Agent Instructions
 
+## YouTrack Ticket Workflow
+
+### Before Starting Work
+
+1. **Ask the user for the YouTrack ticket ID or number** (e.g. "DBA-123" or just "123", which you can expand to "DBA-123"). If the YouTrack MCP is not available, refer the user to [DEVELOPMENT.md](DEVELOPMENT.md) for setup instructions.
+
+2. **If a ticket is provided:** read it with `get_issue` to understand the scope, context, and any discussion before proceeding.
+
+3. **If no ticket exists:** propose one to the user before creating it — show a human-readable preview (summary, description, type, state, sprint) and wait for approval. Create it only after confirmation.
+
+### Commit Messages
+
+Always include the ticket ID in commits:
+```
+[DBA-123] Add support for Snowflake authentication
+```
+
+### After Creating a Pull Request
+
+Move the associated YouTrack ticket to **Review** state using `update_issue`.
+
 ## After Completing Work
 
 When you finish implementing changes:

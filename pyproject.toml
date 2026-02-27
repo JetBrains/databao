@@ -28,6 +28,7 @@ dependencies = [
     "diskcache>=5.6.3",
     "sqlalchemy>=2.0.45",
     "snowflake-sqlalchemy>=1.8.2",
+    "sqlalchemy-bigquery>=1.11.0",
     "databao-context-engine[postgresql,mysql,snowflake]~=0.5.0",
     "mcp>=1.0.0,<2",
     "watchdog>=6.0.0",
