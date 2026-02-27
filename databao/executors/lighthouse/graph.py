@@ -111,6 +111,9 @@ class ExecuteSubmit:
             )
         return result
 
+    def has_search_context_tool(self, domain: Domain) -> bool:
+        return make_search_context_tool(domain) is not None
+
     def make_tools(self, domain: Domain, extra_tools: list[BaseTool] | None = None) -> list[BaseTool]:
         @tool(parse_docstring=True)
         def run_sql_query(sql: str, graph_state: Annotated[AgentState, InjectedState]) -> dict[str, Any]:

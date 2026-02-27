@@ -25,7 +25,9 @@ Today's date is: {{ date }} (YYYY-MM-DD).
     - Time series require visualization
 - The user will see only the submitted result - final SQL and DataFrame. The user will not see intermediate results
 - Use less than {{ tool_limit }} tool calls before submitting the result
-
+{% if dce_search_enabled -%}
+- Remember to use the search_context tool to find relevant context (e.g., table and column descriptions) before writing your final SQL query.
+{% endif %}
 
 # Database schema
 {% if db_types -%}

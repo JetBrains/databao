@@ -68,12 +68,15 @@ class LighthouseExecutor(GraphExecutor):
             context_text += f"## General information {idx}\n\n{add_ctx.strip()}\n\n"
         context_text = context_text.strip()
 
+        dce_search_enabled = self._graph.has_search_context_tool(domain)
+
         prompt = self._prompt_template.render(
             date=get_today_date_str(),
             db_schema=db_schema,
             context=context_text,
             tool_limit=recursion_limit // 2,
             db_types=db_types,
+            dce_search_enabled=dce_search_enabled,
         )
 
         return prompt.strip()
