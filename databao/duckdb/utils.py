@@ -1,6 +1,9 @@
+import logging
 from collections import defaultdict
 
 from duckdb import DuckDBPyConnection
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def describe_duckdb_schema(con: DuckDBPyConnection, max_cols_per_table: int | None = None) -> str:
@@ -50,6 +53,7 @@ def describe_duckdb_schema(con: DuckDBPyConnection, max_cols_per_table: int | No
                     suffix = ""
                 col_desc = ", ".join(f"{c}: {t}" for c, t in zip(columns, data_types, strict=False))
                 lines.append(f"{db}.{schema}.{table}({col_desc}){suffix}")
-    except Exception:
+    except Exception as e:
+        _LOGGER.warning(f"Failed to fetch schema: {e}")
         return "(failed to fetch schema)"
     return "\n".join(lines) if lines else "(no base tables found)"
