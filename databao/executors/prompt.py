@@ -11,8 +11,7 @@ if TYPE_CHECKING:
 
 
 def get_today_date_str() -> str:
-    """Return today's date as a formatted string.
-    """
+    """Return today's date as a formatted string."""
     return datetime.datetime.now().strftime("%A, %Y-%m-%d")
 
 

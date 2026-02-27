@@ -40,9 +40,7 @@ class TestApplySystemPromptCaching:
     def test_applies_caching_to_system_message(self, anthropic_config: LLMConfig) -> None:
         messages = [SystemMessage(content="System prompt"), HumanMessage(content="User message")]
         result = apply_system_prompt_caching(anthropic_config, messages)
-        assert result[0].content == [
-            {"type": "text", "text": "System prompt", "cache_control": {"type": "ephemeral"}}
-        ]
+        assert result[0].content == [{"type": "text", "text": "System prompt", "cache_control": {"type": "ephemeral"}}]
 
     def test_multi_part_system_message_only_last_cached(self, anthropic_config: LLMConfig) -> None:
         messages = [
@@ -50,5 +48,9 @@ class TestApplySystemPromptCaching:
             HumanMessage(content="Question"),
         ]
         result = apply_system_prompt_caching(anthropic_config, messages)
-        assert "cache_control" not in result[0].content[0]
-        assert result[0].content[1]["cache_control"] == {"type": "ephemeral"}
+        content = result[0].content
+        assert isinstance(content, list)
+        first_part, second_part = content[0], content[1]
+        assert isinstance(first_part, dict) and isinstance(second_part, dict)
+        assert "cache_control" not in first_part
+        assert second_part["cache_control"] == {"type": "ephemeral"}
