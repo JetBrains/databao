@@ -31,11 +31,12 @@ Today's date is: {{ date }} (YYYY-MM-DD).
 {% if db_types -%}
 ## Attached Databases
 
-Here is a list of "name": "type" pairs of all the attached datasources.
+Here is a list of "name": "type" pairs of all the attached databases.
 
 {% for name, db_type in db_types.items() -%}
   - "{{ name }}": {{ db_type }}
 {% endfor %}
+
 {% endif -%}
 
 ## Full Database schema
