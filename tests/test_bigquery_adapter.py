@@ -147,6 +147,80 @@ class TestCreateConfigFromContent:
         assert isinstance(result.auth, BigQueryServiceAccountJsonAuth)
 
 
+class TestCreateConfigFromRuntime:
+    @staticmethod
+    def _make_engine(url_string: str) -> MagicMock:
+        from sqlalchemy import Engine, make_url
+
+        mock = MagicMock()
+        mock.__class__ = Engine  # type: ignore[assignment]
+        mock.dialect.name = "bigquery"
+        mock.url = make_url(url_string)
+        return mock
+
+    def test_basic_project_and_dataset(self, adapter: BigQueryAdapter) -> None:
+        engine = self._make_engine("bigquery://my-project/my_dataset")
+        result = adapter.create_config_from_runtime(engine)
+        assert isinstance(result, BigQueryConnectionProperties)
+        assert result.project == "my-project"
+        assert result.dataset == "my_dataset"
+        assert isinstance(result.auth, BigQueryDefaultAuth)
+
+    def test_project_only(self, adapter: BigQueryAdapter) -> None:
+        engine = self._make_engine("bigquery://my-project")
+        result = adapter.create_config_from_runtime(engine)
+        assert isinstance(result, BigQueryConnectionProperties)
+        assert result.project == "my-project"
+        assert result.dataset is None
+
+    def test_location_extracted(self, adapter: BigQueryAdapter) -> None:
+        engine = self._make_engine("bigquery://my-project/ds?location=US")
+        result = adapter.create_config_from_runtime(engine)
+        assert isinstance(result, BigQueryConnectionProperties)
+        assert result.location == "US"
+
+    def test_credentials_file_creates_key_file_auth(self, adapter: BigQueryAdapter) -> None:
+        engine = self._make_engine("bigquery://my-project/ds?credentials_file=/path/to/key.json")
+        result = adapter.create_config_from_runtime(engine)
+        assert isinstance(result, BigQueryConnectionProperties)
+        assert isinstance(result.auth, BigQueryServiceAccountKeyFileAuth)
+        assert result.auth.credentials_file == "/path/to/key.json"
+
+    def test_credentials_json_creates_json_auth(self, adapter: BigQueryAdapter) -> None:
+        engine = self._make_engine('bigquery://my-project/ds?credentials_json={"type":"service_account"}')
+        result = adapter.create_config_from_runtime(engine)
+        assert isinstance(result, BigQueryConnectionProperties)
+        assert isinstance(result.auth, BigQueryServiceAccountJsonAuth)
+        assert result.auth.credentials_json == '{"type":"service_account"}'
+
+    def test_unknown_query_params_in_additional_properties(self, adapter: BigQueryAdapter) -> None:
+        engine = self._make_engine("bigquery://my-project/ds?timeout=30&max_results=100")
+        result = adapter.create_config_from_runtime(engine)
+        assert isinstance(result, BigQueryConnectionProperties)
+        assert result.additional_properties == {"timeout": "30", "max_results": "100"}
+
+    def test_known_keys_excluded_from_additional_properties(self, adapter: BigQueryAdapter) -> None:
+        engine = self._make_engine("bigquery://my-project/ds?location=US&credentials_file=/k.json&timeout=30")
+        result = adapter.create_config_from_runtime(engine)
+        assert isinstance(result, BigQueryConnectionProperties)
+        assert "location" not in result.additional_properties
+        assert "credentials_file" not in result.additional_properties
+        assert result.additional_properties == {"timeout": "30"}
+
+    def test_raises_on_non_sqlalchemy_input(self, adapter: BigQueryAdapter) -> None:
+        with pytest.raises(ValueError, match="SQLAlchemy Engine or Connection"):
+            adapter.create_config_from_runtime(MagicMock())
+
+    def test_raises_on_wrong_dialect(self, adapter: BigQueryAdapter) -> None:
+        from sqlalchemy import Engine
+
+        mock = MagicMock()
+        mock.__class__ = Engine  # type: ignore[assignment]
+        mock.dialect.name = "postgresql"
+        with pytest.raises(ValueError, match="bigquery"):
+            adapter.create_config_from_runtime(mock)
+
+
 class TestRegisterInDuckdb:
     def test_default_auth_executes_correct_sql(
         self, adapter: BigQueryAdapter, default_config: BigQueryConnectionProperties

@@ -6,6 +6,7 @@ from databao_context_engine.pluginlib.build_plugin import AbstractConfigFile
 from databao_context_engine.plugins.databases.bigquery.config_file import (
     BigQueryConfigFile,
     BigQueryConnectionProperties,
+    BigQueryDefaultAuth,
     BigQueryServiceAccountJsonAuth,
     BigQueryServiceAccountKeyFileAuth,
 )
@@ -63,10 +64,14 @@ class BigQueryAdapter(DatabaseAdapter):
         database = sa_url.database
         dataset = database.lstrip("/") if database else None
 
+        query = dict(sa_url.query)
+
         return BigQueryConnectionProperties(
             project=project,
             dataset=dataset or None,
-            additional_properties={k: v for k, v in dict(sa_url.query).items() if k not in MAIN_KEYS},
+            location=query.get(LOCATION_KEY),
+            auth=cls._create_auth_from_query(query),
+            additional_properties={k: v for k, v in query.items() if k not in MAIN_KEYS},
         )
 
     @classmethod
@@ -89,6 +94,16 @@ class BigQueryAdapter(DatabaseAdapter):
         # TransformFilter method does not handle, causing an INTERNAL error.  Disabling only the
         # top_n optimizer rule avoids the crash with minimal impact on other query plans.
         shared_conn.execute("SET disabled_optimizers='top_n';")
+
+    @staticmethod
+    def _create_auth_from_query(
+        query: dict[str, Any],
+    ) -> BigQueryDefaultAuth | BigQueryServiceAccountKeyFileAuth | BigQueryServiceAccountJsonAuth:
+        if CREDENTIALS_JSON_KEY in query:
+            return BigQueryServiceAccountJsonAuth(credentials_json=query[CREDENTIALS_JSON_KEY])
+        if CREDENTIALS_FILE_KEY in query:
+            return BigQueryServiceAccountKeyFileAuth(credentials_file=query[CREDENTIALS_FILE_KEY])
+        return BigQueryDefaultAuth()
 
     @staticmethod
     def _create_connection_string(config: BigQueryConnectionProperties) -> str:
