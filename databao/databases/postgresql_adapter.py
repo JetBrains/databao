@@ -139,9 +139,15 @@ class PostgreSQLAdapter(DatabaseAdapter):
                 options = " ".join(f"{sk}={sv}" for sk, sv in v.items())
                 if options:
                     query["options"] = options
+            elif k == "sslmode":
+                # Preserve an explicit sslmode if it was provided
+                query["sslmode"] = str(v)
             elif k == "ssl" and isinstance(v, bool):
-                # Convert ssl bool back to sslmode string
-                query["sslmode"] = "require" if v else "disable"
+                # Convert ssl bool back to sslmode string, but do not overwrite an explicit sslmode
+                if "sslmode" not in query:
+                    # Map True to "require"; map False to "prefer" instead of "disable" to avoid
+                    # collapsing all non-require modes (e.g. prefer/allow) into "disable".
+                    query["sslmode"] = "require" if v else "prefer"
             else:
                 query[k] = str(v)
 
