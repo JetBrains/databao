@@ -194,10 +194,12 @@ class Executor(ABC):
         pass
 
     @staticmethod
-    def prepare_for_execution(domain: "Domain") -> None:
+    def prepare_for_execution(domain: "Domain", writer: TextIO | None = None) -> None:
         if domain.supports_context and not domain.is_context_built():
             print(
                 "Context has not been built yet. Building it now — this may take a while. "
-                "To avoid this delay, call domain.build_context() before starting execution."
+                "To avoid this delay, call domain.build_context() before starting execution.",
+                file=writer,
+                flush=True,
             )
             domain.build_context()

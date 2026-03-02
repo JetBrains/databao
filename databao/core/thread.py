@@ -79,7 +79,7 @@ class Thread:
             stream = self._stream_ask if self._stream_ask is not None else self._default_stream_ask
             executor = self._agent.executor
             domain = self._agent.domain
-            executor.prepare_for_execution(domain)
+            executor.prepare_for_execution(domain, writer=self._writer)
             for opa in new_opas:
                 self._data_result = executor.execute(
                     opa,
