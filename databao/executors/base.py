@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from typing import Any, TextIO
 
 import duckdb
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
@@ -16,6 +17,7 @@ from databao.core.executor import ExecutionResult, Executor, OutputModalityHints
 from databao.core.opa import Opa
 from databao.databases import register_db_in_duckdb
 from databao.executors.frontend.text_frontend import TextStreamFrontend
+from databao.executors.history_cleaning import clean_tool_history
 
 
 class GraphExecutor(Executor, ABC):
@@ -81,6 +83,18 @@ class GraphExecutor(Executor, ABC):
             self._compiled_at_version = self._compiled_tools_version
         return self._compiled_graph
 
+    def drop_last_opa_group(self, cache: Cache, n: int = 1) -> None:
+        """Drop last n groups of operations from the message history."""
+        messages = cache.get("state", default={}).get("messages", [])
+        human_messages = [m for m in messages if isinstance(m, HumanMessage)]
+        if len(human_messages) < n:
+            raise ValueError(f"Cannot drop last {n} operations - only {len(human_messages)} operations found.")
+        c = 0
+        while c < n:
+            m = messages.pop()
+            if isinstance(m, HumanMessage):
+                c += 1
+
     def _process_opas(self, opas: list[Opa], cache: Cache) -> list[Any]:
         """
         Process a single opa and convert it to a message, appending to message history.
@@ -92,6 +106,105 @@ class GraphExecutor(Executor, ABC):
         query = "\n\n".join(opa.query for opa in opas)
         messages.append(HumanMessage(content=query))
         return messages
+
+    def _execute_core(
+        self,
+        opas: list[Opa],
+        cache: Cache,
+        llm_config: LLMConfig,
+        agent_config: AgentConfig,
+        domain: Domain,
+        *,
+        system_prompt: str,
+        init_state: Any,
+        get_result: Callable[[Any], ExecutionResult],
+        extra_preamble: list[Any] | None = None,
+        stream: bool = True,
+        writer: TextIO | None = None,
+    ) -> tuple[ExecutionResult, Any]:
+        """Shared execution flow for graph-based executors.
+
+        Args:
+            opas: User intents to process.
+            cache: Persistent cache for message history.
+            llm_config: LLM configuration.
+            agent_config: Agent configuration.
+            domain: Domain with data sources.
+            system_prompt: Rendered system prompt text.
+            init_state: Pre-built initial state for the graph (graph-specific).
+            get_result: Callable that extracts an ExecutionResult from the final graph state.
+            extra_preamble: Optional extra messages after system message (e.g. task instruction).
+            stream: Whether to stream output.
+            writer: Optional output writer.
+
+        Returns:
+            Tuple of (ExecutionResult from graph, raw last_state for post-processing).
+        """
+        compiled_graph = self._get_compiled_graph(llm_config, agent_config, domain)
+        messages: list[Any] = self._process_opas(opas, cache)
+
+        all_messages_with_system = self._ensure_system_message(messages, system_prompt, extra_preamble)
+        cleaned_messages = clean_tool_history(all_messages_with_system, llm_config.max_tokens_before_cleaning)
+
+        # Patch messages into init_state (all graphs store messages under "messages" key)
+        if isinstance(init_state, dict):
+            init_state["messages"] = cleaned_messages
+        else:
+            init_state = {**init_state, "messages": cleaned_messages}
+
+        invoke_config = self._build_invoke_config(agent_config, opas)
+        last_state = self._invoke_graph_sync(
+            compiled_graph, init_state, config=invoke_config, stream=stream, writer=writer or self._writer
+        )
+
+        execution_result = get_result(last_state)
+
+        # Reconcile and persist message history
+        all_messages_without_system, all_messages = self._reconcile_messages(
+            all_messages_with_system, cleaned_messages, last_state
+        )
+        if all_messages:
+            if execution_result.meta.get(ExecutionResult.META_MESSAGES_KEY):
+                execution_result.meta[ExecutionResult.META_MESSAGES_KEY] = all_messages
+            self._update_message_history(cache, all_messages_without_system)
+
+        # Set modality hints
+        execution_result.meta[OutputModalityHints.META_KEY] = self._make_output_modality_hints(execution_result)
+
+        return execution_result, last_state
+
+    @staticmethod
+    def _ensure_system_message(
+        messages: list[BaseMessage],
+        system_content: str,
+        extra_preamble: list[BaseMessage] | None = None,
+    ) -> list[BaseMessage]:
+        """Prepend a SystemMessage (and optional extra preamble) if not already present."""
+        if messages and messages[0].type == "system":
+            return messages
+        preamble: list[BaseMessage] = [SystemMessage(system_content)]
+        if extra_preamble:
+            preamble.extend(extra_preamble)
+        return [*preamble, *messages]
+
+    @staticmethod
+    def _reconcile_messages(
+        all_messages_with_system: list[BaseMessage],
+        cleaned_messages: list[BaseMessage],
+        last_state: dict[str, Any],
+    ) -> tuple[list[BaseMessage], list[BaseMessage]]:
+        """Compute the final message list (without system messages) after graph execution.
+
+        Merges new messages produced by the graph with the original conversation,
+        then strips system messages (which are added dynamically per-invocation).
+        """
+        final_messages = last_state.get("messages", [])
+        if not final_messages:
+            return [], []
+        new_messages = final_messages[len(cleaned_messages) :]
+        all_messages = all_messages_with_system + new_messages
+        all_messages_without_system = [m for m in all_messages if m.type != "system"]
+        return all_messages_without_system, all_messages
 
     def _update_message_history(self, cache: Cache, final_messages: list[Any]) -> None:
         """Update message history in cache with final messages from graph execution."""

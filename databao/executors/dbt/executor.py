@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 import contextlib
-import datetime
 from pathlib import Path
 from typing import Any, TextIO, cast
 
 import duckdb
-import jinja2
-from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage
 from langchain_core.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
 
@@ -16,7 +14,6 @@ from databao.configs.agent import AgentConfig
 from databao.core import Cache, Domain, ExecutionResult, Opa
 from databao.core.data_source import Sources
 from databao.core.domain import _Domain
-from databao.core.executor import OutputModalityHints
 from databao.databases.databases import db_type, register_db_in_duckdb
 from databao.executors.base import GraphExecutor
 from databao.executors.dbt.config import DbtConfig
@@ -27,7 +24,7 @@ from databao.executors.dbt.dbt_runner import (
 )
 from databao.executors.dbt.graph import DbtProjectGraph
 from databao.executors.dbt.query_runner import DuckDbQueryRunner
-from databao.executors.history_cleaning import clean_tool_history
+from databao.executors.prompt import build_context_text, get_today_date_str, load_prompt_template
 from databao.executors.query_expansion import QueryExpansionConfig
 
 
@@ -48,8 +45,8 @@ class DbtProjectExecutor(GraphExecutor):
         self._dbt_config = dbt_config or DbtConfig()
         self._expansion_config = expansion_config
 
-        self._prompt_template = self._read_prompt_template("system_prompt.jinja")
-        self._task_instruction = self._read_prompt_template("task_instruction.jinja").render()
+        self._prompt_template = load_prompt_template("databao.executors.dbt", "system_prompt.jinja")
+        self._task_instruction = load_prompt_template("databao.executors.dbt", "task_instruction.jinja").render()
 
         # Auto-detect post-run hook: DuckDB projects need checkpoint, others don't.
         self._post_dbt_run_hook = post_dbt_run_hook if post_dbt_run_hook is not None else duckdb_post_run_hook
@@ -102,41 +99,15 @@ class DbtProjectExecutor(GraphExecutor):
             con.execute(f'USE "{first_source_name}"')
         return DuckDbQueryRunner(con)
 
-    @staticmethod
-    def _read_prompt_template(template_name: str) -> jinja2.Template:
-        env = jinja2.Environment(
-            loader=jinja2.PackageLoader("databao.executors.dbt", ""),
-            trim_blocks=True,
-            lstrip_blocks=True,
-        )
-        return env.get_template(template_name)
-
-    @staticmethod
-    def _get_today_date_str() -> str:
-        return datetime.datetime.now().strftime("%Y-%m-%d")
-
     def render_system_prompt(self, sources: Sources, project_dir: Path, recursion_limit: int = 50) -> str:
         dbt_overview = assemble_dbt_project_summary(project_dir)
-        attached_catalogs: list[str] = []
+        attached_catalogs: list[str] = list(sources.dbs.keys()) + list(sources.dfs.keys())
 
-        context_text = ""
-        for db_name, source in sources.dbs.items():
-            attached_catalogs.append(db_name)
-            if source.description:
-                db_desc = source.description
-                context_text += f"## Context for DB {db_name} (registered as '{db_name}') \n\n{db_desc}\n\n"
-        for df_name, source in sources.dfs.items():
-            attached_catalogs.append(df_name)
-            if source.description:
-                df_desc = source.description
-                context_text += f"## Context for DF {df_name} (registered as '{df_name}')\n\n{df_desc}\n\n"
-        for dbt_name, source in sources.dbts.items():
-            if source.description:
-                dbt_desc = source.description
-                context_text += f"## Context for DBT {dbt_name} (registered as '{dbt_name}')\n\n{dbt_desc}\n\n"
-        for idx, add_ctx in enumerate(sources.additional_description, start=1):
-            context_text += f"## General information {idx}\n\n{add_ctx.strip()}\n\n"
-        context_text = context_text.strip()
+        context_text = build_context_text(
+            sources,
+            include_dbts=True,
+            df_label_fn=lambda name: f"DF {name} (registered as '{name}')",
+        )
 
         datasource_entries = self._build_datasource_list(sources)
 
@@ -144,7 +115,7 @@ class DbtProjectExecutor(GraphExecutor):
             dbt_overview=dbt_overview,
             dbt_directory=project_dir.absolute(),
             attached_catalogs=attached_catalogs,
-            date=self._get_today_date_str(),
+            date=get_today_date_str(),
             context=context_text,
             datasources=datasource_entries,
             tool_limit=recursion_limit // 2,
@@ -177,17 +148,6 @@ class DbtProjectExecutor(GraphExecutor):
         self._graph._expansion_config = self._expansion_config
         return self._graph.compile(llm_config, agent_config, domain, extra_tools=extra_tools)
 
-    def drop_last_opa_group(self, cache: Cache, n: int = 1) -> None:
-        messages = cache.get("state", default={}).get("messages", [])
-        human_messages = [m for m in messages if isinstance(m, HumanMessage)]
-        if len(human_messages) < n:
-            raise ValueError(f"Cannot drop last {n} operations - only {len(human_messages)} operations found.")
-        c = 0
-        while c < n:
-            m = messages.pop()
-            if isinstance(m, HumanMessage):
-                c += 1
-
     def execute(
         self,
         opas: list[Opa],
@@ -200,64 +160,36 @@ class DbtProjectExecutor(GraphExecutor):
         stream: bool = True,
         writer: TextIO | None = None,
     ) -> ExecutionResult:
-        # NOTE: (@gas) release file locks — this executor uses short-lived connections
-        # Detaching allows the dbt subprocess to write freely.
         self._detach_all_databases()
-
-        compiled_graph = self._get_compiled_graph(llm_config, agent_config, domain)
-        messages: list[BaseMessage] = self._process_opas(opas, cache)
 
         sources = cast(_Domain, domain).sources
         project_dir = self._resolve_project_dir(self._dbt_config, sources)
 
-        all_messages_with_system = messages
-        if not all_messages_with_system or all_messages_with_system[0].type != "system":
-            all_messages_with_system = [
-                SystemMessage(self.render_system_prompt(sources, project_dir, agent_config.recursion_limit)),
-                HumanMessage(self._task_instruction),
-                *all_messages_with_system,
-            ]
-
-        cleaned_messages = clean_tool_history(all_messages_with_system, llm_config.max_tokens_before_cleaning)
-
+        system_prompt = self.render_system_prompt(sources, project_dir, agent_config.recursion_limit)
         pre_existing_files = [str(p.resolve()) for p in project_dir.rglob("*") if p.is_file()]
         init_state = self._graph.init_state(
-            cleaned_messages,
+            [],
             project_dir=project_dir,
             pre_existing_files=pre_existing_files,
             dbt_timeout_seconds=self._dbt_config.dbt_timeout_seconds,
             dbt_dirty=self._dbt_dirty,
         )
 
-        invoke_config = self._build_invoke_config(agent_config, opas)
-        last_state = self._invoke_graph_sync(
-            compiled_graph, init_state, config=invoke_config, stream=stream, writer=writer or self._writer
+        execution_result, last_state = self._execute_core(
+            opas,
+            cache,
+            llm_config,
+            agent_config,
+            domain,
+            system_prompt=system_prompt,
+            init_state=init_state,
+            get_result=self._graph.get_result,
+            extra_preamble=[HumanMessage(self._task_instruction)],
+            stream=stream,
+            writer=writer,
         )
 
         self._dbt_dirty = last_state.get("dbt_dirty", True)
+        execution_result.meta["dbt_project_dir"] = str(project_dir)
 
-        result = self._graph.get_result(last_state)
-
-        final_messages = last_state.get("messages", [])
-        if final_messages:
-            new_messages = final_messages[len(cleaned_messages) :]
-            all_messages = all_messages_with_system + new_messages
-            all_messages_without_system = [m for m in all_messages if m.type != "system"]
-            self._update_message_history(cache, all_messages_without_system)
-
-        execution_result = ExecutionResult(
-            text=str(result.get("text", "")),
-            df=result.get("df"),
-            code=result.get("code"),
-            meta={
-                "messages": final_messages or [],
-                "tool_calls": result.get("tool_calls", []),
-                "dbt_project_dir": str(project_dir),
-            },
-        )
-
-        execution_result.meta[OutputModalityHints.META_KEY] = OutputModalityHints(
-            visualization_prompt=None,
-            should_visualize=False,
-        )
         return execution_result

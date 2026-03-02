@@ -123,16 +123,32 @@ class Visualizer(ABC):
 
     DEFAULT_REQUEST = "I don't know what the data is about. Show me an interesting plot."
 
-    def visualize(self, request: str | None, data: ExecutionResult, *, stream: bool = False) -> VisualisationResult:
+    def visualize(
+        self,
+        request: str | None,
+        data: ExecutionResult,
+        *,
+        questions: list[str] | None = None,
+        stream: bool = False,
+    ) -> VisualisationResult:
         """Produce a visualization for the given data and optional user request.
 
         If *request* is ``None``, :attr:`DEFAULT_REQUEST` is used.  The request
         is then enriched with conversation history according to :attr:`history_mode`
         before being forwarded to :meth:`_visualize`.
+
+        Args:
+            request: Natural-language visualization request, or None for default.
+            data: The execution result containing the dataframe and metadata.
+            questions: Pre-extracted user question strings for history enrichment.
+                When provided, these are used directly instead of extracting from
+                ``data.meta``. Useful when the caller already has the conversation
+                history (e.g. from the cache).
+            stream: Whether to stream LLM output.
         """
         if request is None or request.strip() == "":
             request = self.DEFAULT_REQUEST
-        enriched = self._enrich_with_history_context(request, data)
+        enriched = self._enrich_with_history_context(request, data, questions=questions)
         return self._visualize(enriched, data, stream=stream)
 
     @abstractmethod
@@ -158,16 +174,30 @@ class Visualizer(ABC):
         """Refine a prior visualization with a natural language request."""
         pass
 
-    def _enrich_with_history_context(self, request: str, data: ExecutionResult) -> str:
+    def _enrich_with_history_context(
+        self,
+        request: str,
+        data: ExecutionResult,
+        *,
+        questions: list[str] | None = None,
+    ) -> str:
         """Prepend conversation history to the visualization request.
 
         Returns the original *request* unchanged for ``NONE``, or a new string
         with a ``User question history:`` / ``Instructions:`` structure for other modes.
+
+        Args:
+            request: The visualization request to enrich.
+            data: The execution result (used as fallback source for questions).
+            questions: Pre-extracted user question strings. When ``None``,
+                questions are extracted from ``data.meta`` via
+                :meth:`_collect_human_questions`.
         """
         if self.history_mode == HistoryMode.NONE:
             return request
 
-        questions = self._collect_human_questions(data)
+        if questions is None:
+            questions = self._collect_human_questions(data)
         if not questions:
             return request
 
