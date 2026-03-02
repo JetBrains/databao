@@ -6,12 +6,10 @@ from databao_context_engine import (
     SnowflakeConnectionProperties,
     SQLiteConnectionConfig,
 )
-from databao_context_engine.plugins.databases.bigquery.config_file import BigQueryConnectionProperties
 from sqlalchemy import Connection, Engine
 
 DBConnectionConfig = \
-    BigQueryConnectionProperties \
-    | DuckDBConnectionConfig \
+    DuckDBConnectionConfig \
     | MySQLConnectionProperties \
     | PostgresConnectionProperties \
     | SnowflakeConnectionProperties \
