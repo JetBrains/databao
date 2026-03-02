@@ -1,9 +1,28 @@
 import logging
 from collections import defaultdict
 
+import duckdb
 from duckdb import DuckDBPyConnection
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _inspect_columns(
+    con: DuckDBPyConnection, db_qualifier: str, schemas: list[str], tables: list[str]
+) -> list[tuple[str, str, str, list[str], list[str]]]:
+    return con.execute(
+        f"""
+            SELECT table_catalog,
+                   table_schema,
+                   table_name,
+                   LIST(column_name) AS columns,
+                   LIST(data_type) AS data_types
+            FROM {db_qualifier}information_schema.columns
+            WHERE table_schema in ?
+                AND table_name in ?
+            group by table_catalog, table_schema, table_name""",
+        [schemas, tables],
+    ).fetchall()
 
 
 def describe_duckdb_schema(
@@ -18,38 +37,33 @@ def describe_duckdb_schema(
     try:
         internal_db_mapping: dict[str, list[set[str]]] = defaultdict(lambda: [set(), set()])
         rows = con.execute("""
-                            SELECT table_catalog, table_schema, table_name
-                            FROM information_schema.tables
-                            WHERE table_type IN ('BASE TABLE', 'VIEW')
-                              AND table_schema NOT ILIKE 'pg_catalog'
+                           SELECT table_catalog, table_schema, table_name
+                           FROM information_schema.tables
+                           WHERE table_type IN ('BASE TABLE', 'VIEW')
+                             AND table_schema NOT ILIKE 'pg_catalog'
                               AND table_schema NOT ILIKE 'pg_toast'
                               AND table_schema NOT ILIKE 'information_schema'
-                            ORDER BY table_schema, table_name
-                            """).fetchall()
+                           ORDER BY table_schema, table_name
+                           """).fetchall()
         for db, schema, table in rows:
             internal_db_mapping[db][0].add(schema)
             internal_db_mapping[db][1].add(table)
 
         lines: list[str] = []
         for db, (schemas, tables) in internal_db_mapping.items():
-            # dataframes are loaded within the `temp` database and their columns
-            # can only be accessed directly from information_schema.columns
+            # Dataframes are loaded within `temp.main` and their columns can only be accessed
+            # directly from information_schema.columns. Similarly, for attached sqlite databases,
+            # we need to inspect information_schema.columns directly without the catalog name.
+            # However, for Snowflake, we need to inspect from the correct catalog, otherwise we don't find any columns.
             db_qualifier = f"{db}." if db not in {"temp"} else ""
-
-            cols = con.execute(
-                f"""
-                                SELECT table_catalog,
-                                       table_schema,
-                                       table_name,
-                                       LIST(column_name) AS columns,
-                                       LIST(data_type) AS data_types
-                                FROM {db_qualifier}information_schema.columns
-                                WHERE table_schema in ?
-                                    AND table_name in ?
-                                group by table_catalog, table_schema, table_name
-                                """,
-                [list(schemas), list(tables)],
-            ).fetchall()
+            try:
+                cols = _inspect_columns(con, db_qualifier, list(schemas), list(tables))
+            except duckdb.CatalogException as e:
+                _LOGGER.debug(f"Failed to fetch schema using {db_qualifier=}: {e}")
+                if db_qualifier == "":
+                    raise
+                # Fallback (for sqlite)
+                cols = _inspect_columns(con, "", list(schemas), list(tables))
 
             for catalog, schema, table, columns, data_types in cols:
                 if max_cols_per_table is not None and len(columns) > max_cols_per_table:
