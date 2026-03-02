@@ -7,7 +7,6 @@ from sqlalchemy import URL, Connection, Engine, make_url
 
 from databao.databases.database_adapter import DatabaseAdapter
 from databao.databases.database_connection import DBConnection, DBConnectionConfig, DBConnectionRuntime
-from databao.databases.utils import str_dict
 
 USER_KEY = "user"
 PASSWORD_KEY = "password"
@@ -18,6 +17,30 @@ DATABASE_KEY = "database"
 MAIN_KEYS = {USER_KEY, PASSWORD_KEY, HOST_KEY, PORT_KEY, DATABASE_KEY}
 
 EXCLUDED_QUERY_KEYS = {*MAIN_KEYS}
+
+# asyncpg uses server_settings dict instead of a libpq options string.
+# These sslmode values all require SSL to be enabled.
+_SSLMODE_REQUIRE = {"require", "verify-ca", "verify-full"}
+
+
+def _parse_pg_options(options_str: str) -> dict[str, str]:
+    """Parse a libpq options string into a key/value dict for asyncpg server_settings.
+
+    Handles both '-c key=value' and plain 'key=value' tokens.
+    """
+    result: dict[str, str] = {}
+    tokens = options_str.split()
+    i = 0
+    while i < len(tokens):
+        token = tokens[i]
+        if token == "-c" and i + 1 < len(tokens):
+            i += 1
+            token = tokens[i]
+        if "=" in token:
+            k, _, v = token.partition("=")
+            result[k.strip()] = v.strip()
+        i += 1
+    return result
 
 
 class PostgreSQLAdapter(DatabaseAdapter):
@@ -59,13 +82,28 @@ class PostgreSQLAdapter(DatabaseAdapter):
         if "dbname" in content:
             content[DATABASE_KEY] = content.pop("dbname")
 
+        additional_properties: dict[str, Any] = {}
+        for k, v in content.items():
+            if k in EXCLUDED_QUERY_KEYS:
+                continue
+            if k == "options":
+                # asyncpg uses server_settings dict; libpq uses an options string
+                server_settings = _parse_pg_options(v)
+                if server_settings:
+                    additional_properties["server_settings"] = server_settings
+            elif k == "sslmode":
+                # asyncpg uses ssl=True/False; libpq uses sslmode string
+                additional_properties["ssl"] = v in _SSLMODE_REQUIRE
+            else:
+                additional_properties[k] = v
+
         return PostgresConnectionProperties(
             host=sa_url.host,
             port=sa_url.port,
             database=sa_url.database,
             user=sa_url.username,
             password=sa_url.password,
-            additional_properties={k: v for k, v in content.items() if k not in EXCLUDED_QUERY_KEYS},
+            additional_properties=additional_properties,
         )
 
     @classmethod
@@ -86,6 +124,20 @@ class PostgreSQLAdapter(DatabaseAdapter):
 
     @staticmethod
     def _create_url(config: PostgresConnectionProperties) -> str:
+        # Reconstruct libpq-style query params from asyncpg-style additional_properties.
+        query: dict[str, str] = {}
+        for k, v in config.additional_properties.items():
+            if k == "server_settings" and isinstance(v, dict):
+                # Convert server_settings dict back to libpq options string
+                options = " ".join(f"{sk}={sv}" for sk, sv in v.items())
+                if options:
+                    query["options"] = options
+            elif k == "ssl" and isinstance(v, bool):
+                # Convert ssl bool back to sslmode string
+                query["sslmode"] = "require" if v else "disable"
+            else:
+                query[k] = str(v)
+
         url = URL.create(
             drivername="postgresql",
             username=config.user,
@@ -93,6 +145,6 @@ class PostgreSQLAdapter(DatabaseAdapter):
             host=config.host,
             port=config.port,
             database=config.database,
-            query=str_dict(config.additional_properties),
+            query=query,
         )
         return url.render_as_string(hide_password=False)

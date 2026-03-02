@@ -8,6 +8,7 @@ from databao_context_engine import (
     ConfiguredDatasource,
     ContextSearchResult,
     DatasourceId,
+    DatasourceStatus,
     DatasourceType,
 )
 from pandas import DataFrame
@@ -200,7 +201,11 @@ class _DCEProjectDomain(_Domain):
         if self.is_context_built():
             return
         self._finalize_sources()
-        self._dce_project.build_context()
+        results = self._dce_project.build_context()
+        failed = [r for r in results if r.status == DatasourceStatus.FAILED]
+        if failed:
+            messages = "\n".join(f"  - {r.datasource_id}: {r.error}" for r in failed)
+            raise RuntimeError(f"{len(failed)} datasource(s) failed to build context:\n{messages}")
 
     def search_context(self, retrieve_text: str, datasource_name: str | None = None) -> list[ContextSearchResult]:
         if not self.is_context_built():
