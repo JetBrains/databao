@@ -93,7 +93,14 @@ class PostgreSQLAdapter(DatabaseAdapter):
                     additional_properties["server_settings"] = server_settings
             elif k == "sslmode":
                 # asyncpg uses ssl=True/False; libpq uses sslmode string
-                additional_properties["ssl"] = v in _SSLMODE_REQUIRE
+                sslmode = str(v).lower()
+                if sslmode == "disable":
+                    # Explicitly disable SSL
+                    additional_properties["ssl"] = False
+                elif sslmode in _SSLMODE_REQUIRE or sslmode in {"prefer", "allow"}:
+                    # SSL modes that attempt or prefer SSL map to enabling SSL
+                    additional_properties["ssl"] = True
+                # For other/unknown sslmode values, omit "ssl" and let driver defaults apply.
             else:
                 additional_properties[k] = v
 
