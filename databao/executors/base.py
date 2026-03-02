@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Any, TextIO
 
 import duckdb
+from databao_context_engine import DuckDBConnectionConfig
 from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import BaseTool
@@ -54,6 +55,26 @@ class GraphExecutor(Executor, ABC):
 
     def register_dbt(self, source: DBTDataSource) -> None:
         self._registered_dbts[source.name] = source
+
+    def prepare_for_execution(self, domain: "Domain") -> None:
+        if not domain.supports_context or domain.is_context_built():
+            return
+
+        # DuckDB does not allow two connections to hold a file open simultaneously.
+        # Temporarily detach file-based DuckDB sources so the context engine can attach them.
+        duckdb_file_sources = {
+            name: source
+            for name, source in self._registered_dbs.items()
+            if isinstance(source.config, DuckDBConnectionConfig)
+        }
+        for name in duckdb_file_sources:
+            self._duckdb_connection.execute(f'DETACH "{name}"')
+
+        try:
+            super().prepare_for_execution(domain)
+        finally:
+            for name, source in duckdb_file_sources.items():
+                register_db_in_duckdb(self._duckdb_connection, source.config, name)
 
     def register_tools(self, tools: list[BaseTool]) -> None:
         """Register additional LangChain tools and invalidate the cached compiled graph."""
