@@ -25,7 +25,6 @@ dependencies = [
     "psycopg2-binary>=2.9.10",
     "matplotlib>=3.10.0",
     "edaplot-vl~=0.1.4",
-    "diskcache>=5.6.3",
     "sqlalchemy>=2.0.45",
     "snowflake-sqlalchemy>=1.8.2",
     "databao-context-engine[postgresql,mysql,snowflake]~=0.5.0",
