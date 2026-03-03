@@ -1,4 +1,9 @@
 {
   "name": "@databao/multimodal-jupyter",
-  "root": "apps/multimodal-jupyter"
+  "root": "apps/multimodal-jupyter",
+  "targets": {
+    "build:pckg": {
+      "outputs": ["{workspaceRoot}/out/multimodal-jupyter"]
+    }
+  }
 }

@@ -19,7 +19,7 @@
     "node": "24.5.0",
     "pnpm": "10.14.0"
   },
-  "packageManager": "pnpm@10.14.0+sha512-rSenlkG0nD5IGhaoBbqnGBegS74Go40X5g4urug/ahRsamiBJfV5LkjdW6MOfaUqXNpMOZK5zPMz+c4iOvhHSA==",
+  "packageManager": "pnpm@10.14.0",
   "devDependencies": {
     "@eslint/js": "9.31.0",
     "@nx/js": "21.5.3",

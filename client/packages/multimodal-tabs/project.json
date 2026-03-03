@@ -1,4 +1,9 @@
 {
   "name": "@databao/multimodal-tabs",
-  "root": "packages/multimodal-tabs"
+  "root": "packages/multimodal-tabs",
+  "targets": {
+    "build:pckg": {
+      "outputs": ["{projectRoot}/dist"]
+    }
+  }
 }

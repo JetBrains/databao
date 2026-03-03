@@ -1,4 +1,9 @@
 {
   "name": "@databao/multimodal-html",
-  "root": "apps/multimodal-html"
+  "root": "apps/multimodal-html",
+  "targets": {
+    "build:pckg": {
+      "outputs": ["{workspaceRoot}/out/multimodal-html"]
+    }
+  }
 }

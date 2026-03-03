@@ -8,7 +8,7 @@
     "build:pckg": {
       "dependsOn": ["^build:pckg"],
       "cache": true,
-      "outputs": ["{workspaceRoot}/out"]
+      "outputs": ["{projectRoot}/dist"]
     },
     "test:pckg": {
       "dependsOn": ["^build:pckg"],

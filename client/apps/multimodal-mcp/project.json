@@ -1,4 +1,9 @@
 {
   "name": "@databao/multimodal-mcp",
-  "root": "apps/multimodal-mcp"
+  "root": "apps/multimodal-mcp",
+  "targets": {
+    "build:pckg": {
+      "outputs": ["{workspaceRoot}/out/multimodal-mcp"]
+    }
+  }
 }
