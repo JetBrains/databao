@@ -179,6 +179,7 @@ class _DCEProjectDomain(_Domain):
         self._dce_project = DatabaoContextApi.init_or_get_dce_project(project_dir)
         self._dce = DatabaoContextApi.get_dce(project_dir)
         self._configured: dict[str, DatasourceId] = {}
+        self._context_built: bool = False
         self._set_configured_data_sources()
 
     def add_db(self, db: DBConnection, *, name: str | None = None, description: str | Path | None = None) -> None:
@@ -206,6 +207,7 @@ class _DCEProjectDomain(_Domain):
         if failed:
             messages = "\n".join(f"  - {r.datasource_id}: {r.error}" for r in failed)
             raise RuntimeError(f"{len(failed)} datasource(s) failed to build context:\n{messages}")
+        self._context_built = True
 
     def search_context(self, retrieve_text: str, datasource_name: str | None = None) -> list[ContextSearchResult]:
         if not self.is_context_built():
@@ -214,11 +216,12 @@ class _DCEProjectDomain(_Domain):
         return self._dce.search_context(retrieve_text, datasource_ids=datasource_ids)
 
     def is_context_built(self) -> bool:
-        if self._dce.is_context_built():
+        if self._context_built:
             return True
-        # NOTE: (@gas) dbt datasources are configured in DCE but may not appear in the
-        # introspected list; treat them as "built" when present.
-        return len(self._configured) > 0
+        if self._dce.is_context_built():
+            self._context_built = True
+            return True
+        return False
 
     @property
     def supports_context(self) -> bool:
@@ -240,6 +243,8 @@ class _DCEProjectDomain(_Domain):
                 raise ValueError(f'Failed to add configured source: "{name}" of type "{type.full_type}".')
             self._register_configured(id, ds)
         self._finalize_sources()
+        if self._dce.is_context_built():
+            self._context_built = True
 
     def _add_source_by_configuration(
         self, type: DatasourceType, content: dict[str, Any], name: str

@@ -44,12 +44,13 @@ class GraphExecutor(Executor, ABC):
         self._compiled_tools_version: int = 0
         self._compiled_at_version: int = -1
 
-    def _sync_source_metadata_from_domain(self, domain: Domain) -> None:
-        """Sync source metadata from domain without registering in DuckDB.
+    def _init_sources_from_domain(self, domain: Domain, *, register_in_duckdb: bool = True) -> None:
+        """Sync sources from the domain into the executor's registered dictionaries.
 
-        This populates `_registered_dbs`, `_registered_dfs`, and `_registered_dbts`
-        dictionaries so subclasses can access source information. Subclasses that
-        need to register sources in DuckDB should override `_init_sources_from_domain`.
+        When ``register_in_duckdb`` is True (the default), database and dataframe
+        sources are also registered in the shared ``_duckdb_connection``.  Pass
+        ``False`` when the subclass manages its own DuckDB connections (e.g.
+        ``DbtProjectExecutor``).
         """
         if not isinstance(domain, _Domain):
             return
@@ -58,39 +59,14 @@ class GraphExecutor(Executor, ABC):
 
         for name, db_source in sources.dbs.items():
             if name not in self._registered_dbs:
+                if register_in_duckdb:
+                    register_db_in_duckdb(self._duckdb_connection, db_source.config, name)
                 self._registered_dbs[name] = db_source
 
         for name, df_source in sources.dfs.items():
             if name not in self._registered_dfs:
-                self._registered_dfs[name] = df_source
-
-        for name, dbt_source in sources.dbts.items():
-            if name not in self._registered_dbts:
-                self._registered_dbts[name] = dbt_source
-
-    def _init_sources_from_domain(self, domain: Domain) -> None:
-        """Initialize DuckDB connection with sources from domain.
-
-        Sources are derived from the domain at execution time to ensure
-        consistency and avoid duplicate registrations. This registers sources
-        into the shared `_duckdb_connection`.
-
-        Subclasses that manage their own DuckDB connections (e.g., DbtProjectExecutor)
-        should override this to only sync metadata without registering.
-        """
-        if not isinstance(domain, _Domain):
-            return
-
-        sources: Sources = domain.sources
-
-        for name, db_source in sources.dbs.items():
-            if name not in self._registered_dbs:
-                register_db_in_duckdb(self._duckdb_connection, db_source.config, name)
-                self._registered_dbs[name] = db_source
-
-        for name, df_source in sources.dfs.items():
-            if name not in self._registered_dfs:
-                self._duckdb_connection.register(name, df_source.df)
+                if register_in_duckdb:
+                    self._duckdb_connection.register(name, df_source.df)
                 self._registered_dfs[name] = df_source
 
         for name, dbt_source in sources.dbts.items():

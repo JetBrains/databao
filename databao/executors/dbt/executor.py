@@ -73,7 +73,7 @@ class DbtProjectExecutor(GraphExecutor):
     def _make_query_runner(self) -> DuckDbQueryRunner:
         """Create a short-lived DuckDB read-only query runner from the shared connection state.
 
-        Uses the base class's registered data sources (populated by _sync_source_metadata_from_domain)
+        Uses the base class's registered data sources (populated by _init_sources_from_domain)
         to build a fresh read-only connection. This ensures dbt's writes are visible after each run.
         """
         con = duckdb.connect(":memory:")
@@ -158,7 +158,7 @@ class DbtProjectExecutor(GraphExecutor):
         stream: bool = True,
         writer: TextIO | None = None,
     ) -> ExecutionResult:
-        self._sync_source_metadata_from_domain(domain)
+        self._init_sources_from_domain(domain, register_in_duckdb=False)
 
         if not self._registered_dbs and not self._registered_dfs:
             raise DbtMissingWarehouseError()
