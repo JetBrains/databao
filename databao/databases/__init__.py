@@ -5,6 +5,7 @@ from databao_context_engine import (
     SnowflakeConnectionProperties,
     SQLiteConnectionConfig,
 )
+from databao_context_engine.plugins.databases.bigquery.config_file import BigQueryConnectionProperties
 
 from databao.databases.database_connection import DBConnection, DBConnectionConfig, DBConnectionRuntime
 from databao.databases.databases import (
@@ -15,6 +16,7 @@ from databao.databases.databases import (
 )
 
 __all__ = [
+    "BigQueryConnectionProperties",
     "DBConnection",
     "DBConnectionConfig",
     "DBConnectionRuntime",
