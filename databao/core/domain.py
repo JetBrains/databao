@@ -216,7 +216,7 @@ class _DCEProjectDomain(_Domain):
     def is_context_built(self) -> bool:
         if self._dce.is_context_built():
             return True
-        # TODO: (@gas) dbt datasources are configured in DCE but may not appear in the
+        # NOTE: (@gas) dbt datasources are configured in DCE but may not appear in the
         # introspected list; treat them as "built" when present.
         return len(self._configured) > 0
 
