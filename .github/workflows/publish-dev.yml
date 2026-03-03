@@ -23,13 +23,18 @@ jobs:
         id: version
         run: |
           LATEST=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
-          BASE=${LATEST#v}
+          if [ -z "$LATEST" ]; then
+            BASE="0.0.0"
+          else
+            BASE=${LATEST#v}
+          fi
           MAJOR=$(echo $BASE | cut -d. -f1)
           MINOR=$(echo $BASE | cut -d. -f2)
           PATCH=$(echo $BASE | cut -d. -f3)
           NEXT="${MAJOR}.${MINOR}.$((PATCH + 1))"
           N=$(git tag | grep -cE "^v${NEXT}\.dev[0-9]+$" || true)
           TAG="v${NEXT}.dev$((N + 1))"
+          echo "Computed dev version: ${TAG}"
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
 
       - name: Create and push dev tag
