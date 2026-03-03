@@ -19,3 +19,4 @@ catalog:
 
   "@radix-ui/themes": 3.2.1
   "@jetbrains/drt": "0.0.4"
+  "@modelcontextprotocol/ext-apps": "1.1.2"
