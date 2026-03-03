@@ -56,17 +56,14 @@ class GraphExecutor(Executor, ABC):
 
         sources: Sources = domain.sources
 
-        # Track database sources (metadata only)
         for name, db_source in sources.dbs.items():
             if name not in self._registered_dbs:
                 self._registered_dbs[name] = db_source
 
-        # Track DataFrame sources (metadata only)
         for name, df_source in sources.dfs.items():
             if name not in self._registered_dfs:
                 self._registered_dfs[name] = df_source
 
-        # Track dbt sources (metadata only)
         for name, dbt_source in sources.dbts.items():
             if name not in self._registered_dbts:
                 self._registered_dbts[name] = dbt_source
@@ -86,19 +83,16 @@ class GraphExecutor(Executor, ABC):
 
         sources: Sources = domain.sources
 
-        # Register database sources
         for name, db_source in sources.dbs.items():
             if name not in self._registered_dbs:
                 register_db_in_duckdb(self._duckdb_connection, db_source.config, name)
                 self._registered_dbs[name] = db_source
 
-        # Register DataFrame sources
         for name, df_source in sources.dfs.items():
             if name not in self._registered_dfs:
                 self._duckdb_connection.register(name, df_source.df)
                 self._registered_dfs[name] = df_source
 
-        # Register dbt sources (metadata only, no DuckDB registration)
         for name, dbt_source in sources.dbts.items():
             if name not in self._registered_dbts:
                 self._registered_dbts[name] = dbt_source

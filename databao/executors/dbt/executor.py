@@ -56,15 +56,6 @@ class DbtProjectExecutor(GraphExecutor):
         )
         self._dbt_dirty: bool = True
 
-    def _init_sources_from_domain(self, domain: Domain) -> None:
-        """Override to only sync metadata without registering in DuckDB.
-
-        DbtProjectExecutor manages its own DuckDB connections via _make_query_runner(),
-        so we don't register sources in the base class's _duckdb_connection to avoid
-        file lock conflicts when dbt runs.
-        """
-        self._sync_source_metadata_from_domain(domain)
-
     @staticmethod
     def _resolve_project_dir(dbt_config: DbtConfig, sources: Sources) -> Path:
         """Extract the dbt project directory from explicit config or the domain's datasources."""
@@ -81,7 +72,7 @@ class DbtProjectExecutor(GraphExecutor):
     def _make_query_runner(self) -> DuckDbQueryRunner:
         """Create a short-lived DuckDB read-only query runner from the shared connection state.
 
-        Uses the base class's registered data sources (populated by _init_sources_from_domain)
+        Uses the base class's registered data sources (populated by _sync_source_metadata_from_domain)
         to build a fresh read-only connection. This ensures dbt's writes are visible after each run.
         """
         con = duckdb.connect(":memory:")
@@ -160,6 +151,7 @@ class DbtProjectExecutor(GraphExecutor):
         stream: bool = True,
         writer: TextIO | None = None,
     ) -> ExecutionResult:
+        self._sync_source_metadata_from_domain(domain)
         sources = cast(_Domain, domain).sources
         project_dir = self._resolve_project_dir(self._dbt_config, sources)
 
