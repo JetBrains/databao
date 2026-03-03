@@ -158,10 +158,10 @@ class DbtProjectExecutor(GraphExecutor):
         stream: bool = True,
         writer: TextIO | None = None,
     ) -> ExecutionResult:
+        self._sync_source_metadata_from_domain(domain)
+
         if not self._registered_dbs and not self._registered_dfs:
             raise DbtMissingWarehouseError()
-
-        self._sync_source_metadata_from_domain(domain)
 
         sources = cast(_Domain, domain).sources
         project_dir = self._resolve_project_dir(self._dbt_config, sources)
