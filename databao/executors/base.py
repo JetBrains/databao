@@ -186,9 +186,6 @@ class GraphExecutor(Executor, ABC):
         Returns:
             Tuple of (ExecutionResult from graph, raw last_state for post-processing).
         """
-        # Initialize sources from domain (idempotent - skips already registered sources)
-        self._init_sources_from_domain(domain)
-
         compiled_graph = self._get_compiled_graph(llm_config, agent_config, domain)
         messages: list[Any] = self._process_opas(opas, cache)
 
