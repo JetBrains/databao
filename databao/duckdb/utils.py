@@ -93,7 +93,7 @@ def inspect_duckdb_schema(con: DuckDBPyConnection) -> list[TableInfo]:
     return result
 
 
-def format_duckdb_schema(
+def summarize_duckdb_schema(
     tables: list[TableInfo],
     max_cols_per_table: int | None = None,
     include_original_catalog_name: bool = False,
@@ -131,4 +131,4 @@ def describe_duckdb_schema(
     except Exception as e:
         _LOGGER.warning(f"Failed to fetch schema: {e}")
         return "(failed to fetch schema)"
-    return format_duckdb_schema(tables, max_cols_per_table, include_original_catalog_name)
+    return summarize_duckdb_schema(tables, max_cols_per_table, include_original_catalog_name)
