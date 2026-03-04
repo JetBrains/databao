@@ -1,4 +1,5 @@
 import json
+import math
 from typing import Annotated, Any, Literal
 
 import pandas as pd
@@ -43,6 +44,31 @@ def get_query_ids_mapping(messages: list[BaseMessage]) -> dict[str, ToolMessage]
         if isinstance(message, ToolMessage) and isinstance(message.artifact, dict) and "query_id" in message.artifact:
             query_ids[message.artifact["query_id"]] = message
     return query_ids
+
+
+def trim_string_middle(
+    content: str, max_length: int | None, sep: str = "[...trimmed...]", front_percentage: float = 0.7
+) -> str:
+    if max_length is None or len(content) <= max_length:
+        return content
+    take_front = max(0, math.ceil(max_length * front_percentage) - len(sep) // 2)
+    take_end = max(0, max_length - take_front - len(sep))
+    return content[:take_front] + sep + content[len(content) - take_end :]
+
+
+def trim_dataframe_values(df: pd.DataFrame, max_cell_chars: int | None) -> pd.DataFrame:
+    df_sanitized = df.copy()
+    if max_cell_chars is None:
+        return df_sanitized
+
+    def trim_cell(val: Any) -> str:
+        return trim_string_middle(str(val), max_cell_chars)
+
+    for col, dtype in zip(df_sanitized.columns, df_sanitized.dtypes, strict=True):
+        if not pd.api.types.is_object_dtype(dtype) and not pd.api.types.is_string_dtype(dtype):
+            continue
+        df_sanitized[col] = df_sanitized[col].apply(trim_cell)
+    return df_sanitized
 
 
 class ExecuteSubmit:
@@ -126,11 +152,15 @@ class ExecuteSubmit:
                 sql: SQL query
             """
             try:
-                # TODO use ToolRuntime in LangChain v1.0
                 limit = graph_state["limit_max_rows"]
                 df = execute_duckdb_sql(sql, self._connection, limit=limit)
-                df_csv = df.head(self.MAX_TOOL_ROWS).to_csv(index=False)
-                df_markdown = dataframe_to_markdown(df.head(self.MAX_TOOL_ROWS), index=False)
+
+                # Limit the size of sampled values to show to avoid context size explosions
+                df_display = df.head(self.MAX_TOOL_ROWS)
+                df_display = trim_dataframe_values(df_display, max_cell_chars=256)
+
+                df_csv = df_display.to_csv(index=False)
+                df_markdown = dataframe_to_markdown(df_display, index=False)
                 if len(df) > self.MAX_TOOL_ROWS:
                     df_csv += f"\nResult is truncated from {len(df)} to {self.MAX_TOOL_ROWS} rows."
                     df_markdown += f"\nResult is truncated from {len(df)} to {self.MAX_TOOL_ROWS} rows."
