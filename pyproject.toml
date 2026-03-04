@@ -1,6 +1,6 @@
 [project]
-name = "databao"
-description = "databao: NL queries for data"
+name = "databao-agent"
+description = "databao-agent: NL queries for data"
 dynamic = ["version"]  # Based on the git tag
 requires-python = ">=3.11, <3.15"
 readme = "README.md"
@@ -40,7 +40,7 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://databao.app/"
-Source = "https://github.com/JetBrains/databao"
+Source = "https://github.com/JetBrains/databao-agent"
 
 [project.optional-dependencies]
 jupyter = [

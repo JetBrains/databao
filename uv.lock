@@ -716,7 +716,7 @@ wheels = [
 ]
 
 [[package]]
-name = "databao"
+name = "databao-agent"
 source = { editable = "." }
 dependencies = [
     { name = "databao-context-engine", extra = ["mysql", "postgresql", "snowflake"] },

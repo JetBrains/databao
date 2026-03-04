@@ -22,6 +22,7 @@ from databao.executors.dbt.dbt_runner import (
     assemble_dbt_project_summary,
     duckdb_post_run_hook,
 )
+from databao.executors.dbt.errors import DbtMissingWarehouseError
 from databao.executors.dbt.graph import DbtProjectGraph
 from databao.executors.dbt.query_runner import DuckDbQueryRunner
 from databao.executors.prompt import build_context_text, get_today_date_str, load_prompt_template
@@ -138,6 +139,12 @@ class DbtProjectExecutor(GraphExecutor):
                 first_line = source.description.strip().split("\n")[0][:120]
                 desc = first_line
             entries.append({"name": df_name, "description": desc, "type": "dataframe"})
+        for dbt_name, source in sources.dbts.items():
+            desc = ""
+            if source.description:
+                first_line = source.description.strip().split("\n")[0][:120]
+                desc = first_line
+            entries.append({"name": dbt_name, "description": desc, "type": "dbt"})
         return entries
 
     def _compile_graph(
@@ -160,6 +167,9 @@ class DbtProjectExecutor(GraphExecutor):
         stream: bool = True,
         writer: TextIO | None = None,
     ) -> ExecutionResult:
+        if not self._registered_dbs and not self._registered_dfs:
+            raise DbtMissingWarehouseError()
+
         self._detach_all_databases()
 
         sources = cast(_Domain, domain).sources
