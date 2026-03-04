@@ -18,7 +18,7 @@ class DatabaoContextEngineApi:
     def search_context(
         self, retrieve_text: str, datasource_ids: list[DatasourceId] | None
     ) -> list[ContextSearchResult]:
-        return self._delegate.search_context(retrieve_text, datasource_ids=datasource_ids)
+        return self._delegate.search_context(search_text=retrieve_text, datasource_ids=datasource_ids)
 
     @property
     def project_dir(self) -> Path:
