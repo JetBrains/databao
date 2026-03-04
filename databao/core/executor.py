@@ -1,4 +1,5 @@
 import base64
+import logging
 import re
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, TextIO
@@ -14,6 +15,9 @@ if TYPE_CHECKING:
     from databao.configs.agent import AgentConfig
     from databao.core.cache import Cache
     from databao.core.opa import Opa
+
+
+logger = logging.getLogger(__name__)
 
 
 class OutputModalityHints(BaseModel):
@@ -180,10 +184,9 @@ class Executor(ABC):
         """
         pass
 
-    @staticmethod
-    def prepare_for_execution(domain: "Domain") -> None:
+    def prepare_for_execution(self, domain: "Domain") -> None:
         if domain.supports_context and not domain.is_context_built():
-            print(
+            logger.warning(
                 "Context has not been built yet. Building it now — this may take a while. "
                 "To avoid this delay, call domain.build_context() before starting execution."
             )
