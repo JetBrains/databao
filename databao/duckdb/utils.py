@@ -1,10 +1,30 @@
 import logging
 from collections import defaultdict
+from dataclasses import dataclass, field
 
 import duckdb
 from duckdb import DuckDBPyConnection
 
 _LOGGER = logging.getLogger(__name__)
+
+
+@dataclass
+class ColumnInfo:
+    name: str
+    data_type: str
+
+
+@dataclass
+class TableInfo:
+    table_catalog: str  # table_catalog from information_schema.tables
+    columns_catalog: str  # table_catalog from table_catalog.information_schema.columns
+    schema: str
+    name: str
+    columns: list[ColumnInfo] = field(default_factory=list)
+
+    def fully_qualified_name(self, use_original_catalog_name: bool) -> str:
+        catalog_prefix = f"{self.columns_catalog}." if use_original_catalog_name else ""
+        return f"{self.table_catalog}.{catalog_prefix}{self.schema}.{self.name}"
 
 
 def _inspect_columns(
@@ -27,6 +47,72 @@ def _inspect_columns(
     ).fetchall()
 
 
+def inspect_duckdb_schema(con: DuckDBPyConnection) -> list[TableInfo]:
+    """Inspect and return structured schema information from DuckDB."""
+    internal_db_mapping: dict[str, list[set[str]]] = defaultdict(lambda: [set(), set()])
+    rows = con.execute("""
+                       SELECT table_catalog, table_schema, table_name
+                       FROM information_schema.tables
+                       WHERE table_type IN ('BASE TABLE', 'VIEW')
+                         AND table_schema NOT ILIKE 'pg_catalog'
+                          AND table_schema NOT ILIKE 'pg_toast'
+                          AND table_schema NOT ILIKE 'information_schema'
+                       ORDER BY table_catalog, table_schema, table_name
+                       """).fetchall()
+    for db, schema, table in rows:
+        internal_db_mapping[db][0].add(schema)
+        internal_db_mapping[db][1].add(table)
+
+    result: list[TableInfo] = []
+    for db, (schemas, tables) in internal_db_mapping.items():
+        # Dataframes are loaded within `temp.main` and their columns can only be accessed
+        # directly from information_schema.columns. Similarly, for attached sqlite databases,
+        # we need to inspect information_schema.columns directly without the catalog name.
+        # However, for Snowflake, we need to inspect from the correct catalog, otherwise we don't find any columns.
+        db_qualifier = db if db != "temp" else ""
+        try:
+            cols = _inspect_columns(con, db_qualifier, list(schemas), list(tables))
+        except duckdb.CatalogException as e:
+            _LOGGER.debug(f"Failed to fetch schema using {db_qualifier=}: {e}")
+            if db_qualifier == "":
+                raise
+            # Fallback (for sqlite)
+            cols = _inspect_columns(con, "", list(schemas), list(tables))
+
+        for catalog, schema, table, columns, data_types in cols:
+            result.append(
+                TableInfo(
+                    table_catalog=db,
+                    columns_catalog=catalog,
+                    schema=schema,
+                    name=table,
+                    columns=[ColumnInfo(name=c, data_type=t) for c, t in zip(columns, data_types, strict=True)],
+                )
+            )
+
+    return result
+
+
+def format_duckdb_schema(
+    tables: list[TableInfo],
+    max_cols_per_table: int | None = None,
+    include_original_catalog_name: bool = False,
+) -> str:
+    """Format structured schema information into a compact textual description."""
+    lines: list[str] = []
+    for table in tables:
+        columns = table.columns
+        suffix = ""
+        if max_cols_per_table is not None and len(columns) > max_cols_per_table:
+            remaining = len(columns) - max_cols_per_table
+            columns = columns[:max_cols_per_table]
+            suffix = f", ... (truncated {remaining} remaining columns)"
+        col_desc = ", ".join(f"{c.name}: {c.data_type}" for c in columns)
+        table_name = table.fully_qualified_name(include_original_catalog_name)
+        lines.append(f"{table_name}({col_desc}{suffix})")
+    return "\n".join(lines) if lines else "(no base tables found)"
+
+
 def describe_duckdb_schema(
     con: DuckDBPyConnection, max_cols_per_table: int | None = None, include_original_catalog_name: bool = False
 ) -> str:
@@ -37,48 +123,8 @@ def describe_duckdb_schema(
         max_cols_per_table: Truncate column lists longer than this.
     """
     try:
-        internal_db_mapping: dict[str, list[set[str]]] = defaultdict(lambda: [set(), set()])
-        rows = con.execute("""
-                           SELECT table_catalog, table_schema, table_name
-                           FROM information_schema.tables
-                           WHERE table_type IN ('BASE TABLE', 'VIEW')
-                             AND table_schema NOT ILIKE 'pg_catalog'
-                              AND table_schema NOT ILIKE 'pg_toast'
-                              AND table_schema NOT ILIKE 'information_schema'
-                           ORDER BY table_catalog, table_schema, table_name
-                           """).fetchall()
-        for db, schema, table in rows:
-            internal_db_mapping[db][0].add(schema)
-            internal_db_mapping[db][1].add(table)
-
-        lines: list[str] = []
-        for db, (schemas, tables) in internal_db_mapping.items():
-            # Dataframes are loaded within `temp.main` and their columns can only be accessed
-            # directly from information_schema.columns. Similarly, for attached sqlite databases,
-            # we need to inspect information_schema.columns directly without the catalog name.
-            # However, for Snowflake, we need to inspect from the correct catalog, otherwise we don't find any columns.
-            db_qualifier = db if db != "temp" else ""
-            try:
-                cols = _inspect_columns(con, db_qualifier, list(schemas), list(tables))
-            except duckdb.CatalogException as e:
-                _LOGGER.debug(f"Failed to fetch schema using {db_qualifier=}: {e}")
-                if db_qualifier == "":
-                    raise
-                # Fallback (for sqlite)
-                cols = _inspect_columns(con, "", list(schemas), list(tables))
-
-            for catalog, schema, table, columns, data_types in cols:
-                if max_cols_per_table is not None and len(columns) > max_cols_per_table:
-                    remaining_cols = len(columns) - max_cols_per_table
-                    columns = columns[:max_cols_per_table]
-                    data_types = data_types[:max_cols_per_table]
-                    suffix = f", ... (truncated {remaining_cols} remaining columns)"
-                else:
-                    suffix = ""
-                col_desc = ", ".join(f"{c}: {t}" for c, t in zip(columns, data_types, strict=False))
-                catalog_name = f"{catalog}." if include_original_catalog_name else ""
-                lines.append(f"{db}.{catalog_name}{schema}.{table}({col_desc}{suffix})")
+        tables = inspect_duckdb_schema(con)
     except Exception as e:
         _LOGGER.warning(f"Failed to fetch schema: {e}")
         return "(failed to fetch schema)"
-    return "\n".join(lines) if lines else "(no base tables found)"
+    return format_duckdb_schema(tables, max_cols_per_table, include_original_catalog_name)
