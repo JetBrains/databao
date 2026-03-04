@@ -106,10 +106,14 @@ def format_duckdb_schema(
         if max_cols_per_table is not None and len(columns) > max_cols_per_table:
             remaining = len(columns) - max_cols_per_table
             columns = columns[:max_cols_per_table]
-            suffix = f", ... (truncated {remaining} remaining columns)"
+            if max_cols_per_table <= 0:
+                suffix = f"with {remaining} columns"
+            else:
+                suffix = f", ... truncated {remaining} remaining columns"
         col_desc = ", ".join(f"{c.name}: {c.data_type}" for c in columns)
+        col_desc = f"({col_desc}{suffix})" if len(columns) > 0 else f" ({suffix})"
         table_name = table.fully_qualified_name(include_original_catalog_name)
-        lines.append(f"{table_name}({col_desc}{suffix})")
+        lines.append(f"{table_name}{col_desc}")
     return "\n".join(lines) if lines else "(no base tables found)"
 
 
