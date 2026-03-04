@@ -1,7 +1,6 @@
 import logging
 from typing import Any, TextIO
 
-from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
@@ -27,18 +26,6 @@ class ReactDuckDBExecutor(GraphExecutor):
         return make_react_duckdb_agent(
             self._duckdb_connection, llm_config.new_chat_model(), domain, extra_tools=extra_tools
         )
-
-    def drop_last_opa_group(self, cache: Cache, n: int = 1) -> None:
-        """Drop last n groups of operations from the message history."""
-        messages = cache.get("state", default={}).get("messages", [])
-        human_messages = [m for m in messages if isinstance(m, HumanMessage)]
-        if len(human_messages) < n:
-            raise ValueError(f"Cannot drop last {n} operations - only {len(human_messages)} operations found.")
-        c = 0
-        while c < n:
-            m = messages.pop()
-            if isinstance(m, HumanMessage):
-                c += 1
 
     def execute(
         self,

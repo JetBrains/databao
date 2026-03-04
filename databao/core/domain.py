@@ -8,6 +8,7 @@ from databao_context_engine import (
     ConfiguredDatasource,
     ContextSearchResult,
     DatasourceId,
+    DatasourceStatus,
     DatasourceType,
 )
 from pandas import DataFrame
@@ -200,7 +201,11 @@ class _DCEProjectDomain(_Domain):
         if self.is_context_built():
             return
         self._finalize_sources()
-        self._dce_project.build_context()
+        results = self._dce_project.build_context()
+        failed = [r for r in results if r.status == DatasourceStatus.FAILED]
+        if failed:
+            messages = "\n".join(f"  - {r.datasource_id}: {r.error}" for r in failed)
+            raise RuntimeError(f"{len(failed)} datasource(s) failed to build context:\n{messages}")
 
     def search_context(self, retrieve_text: str, datasource_name: str | None = None) -> list[ContextSearchResult]:
         if not self.is_context_built():
@@ -209,7 +214,11 @@ class _DCEProjectDomain(_Domain):
         return self._dce.search_context(retrieve_text, datasource_ids=datasource_ids)
 
     def is_context_built(self) -> bool:
-        return self._dce.is_context_built()
+        if self._dce.is_context_built():
+            return True
+        # NOTE: (@gas) dbt datasources are configured in DCE but may not appear in the
+        # introspected list; treat them as "built" when present.
+        return len(self._configured) > 0
 
     @property
     def supports_context(self) -> bool:

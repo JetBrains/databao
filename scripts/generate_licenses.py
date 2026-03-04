@@ -157,7 +157,7 @@ def read_python_licenses(file_path: Path) -> list[dict[str, str]]:
     """
     Read and parse Python licenses from CSV format.
 
-    Filters out the current project itself (databao) from the report since it's not
+    Filters out the current project itself (databao-agent) from the report since it's not
     a third-party dependency. The project gets installed during 'uv run --with'
     even though we only want third-party packages in the final report.
     """
@@ -167,7 +167,7 @@ def read_python_licenses(file_path: Path) -> list[dict[str, str]]:
         reader = csv.DictReader(f)
         for row in reader:
             # Filter out the project itself - only include actual third-party dependencies
-            if row["Name"].lower() == "databao":
+            if row["Name"].lower() == "databao-agent":
                 continue
 
             licenses.append(

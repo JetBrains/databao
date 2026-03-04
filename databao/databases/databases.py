@@ -3,6 +3,7 @@ from typing import Any
 from _duckdb import DuckDBPyConnection
 from databao_context_engine.pluginlib.build_plugin import AbstractConfigFile, DatasourceType
 
+from databao.databases.bigquery_adapter import BigQueryAdapter
 from databao.databases.database_adapter import DatabaseAdapter
 from databao.databases.database_connection import (
     DBConnectionConfig,
@@ -15,6 +16,7 @@ from databao.databases.snowflake_adapter import SnowflakeAdapter
 from databao.databases.sqlite_adapter import SQLiteAdapter
 
 DATABASE_ADAPTERS: list[DatabaseAdapter] = [
+    BigQueryAdapter(),
     DuckDBAdapter(),
     MySQLAdapter(),
     PostgreSQLAdapter(),

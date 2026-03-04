@@ -1,14 +1,10 @@
-name: publish-pypi
+name: publish-pypi-dev
 
 on:
-  push:
-    tags:
-      # Publish on stable version tags only, e.g., v0.1.0
-      - 'v[0-9]*.[0-9]*.[0-9]*'
-      - '!v*.dev*'
+  workflow_dispatch:
 
 jobs:
-  publish-pypi:
+  publish-dev:
     runs-on: ubuntu-latest
 
     environment:
@@ -16,10 +12,38 @@ jobs:
 
     permissions:
       id-token: write
-      contents: read
+      contents: write
 
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Compute dev version
+        id: version
+        run: |
+          LATEST=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+          if [ -z "$LATEST" ]; then
+            BASE="0.0.0"
+          else
+            BASE=${LATEST#v}
+          fi
+          MAJOR=$(echo $BASE | cut -d. -f1)
+          MINOR=$(echo $BASE | cut -d. -f2)
+          PATCH=$(echo $BASE | cut -d. -f3)
+          NEXT="${MAJOR}.${MINOR}.$((PATCH + 1))"
+          N=$(git tag | grep -cE "^v${NEXT}\.dev[0-9]+$" || true)
+          TAG="v${NEXT}.dev$((N + 1))"
+          echo "Computed dev version: ${TAG}"
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+
+      - name: Create and push dev tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.version.outputs.tag }}" \
+            -m "Dev release ${{ steps.version.outputs.tag }}"
+          git push origin "${{ steps.version.outputs.tag }}"
 
       - name: Set up Python
         uses: actions/setup-python@v6

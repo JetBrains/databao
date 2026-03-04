@@ -1,6 +1,6 @@
 [project]
-name = "databao"
-description = "databao: NL queries for data"
+name = "databao-agent"
+description = "databao-agent: NL queries for data"
 dynamic = ["version"]  # Based on the git tag
 requires-python = ">=3.11, <3.15"
 readme = "README.md"
@@ -28,6 +28,7 @@ dependencies = [
     "diskcache>=5.6.3",
     "sqlalchemy>=2.0.45",
     "snowflake-sqlalchemy>=1.8.2",
+    "sqlalchemy-bigquery>=1.11.0",
     "databao-context-engine[postgresql,mysql,snowflake]~=0.5.0",
     "mcp>=1.0.0,<2",
     "watchdog>=6.0.0",
@@ -39,7 +40,7 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://databao.app/"
-Source = "https://github.com/JetBrains/databao"
+Source = "https://github.com/JetBrains/databao-agent"
 
 [project.optional-dependencies]
 jupyter = [
