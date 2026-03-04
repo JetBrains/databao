@@ -10,7 +10,7 @@ from databao.configs.agent import AgentConfig
 from databao.core import Cache, Domain, ExecutionResult, Opa
 from databao.core.domain import _Domain
 from databao.databases.databases import db_type as get_db_type
-from databao.duckdb.utils import TableInfo, inspect_duckdb_schema, summarize_duckdb_schema
+from databao.duckdb.schema_inspection import TableInfo, inspect_duckdb_schema, summarize_duckdb_schema
 from databao.executors.base import GraphExecutor
 from databao.executors.lighthouse.graph import ExecuteSubmit
 from databao.executors.prompt import build_context_text, get_today_date_str, load_prompt_template

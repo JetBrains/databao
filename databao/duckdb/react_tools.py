@@ -10,7 +10,7 @@ from langgraph.prebuilt import create_react_agent
 from pydantic import BaseModel
 
 from databao.core import Domain
-from databao.duckdb.utils import describe_duckdb_schema
+from databao.duckdb.schema_inspection import describe_duckdb_schema
 from databao.executors.tools import make_search_context_tool
 
 
