@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 from databao_context_engine import (
@@ -219,3 +220,77 @@ def test_secret_sql_key_pair_file_not_found_raises() -> None:
     config = _make_config(auth)
     with pytest.raises(ValueError, match="Unable to read Snowflake private key file"):
         SnowflakeAdapter._create_secret_sql(config, "s")
+
+
+# ---------------------------------------------------------------------------
+# create_config_from_runtime — account / region reconstruction
+# ---------------------------------------------------------------------------
+
+
+def _make_snowflake_engine(connect_args: dict[str, Any]) -> MagicMock:
+    from sqlalchemy import Engine
+
+    mock = MagicMock()
+    mock.__class__ = Engine  # type: ignore[assignment]
+    mock.dialect.name = "snowflake"
+    mock.url.render_as_string.return_value = "snowflake://user:pass@account/db"
+    mock.dialect.create_connect_args.return_value = ([], connect_args)
+    return mock
+
+
+def test_create_config_from_runtime_preserves_region_in_account() -> None:
+    engine = _make_snowflake_engine(
+        {
+            "account": "nameaccount",
+            "host": "nameaccount.eu-central-1.snowflakecomputing.com",
+            "user": "user@example.com",
+            "dbname": "MYDB",
+            "warehouse": "WH",
+            "password": "secret",
+        }
+    )
+    config = SnowflakeAdapter.create_config_from_runtime(engine)
+    assert isinstance(config, SnowflakeConnectionProperties)
+    assert config.account == "nameaccount.eu-central-1"
+
+
+def test_create_config_from_runtime_no_region_keeps_bare_account() -> None:
+    engine = _make_snowflake_engine(
+        {
+            "account": "nameaccount",
+            "host": "nameaccount.snowflakecomputing.com",
+            "user": "user",
+            "password": "secret",
+        }
+    )
+    config = SnowflakeAdapter.create_config_from_runtime(engine)
+    assert isinstance(config, SnowflakeConnectionProperties)
+    assert config.account == "nameaccount"
+
+
+def test_create_config_from_runtime_no_host_falls_back_to_account() -> None:
+    engine = _make_snowflake_engine(
+        {
+            "account": "nameaccount",
+            "user": "user",
+            "password": "secret",
+        }
+    )
+    config = SnowflakeAdapter.create_config_from_runtime(engine)
+    assert isinstance(config, SnowflakeConnectionProperties)
+    assert config.account == "nameaccount"
+
+
+def test_create_config_from_runtime_host_not_in_additional_properties() -> None:
+    engine = _make_snowflake_engine(
+        {
+            "account": "nameaccount",
+            "host": "nameaccount.eu-central-1.snowflakecomputing.com",
+            "port": "443",
+            "user": "user",
+            "password": "secret",
+        }
+    )
+    config = SnowflakeAdapter.create_config_from_runtime(engine)
+    assert isinstance(config, SnowflakeConnectionProperties)
+    assert "host" not in config.additional_properties

@@ -11,6 +11,7 @@ from databao_context_engine import (
     SnowflakeSSOAuth,
 )
 from databao_context_engine.pluginlib.build_plugin import AbstractConfigFile
+from snowflake.connector.network import SNOWFLAKE_HOST_SUFFIX
 from sqlalchemy import Connection, Engine, make_url
 
 from databao.agent.databases.database_adapter import DatabaseAdapter
@@ -92,8 +93,13 @@ class SnowflakeAdapter(DatabaseAdapter):
         if "dbname" in content:
             content[DATABASE_KEY] = content.pop("dbname")
 
+        host: str | None = content.pop("host", None)
+        account: str = content.get(ACCOUNT_KEY, "")
+        if host and host.endswith(SNOWFLAKE_HOST_SUFFIX):
+            account = host[: -len(SNOWFLAKE_HOST_SUFFIX)]
+
         return SnowflakeConnectionProperties(
-            account=content.get(ACCOUNT_KEY),
+            account=account,
             warehouse=content.get(WAREHOUSE_KEY),
             database=content.get(DATABASE_KEY),
             user=content.get(USER_KEY),
