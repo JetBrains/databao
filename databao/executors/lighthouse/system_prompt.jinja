@@ -62,10 +62,10 @@ FROM snowflake_query(
 - **Resolution:** Snowflake treats content inside double quotes as **Case-Sensitive** and preserves it exactly as written.
 - *Example:* `SELECT "Column_A" FROM "Table_b"` looks for exactly `Column_A` inside `Table_b`.
 - **Mandatory Usage:** You **must** double-quote identifiers if they:
-- Contain any **lowercase** characters (and the schema relies on mixed/lowercase).
-- Contain **spaces** or **non-alphanumeric** characters (e.g., `.`, `-`, `@`, `%`).
-- Start with a **digit**.
-- Match a **reserved keyword** (e.g., `"GROUP"`, `"order"`).
+  - Contain any **lowercase** characters (and the schema relies on mixed/lowercase).
+  - Contain **spaces** or **non-alphanumeric** characters (e.g., `.`, `-`, `@`, `%`).
+  - Start with a **digit**.
+  - Match a **reserved keyword** (e.g., `"GROUP"`, `"order"`).
 
 **3. Escaping Quotes**
 - **Syntax:** If the identifier name itself contains a double quote, escape it by using **two double quotes**.
