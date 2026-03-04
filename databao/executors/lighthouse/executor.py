@@ -10,7 +10,7 @@ from databao.configs.agent import AgentConfig
 from databao.core import Cache, Domain, ExecutionResult, Opa
 from databao.core.domain import _Domain
 from databao.databases.databases import db_type as get_db_type
-from databao.duckdb.utils import inspect_duckdb_schema, summarize_duckdb_schema
+from databao.duckdb.utils import TableInfo, inspect_duckdb_schema, summarize_duckdb_schema
 from databao.executors.base import GraphExecutor
 from databao.executors.lighthouse.graph import ExecuteSubmit
 from databao.executors.prompt import build_context_text, get_today_date_str, load_prompt_template
@@ -27,6 +27,36 @@ class LighthouseExecutor(GraphExecutor):
         self._max_columns_per_table: int | None = None
         self._max_schema_summary_length: int | None = 250_000  # 1 token ~= 4 characters
 
+    def _summarize_db_schema(
+        self, tables: list[TableInfo], db_types: dict[str, str], max_cols_per_table: int | None
+    ) -> str:
+        # As a workaround for snowflake where we execute queries directly using `snowflake_query`
+        # we need the original catalog name for the agent to write correct queries.
+        # For normal duckdb based execution, we instead need the "new" catalog name
+        # which is the user provided name of the attached datasource.
+        # This filtering works because table_catalog matches the name of the attached datasource.
+        sf_db_names = {name for name, db_type in db_types.items() if db_type == "snowflake"}
+        sf_tables = [table for table in tables if table.table_catalog in sf_db_names]
+        duckdb_tables = [table for table in tables if table.table_catalog not in sf_db_names]
+
+        sf_schema = (
+            summarize_duckdb_schema(
+                sf_tables, max_cols_per_table=max_cols_per_table, include_original_catalog_name=True
+            )
+            if len(sf_tables) > 0
+            else ""
+        )
+        duckdb_schema = (
+            summarize_duckdb_schema(
+                duckdb_tables, max_cols_per_table=max_cols_per_table, include_original_catalog_name=False
+            )
+            if len(duckdb_tables) > 0
+            else ""
+        )
+        schemas = [sf_schema, duckdb_schema]
+        schemas = [schema for schema in schemas if len(schema) > 0]
+        return "\n".join(schemas)
+
     def _inspect_database_schema(self, connection: DuckDBPyConnection, db_types: dict[str, str]) -> str:
         try:
             tables = inspect_duckdb_schema(connection)
@@ -34,30 +64,13 @@ class LighthouseExecutor(GraphExecutor):
             _LOGGER.warning(f"Failed to inspect duckdb schema: {e}")
             return "(failed to fetch schema)"
 
-        # As a workaround for snowflake where we execute queries directly using `snowflake_query`
-        # we need the original catalog name for the agent to write correct queries.
-        # For normal duckdb based execution, we instead need the "new" catalog name
-        # which is the user provided name of the attached datasource.
-        need_original_catalog_name = False
-
-        for _, db_type in db_types.items():
-            if db_type == "snowflake":
-                need_original_catalog_name = True
-
-        db_schema = summarize_duckdb_schema(
-            tables,
-            max_cols_per_table=self._max_columns_per_table,
-            include_original_catalog_name=need_original_catalog_name,
-        )
-
+        db_schema = self._summarize_db_schema(tables, db_types, self._max_columns_per_table)
         if self._max_schema_summary_length is None:
             return db_schema
 
         if len(db_schema) > self._max_schema_summary_length:
             # Retry by listing only table names without any column information.
-            db_schema = summarize_duckdb_schema(
-                tables, max_cols_per_table=0, include_original_catalog_name=need_original_catalog_name
-            )
+            db_schema = self._summarize_db_schema(tables, db_types, 0)
 
         if len(db_schema) > self._max_schema_summary_length:
             db_schema = "(the database schema is too large)"
