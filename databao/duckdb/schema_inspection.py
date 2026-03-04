@@ -117,6 +117,22 @@ def summarize_duckdb_schema(
     return "\n".join(lines) if lines else "(no base tables found)"
 
 
+def summarize_duckdb_schema_overview(
+    tables: list[TableInfo],
+    include_original_catalog_name: bool = False,
+) -> str:
+    """Summarize schema as catalog.schema with table counts, without listing individual tables."""
+    counts: dict[tuple[str, str, str], int] = defaultdict(int)
+    for table in tables:
+        # NB. We assume a one-to-one correspondence between table_catalog and columns_catalog
+        counts[(table.table_catalog, table.columns_catalog, table.schema)] += 1
+    lines: list[str] = []
+    for (db, columns_catalog, schema), count in counts.items():
+        catalog_prefix = f"{columns_catalog}." if include_original_catalog_name else ""
+        lines.append(f"{db}.{catalog_prefix}{schema} ({count} tables)")
+    return "\n".join(lines) if lines else "(no base tables found)"
+
+
 def describe_duckdb_schema(
     con: DuckDBPyConnection, max_cols_per_table: int | None = None, include_original_catalog_name: bool = False
 ) -> str:

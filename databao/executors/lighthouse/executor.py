@@ -10,7 +10,12 @@ from databao.configs.agent import AgentConfig
 from databao.core import Cache, Domain, ExecutionResult, Opa
 from databao.core.domain import _Domain
 from databao.databases.databases import db_type as get_db_type
-from databao.duckdb.schema_inspection import TableInfo, inspect_duckdb_schema, summarize_duckdb_schema
+from databao.duckdb.schema_inspection import (
+    TableInfo,
+    inspect_duckdb_schema,
+    summarize_duckdb_schema,
+    summarize_duckdb_schema_overview,
+)
 from databao.executors.base import GraphExecutor
 from databao.executors.lighthouse.graph import ExecuteSubmit
 from databao.executors.prompt import build_context_text, get_today_date_str, load_prompt_template
@@ -57,6 +62,25 @@ class LighthouseExecutor(GraphExecutor):
         schemas = [schema for schema in schemas if len(schema) > 0]
         return "\n".join(schemas)
 
+    def _summarize_db_schema_overview(self, tables: list[TableInfo], db_types: dict[str, str]) -> str:
+        sf_db_names = {name for name, db_type in db_types.items() if db_type == "snowflake"}
+        sf_tables = [table for table in tables if table.table_catalog in sf_db_names]
+        duckdb_tables = [table for table in tables if table.table_catalog not in sf_db_names]
+
+        sf_schema = (
+            summarize_duckdb_schema_overview(sf_tables, include_original_catalog_name=True)
+            if len(sf_tables) > 0
+            else ""
+        )
+        duckdb_schema = (
+            summarize_duckdb_schema_overview(duckdb_tables, include_original_catalog_name=False)
+            if len(duckdb_tables) > 0
+            else ""
+        )
+        schemas = [sf_schema, duckdb_schema]
+        schemas = [schema for schema in schemas if len(schema) > 0]
+        return "\n".join(schemas)
+
     def _inspect_database_schema(self, connection: DuckDBPyConnection, db_types: dict[str, str]) -> str:
         try:
             tables = inspect_duckdb_schema(connection)
@@ -73,7 +97,8 @@ class LighthouseExecutor(GraphExecutor):
             db_schema = self._summarize_db_schema(tables, db_types, 0)
 
         if len(db_schema) > self._max_schema_summary_length:
-            db_schema = "(the database schema is too large)"
+            # Fallback to showing only schemas without tables names.
+            db_schema = self._summarize_db_schema_overview(tables, db_types)
 
         return db_schema
 
