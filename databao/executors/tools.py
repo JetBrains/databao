@@ -102,7 +102,7 @@ def _make_dce_expanded_search_tool(
 def _search_result_to_dict(search_result: ContextSearchResult) -> dict[str, Any]:
     return {
         "data_source_name": _get_ds_name(search_result),
-        "distance": search_result.distance,
+        "distance": search_result.score,
         "context_result": search_result.context_result,
     }
 

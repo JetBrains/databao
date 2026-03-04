@@ -132,7 +132,7 @@ class DbtProjectExecutor(GraphExecutor):
             if source.description:
                 first_line = source.description.strip().split("\n")[0][:120]
                 desc = first_line
-            entries.append({"name": db_name, "description": desc, "type": db_type(source.config)})
+            entries.append({"name": db_name, "description": desc, "type": db_type(source.config).full_type})
         for df_name, source in sources.dfs.items():
             desc = ""
             if source.description:

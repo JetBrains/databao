@@ -127,8 +127,9 @@ class SnowflakeAdapter(DatabaseAdapter):
     def _create_secret_sql(config: SnowflakeConnectionProperties, name: str) -> str:
         params: dict[str, str] = {
             ACCOUNT_KEY: config.account,
-            USER_KEY: config.user,
         }
+        if config.user:
+            params[USER_KEY] = config.user
         if config.database:
             params[DATABASE_KEY] = config.database
         if config.warehouse:

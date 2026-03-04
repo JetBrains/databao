@@ -25,7 +25,7 @@ class DatabaoContextProjectManagerApi:
 
     # TODO (dce): should be present only in DatabaoContextEngineApi
     def get_introspected_datasource_list(self) -> list[Datasource]:
-        return self._delegate.get_engine_for_project().get_introspected_datasource_list()
+        return self._delegate.get_engine_for_domain().get_introspected_datasource_list()
 
     def build_context(self) -> list[BuildDatasourceResult]:
         return self._delegate.build_context()
