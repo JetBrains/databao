@@ -8,13 +8,13 @@ from duckdb import DuckDBPyConnection
 _LOGGER = logging.getLogger(__name__)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class ColumnInfo:
     name: str
     data_type: str
 
 
-@dataclass
+@dataclass(kw_only=True)
 class TableInfo:
     table_catalog: str  # table_catalog from information_schema.tables
     columns_catalog: str  # table_catalog from table_catalog.information_schema.columns
