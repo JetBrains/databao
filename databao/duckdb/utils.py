@@ -10,7 +10,7 @@ _LOGGER = logging.getLogger(__name__)
 def _inspect_columns(
     con: DuckDBPyConnection, db_qualifier: str, schemas: list[str], tables: list[str]
 ) -> list[tuple[str, str, str, list[str], list[str]]]:
-    db = f'"{db_qualifier}"' if db_qualifier else ""
+    db = f'"{db_qualifier}".' if db_qualifier else ""
     return con.execute(
         f"""
             SELECT table_catalog,
@@ -57,7 +57,7 @@ def describe_duckdb_schema(
             # directly from information_schema.columns. Similarly, for attached sqlite databases,
             # we need to inspect information_schema.columns directly without the catalog name.
             # However, for Snowflake, we need to inspect from the correct catalog, otherwise we don't find any columns.
-            db_qualifier = f"{db}." if db != "temp" else ""
+            db_qualifier = db if db != "temp" else ""
             try:
                 cols = _inspect_columns(con, db_qualifier, list(schemas), list(tables))
             except duckdb.CatalogException as e:
@@ -77,7 +77,7 @@ def describe_duckdb_schema(
                     suffix = ""
                 col_desc = ", ".join(f"{c}: {t}" for c, t in zip(columns, data_types, strict=False))
                 catalog_name = f"{catalog}." if include_original_catalog_name else ""
-                lines.append(f"{db_qualifier}{catalog_name}{schema}.{table}({col_desc}{suffix})")
+                lines.append(f"{db}.{catalog_name}{schema}.{table}({col_desc}{suffix})")
     except Exception as e:
         _LOGGER.warning(f"Failed to fetch schema: {e}")
         return "(failed to fetch schema)"
