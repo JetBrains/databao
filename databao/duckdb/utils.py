@@ -10,6 +10,7 @@ _LOGGER = logging.getLogger(__name__)
 def _inspect_columns(
     con: DuckDBPyConnection, db_qualifier: str, schemas: list[str], tables: list[str]
 ) -> list[tuple[str, str, str, list[str], list[str]]]:
+    db = f'"{db_qualifier}"' if db_qualifier else ""
     return con.execute(
         f"""
             SELECT table_catalog,
@@ -17,7 +18,7 @@ def _inspect_columns(
                    table_name,
                    LIST(column_name) AS columns,
                    LIST(data_type) AS data_types
-            FROM {db_qualifier}information_schema.columns
+            FROM {db}information_schema.columns
             WHERE table_schema in ?
                 AND table_name in ?
             GROUP BY table_catalog, table_schema, table_name
@@ -56,7 +57,7 @@ def describe_duckdb_schema(
             # directly from information_schema.columns. Similarly, for attached sqlite databases,
             # we need to inspect information_schema.columns directly without the catalog name.
             # However, for Snowflake, we need to inspect from the correct catalog, otherwise we don't find any columns.
-            db_qualifier = f"{db}." if db not in {"temp"} else ""
+            db_qualifier = f"{db}." if db != "temp" else ""
             try:
                 cols = _inspect_columns(con, db_qualifier, list(schemas), list(tables))
             except duckdb.CatalogException as e:
