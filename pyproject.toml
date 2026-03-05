@@ -113,7 +113,6 @@ files = ["databao", "tests", "examples"]
 plugins = ["pydantic.mypy", "sqlalchemy.ext.mypy.plugin"]
 
 [[tool.mypy.overrides]]
-# TODO enable once dce has type hints exposed
 module = ["databao_context_engine", "databao_context_engine.*"]
 ignore_missing_imports = true
 
