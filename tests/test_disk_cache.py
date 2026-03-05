@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from databao.caches.disk_cache import DiskCache, DiskCacheConfig
+from databao.agent.caches.disk_cache import DiskCache, DiskCacheConfig
 
 
 @pytest.fixture

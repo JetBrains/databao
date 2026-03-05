@@ -9,7 +9,7 @@ from databao_context_engine import (
     SnowflakeSSOAuth,
 )
 
-from databao.databases.snowflake_adapter import SnowflakeAdapter
+from databao.agent.databases.snowflake_adapter import SnowflakeAdapter
 
 # ---------------------------------------------------------------------------
 # Helpers

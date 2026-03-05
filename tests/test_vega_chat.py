@@ -5,8 +5,8 @@ import pandas as pd
 import pytest
 from PIL import Image
 
-from databao.visualizers.vega_chat import VegaChatResult
-from databao.visualizers.vega_vis_tool import VegaVisTool
+from databao.agent.visualizers.vega_chat import VegaChatResult
+from databao.agent.visualizers.vega_vis_tool import VegaVisTool
 
 
 def _make_result(**kwargs: Any) -> VegaChatResult:
@@ -90,7 +90,7 @@ def test_image_returns_none_when_missing_inputs() -> None:
 def test_image_returns_none_when_no_png_available(
     monkeypatch: pytest.MonkeyPatch, sample_spec: dict[str, Any], sample_df: pd.DataFrame
 ) -> None:
-    import databao.visualizers.vega_chat as vega_chat_mod
+    import databao.agent.visualizers.vega_chat as vega_chat_mod
 
     # Force the PNG conversion helper to return None
     monkeypatch.setattr(vega_chat_mod, "vl_to_png_bytes", lambda spec, df: None)

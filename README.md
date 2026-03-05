@@ -93,8 +93,8 @@ engine = create_engine(
 ### 2. Create a Databao agent and register sources
 
 ```python
-import databao
-from databao import LLMConfig
+import databao.agent as bao
+from databao.agent import LLMConfig
 
 # Option A - Local: install and run any compatible local LLM
 # For list of compatible models, see "Local Models" below
@@ -102,7 +102,7 @@ from databao import LLMConfig
 
 # Option B - Cloud (requires an API key, e.g. OPENAI_API_KEY)
 llm_config = LLMConfig(name="gpt-4o-mini", temperature=0)
-agent = databao.new_agent(name="demo", llm_config=llm_config)
+agent = bao.agent(name="demo", llm_config=llm_config)
 
 # Add your database to the agent
 agent.add_db(engine)

@@ -9,9 +9,9 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
-import databao
-from databao import LLMConfig
-from databao.core.domain import Domain
+import databao.agent as bao
+from databao.agent import LLMConfig
+from databao.agent.core.domain import Domain
 
 
 @pytest.fixture(params=["persistent", "in-memory"])
@@ -19,7 +19,7 @@ def domain(request: pytest.FixtureRequest) -> Generator[Domain, None, None]:
     mode = request.param
 
     if mode == "in-memory":
-        yield databao.domain()
+        yield bao.domain()
         return
 
     root = Path(request.config.rootpath)
@@ -29,7 +29,7 @@ def domain(request: pytest.FixtureRequest) -> Generator[Domain, None, None]:
     path = base / f"context-{request.node.name}-{uuid.uuid4().hex}"
     path.mkdir(parents=True, exist_ok=False)
 
-    domain = databao.domain(path)
+    domain = bao.domain(path)
     yield domain
 
     shutil.rmtree(path, ignore_errors=True)
@@ -71,7 +71,7 @@ def test_demo_smoke(domain: Domain, db_engine: Engine) -> None:
     domain.add_df(df)
 
     # Step 4: Create a databao agent
-    agent = databao.agent(domain, name="test_agent", llm_config=LLMConfig(name="gpt-5"))
+    agent = bao.agent(domain, name="test_agent", llm_config=LLMConfig(name="gpt-5"))
     assert agent is not None
 
     # Step 5: Ask a question and get results
@@ -107,7 +107,7 @@ def test_consecutive_ask_calls(domain: Domain, db_engine: Engine) -> None:
     domain.add_df(df)
 
     # Step 3: Create a databao agent
-    agent = databao.agent(domain, name="test_consecutive_agent", llm_config=LLMConfig(name="gpt-5"))
+    agent = bao.agent(domain, name="test_consecutive_agent", llm_config=LLMConfig(name="gpt-5"))
     assert agent is not None
 
     # Step 4: First ask - count cancelled shows by directors
