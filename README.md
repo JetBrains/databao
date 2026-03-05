@@ -159,7 +159,7 @@ Databao agent works great with local LLMs — your data never leaves your machin
 ### Ollama
 
 1. Install [Ollama](https://ollama.com/download) for your OS and make sure it’s running
-2. Use an `bao.LLMConfig` with `name` of the form `"ollama:<model_name>"`:
+2. Use a `bao.LLMConfig` with `name` of the form `"ollama:<model_name>"`:
 
    ```python
    llm_config = bao.LLMConfig(name="ollama:gpt-oss:20b", temperature=0)
