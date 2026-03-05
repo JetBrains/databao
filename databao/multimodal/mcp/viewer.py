@@ -76,7 +76,10 @@ def create_mcp_app() -> FastMCP:
         mime_type=RESOURCE_MIME_TYPE,
         meta={
             "ui": {
-                "csp": {"resourceDomains": ["https://cdn.jsdelivr.net"], "connectDomains": ["https://cdn.jsdelivr.net"]}
+                "csp": {
+                    "resourceDomains": ["https://cdn.jsdelivr.net", "blob:", "'wasm-unsafe-eval'"],
+                    "connectDomains": ["https://cdn.jsdelivr.net"],
+                }
             }
         },
     )
