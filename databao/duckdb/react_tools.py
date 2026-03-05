@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import Any
 
 import pandas as pd
@@ -10,8 +11,10 @@ from langgraph.prebuilt import create_react_agent
 from pydantic import BaseModel
 
 from databao.core import Domain
-from databao.duckdb.schema_inspection import describe_duckdb_schema
+from databao.duckdb.schema_inspection import inspect_duckdb_schema, summarize_duckdb_schema
 from databao.executors.tools import make_search_context_tool
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class AgentResponse(BaseModel):
@@ -33,6 +36,24 @@ def execute_duckdb_sql(sql: str, con: DuckDBPyConnection, *, limit: int | None =
     if limit is not None:
         rel = rel.limit(limit)
     return rel.df()  # Execute and return DataFrame
+
+
+def describe_duckdb_schema(con: DuckDBPyConnection, max_cols_per_table: int | None = None) -> str:
+    """Return a compact textual description of tables and columns in DuckDB.
+
+    Args:
+        con: An open DuckDB connection.
+        max_cols_per_table: Truncate column lists longer than this.
+    """
+    try:
+        tables = inspect_duckdb_schema(con)
+    except Exception as e:
+        _LOGGER.warning(f"Failed to fetch schema: {e}")
+        return "(failed to fetch schema)"
+    db_schema = summarize_duckdb_schema(tables, max_cols_per_table, include_original_catalog_name=False)
+    if len(db_schema) > 0:
+        return db_schema
+    return "(no tables found)"
 
 
 def make_duckdb_tool(con: DuckDBPyConnection) -> Any:

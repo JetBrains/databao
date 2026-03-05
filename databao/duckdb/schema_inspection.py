@@ -114,7 +114,7 @@ def summarize_duckdb_schema(
         col_desc = f"({col_desc}{suffix})" if len(columns) > 0 else f" ({suffix})"
         table_name = table.fully_qualified_name(include_original_catalog_name)
         lines.append(f"{table_name}{col_desc}")
-    return "\n".join(lines) if lines else "(no tables found)"
+    return "\n".join(lines)
 
 
 def summarize_duckdb_schema_overview(
@@ -130,21 +130,4 @@ def summarize_duckdb_schema_overview(
     for (db, columns_catalog, schema), count in counts.items():
         catalog_prefix = f"{columns_catalog}." if include_original_catalog_name else ""
         lines.append(f"{db}.{catalog_prefix}{schema} ({count} tables)")
-    return "\n".join(lines) if lines else "(no tables found)"
-
-
-def describe_duckdb_schema(
-    con: DuckDBPyConnection, max_cols_per_table: int | None = None, include_original_catalog_name: bool = False
-) -> str:
-    """Return a compact textual description of tables and columns in DuckDB.
-
-    Args:
-        con: An open DuckDB connection.
-        max_cols_per_table: Truncate column lists longer than this.
-    """
-    try:
-        tables = inspect_duckdb_schema(con)
-    except Exception as e:
-        _LOGGER.warning(f"Failed to fetch schema: {e}")
-        return "(failed to fetch schema)"
-    return summarize_duckdb_schema(tables, max_cols_per_table, include_original_catalog_name)
+    return "\n".join(lines)
