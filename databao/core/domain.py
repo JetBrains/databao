@@ -27,7 +27,16 @@ from databao.databases import (
 from databao.dbt import create_dbt_config_file, try_extract_dbt_dir_from_content
 from databao.integrations.dce import DatabaoContextApi
 
-_DB_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_]+$")
+_SOURCE_NAME_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
+
+
+def _verify_source_name(name: str | None) -> None:
+    if name is not None and re.match(_SOURCE_NAME_PATTERN, name) is None:
+        # The provided source name should be simple enough for LLMs to use it.
+        # Otherwise, the agent would always have to correctly quote the provided name in SQL queries.
+        raise ValueError(
+            f"Invalid database name: '{name}'. The provided source name must match {_SOURCE_NAME_PATTERN.pattern}"
+        )
 
 
 class Domain(Protocol):
@@ -140,8 +149,7 @@ class _Domain(ABC, Domain):
     def _add_db(
         self, db: DBConnection, name: str | None = None, description: str | Path | None = None
     ) -> DBDataSource | None:
-        if name is not None and re.match(_DB_NAME_PATTERN, name) is None:
-            raise ValueError(f"Invalid database name: {name}. Database names must match {_DB_NAME_PATTERN.pattern}")
+        _verify_source_name(name)
         if isinstance(db, DBConnectionConfig):
             db_config = db
         elif isinstance(db, DBConnectionRuntime):
@@ -153,11 +161,13 @@ class _Domain(ABC, Domain):
     def _add_df(
         self, df: DataFrame, name: str | None = None, description: str | Path | None = None
     ) -> DFDataSource | None:
+        _verify_source_name(name)
         return self._sources_manager.add_df(df, name=name, description=description)
 
     def _add_dbt(
         self, dbt: str | Path, name: str | None = None, description: str | Path | None = None
     ) -> DBTDataSource | None:
+        _verify_source_name(name)
         if isinstance(dbt, str):
             dbt = Path(dbt)
         return self._sources_manager.add_dbt(dbt, name=name, description=description)
