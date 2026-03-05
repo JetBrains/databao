@@ -5,7 +5,6 @@ import duckdb
 import pandas as pd
 
 import databao.agent as bao
-from databao.agent.configs import LLMConfig
 
 file_path = Path(__file__).parent
 
@@ -17,10 +16,10 @@ def run_scenario() -> bool:
     conn = duckdb.connect(db_path, read_only=True)
     domain.add_db(conn)
 
-    llm_config = LLMConfig.from_yaml(file_path / "configs/gpt-oss-20b-ollama.yaml")
-    # llm_config = LLMConfig(name="claude-sonnet-4-5")
+    llm_config = bao.LLMConfig.from_yaml(file_path / "configs/gpt-oss-20b-ollama.yaml")
+    # llm_config = bao.LLMConfig(name="claude-sonnet-4-5")
 
-    # llm_config = LLMConfig.from_yaml("configs/qwen3-8b-ollama.yaml")  # Use a custom config file
+    # llm_config = bao.LLMConfig.from_yaml("configs/qwen3-8b-ollama.yaml")  # Use a custom config file
     # llm_config = LLMConfigDirectory.QWEN3_8B_OLLAMA  # Use one of the preconfigured configs
     agent = bao.agent(domain, name="my_agent", llm_config=llm_config, stream_ask=False)
 

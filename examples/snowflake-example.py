@@ -5,7 +5,6 @@ from typing import NoReturn
 from sqlalchemy import create_engine, text
 
 import databao.agent as bao
-from databao.agent import LLMConfig
 
 FILE_DIR = Path(__file__).parent
 
@@ -45,7 +44,7 @@ def main() -> None:
     domain = bao.domain(project_dir)
     domain.add_db(engine)
 
-    agent = bao.agent(domain=domain, name="my_agent", llm_config=LLMConfig(name="gpt-5.1", temperature=0))
+    agent = bao.agent(domain=domain, name="my_agent", llm_config=bao.LLMConfig(name="gpt-5.1", temperature=0))
 
     agent.thread().ask("How many accidents occurred in total?")
 

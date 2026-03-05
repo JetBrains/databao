@@ -5,7 +5,6 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 import databao.agent as bao
-from databao.agent import LLMConfig
 from databao.agent.configs.agent import AgentConfig
 from databao.agent.databases import DuckDBConnectionConfig
 from databao.agent.executors.dbt import DbtProjectExecutor
@@ -22,7 +21,7 @@ EXAMPLES_DIR = Path(__file__).resolve().parent
 DBT_PROJ_PATH = EXAMPLES_DIR / "shopify002"
 DB_PATH = DBT_PROJ_PATH / "shopify.duckdb"
 
-llm_config = LLMConfig(name="gpt-5", temperature=0)
+llm_config = bao.LLMConfig(name="gpt-5", temperature=0)
 agent_config = AgentConfig(recursion_limit=100, parallel_tool_calls=True)
 
 with tempfile.TemporaryDirectory(prefix="dbt-agent-") as tmp_dce_proj_dir:
