@@ -20,7 +20,8 @@ def _inspect_columns(
             FROM {db_qualifier}information_schema.columns
             WHERE table_schema in ?
                 AND table_name in ?
-            group by table_catalog, table_schema, table_name""",
+            GROUP BY table_catalog, table_schema, table_name
+            ORDER BY table_catalog, table_schema, table_name""",
         [schemas, tables],
     ).fetchall()
 
@@ -43,7 +44,7 @@ def describe_duckdb_schema(
                              AND table_schema NOT ILIKE 'pg_catalog'
                               AND table_schema NOT ILIKE 'pg_toast'
                               AND table_schema NOT ILIKE 'information_schema'
-                           ORDER BY table_schema, table_name
+                           ORDER BY table_catalog, table_schema, table_name
                            """).fetchall()
         for db, schema, table in rows:
             internal_db_mapping[db][0].add(schema)
