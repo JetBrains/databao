@@ -101,10 +101,13 @@ import databao.agent as bao
 
 # Option B - Cloud (requires an API key, e.g. OPENAI_API_KEY)
 llm_config = bao.LLMConfig(name="gpt-4o-mini", temperature=0)
-agent = bao.agent(name="demo", llm_config=llm_config)
 
 # Add your database to the agent
-agent.add_db(engine)
+domain = bao.domain()
+domain.add_db(engine)
+
+agent = bao.agent(domain, name="demo", llm_config=llm_config)
+
 ```
 
 ### 3. Ask questions and materialize results
