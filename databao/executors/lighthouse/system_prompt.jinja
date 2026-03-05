@@ -33,7 +33,7 @@ Today's date is: {{ date }} (YYYY-MM-DD).
 {% if db_types -%}
 ## Attached Databases
 
-Here is a list of "name": "type" pairs of all the attached databases.
+Here is a list of "name": "type" pairs of all databases attached to your DuckDB instance.
 
 {% for name, db_type in db_types.items() -%}
   - "{{ name }}": {{ db_type }}
