@@ -112,14 +112,6 @@ local_partial_types = true
 files = ["databao", "tests", "examples"]
 plugins = ["pydantic.mypy", "sqlalchemy.ext.mypy.plugin"]
 
-[[tool.mypy.overrides]]
-module = ["databao_context_engine", "databao_context_engine.*"]
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = ["databao.integrations.dce.*"]
-disable_error_code = ["no-any-return"]
-
 [tool.ruff]
 line-length = 120
 extend-exclude = ["*.ipynb", "databao/databases/database_connection.py"]
