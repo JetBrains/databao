@@ -60,6 +60,8 @@ class LighthouseExecutor(GraphExecutor):
         )
         schemas = [sf_schema, duckdb_schema]
         schemas = [schema for schema in schemas if len(schema) > 0]
+        if len(schemas) == 0:
+            return "(no tables found)"
         return "\n".join(schemas)
 
     def _summarize_db_schema_overview(self, tables: list[TableInfo], db_types: dict[str, str]) -> str:
@@ -79,6 +81,8 @@ class LighthouseExecutor(GraphExecutor):
         )
         schemas = [sf_schema, duckdb_schema]
         schemas = [schema for schema in schemas if len(schema) > 0]
+        if len(schemas) == 0:
+            return "(no tables found)"
         return "\n".join(schemas)
 
     def _inspect_database_schema(self, connection: DuckDBPyConnection, db_types: dict[str, str]) -> str:
