@@ -55,8 +55,8 @@ def inspect_duckdb_schema(con: DuckDBPyConnection) -> list[TableInfo]:
                        FROM information_schema.tables
                        WHERE table_type IN ('BASE TABLE', 'VIEW')
                          AND table_schema NOT ILIKE 'pg_catalog'
-                          AND table_schema NOT ILIKE 'pg_toast'
-                          AND table_schema NOT ILIKE 'information_schema'
+                         AND table_schema NOT ILIKE 'pg_toast'
+                         AND table_schema NOT ILIKE 'information_schema'
                        ORDER BY table_catalog, table_schema, table_name
                        """).fetchall()
     for db, schema, table in rows:
