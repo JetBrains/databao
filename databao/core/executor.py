@@ -184,7 +184,8 @@ class Executor(ABC):
         """
         pass
 
-    def prepare_for_execution(self, domain: "Domain") -> None:
+    @staticmethod
+    def prepare_for_execution(domain: "Domain") -> None:
         if domain.supports_context and not domain.is_context_built():
             logger.warning(
                 "Context has not been built yet. Building it now — this may take a while. "

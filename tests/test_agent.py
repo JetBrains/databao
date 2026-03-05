@@ -133,6 +133,32 @@ def test_add_additional_context_with_string(domain: Domain) -> None:
     assert agent.additional_description == [text]
 
 
+def test_build_context_with_file_duckdb_source(tmp_path: Path, duckdb_conn: DuckDBPyConnection) -> None:
+    """Regression test for PR #238: build_context() should succeed on a persistent domain
+    even while the DuckDB file is already ATTACHed by another in-memory connection.
+
+    add_db() closes the user's connection and stores the file path. The executor then
+    ATTACHes the file READ_ONLY in its own in-memory DuckDB connection. DCE < 0.6.0
+    would fail with a "Unique file handle conflict" when build_context() was called
+    while that ATTACH was held.
+    """
+    # Capture the file path before add_db() closes the connection
+    db_path = duckdb_conn.execute("PRAGMA database_list").fetchone()[2]
+
+    domain = databao.domain(tmp_path)
+    domain.add_db(duckdb_conn)  # closes duckdb_conn, stores file path as config
+
+    # Simulate what the executor does: ATTACH the file READ_ONLY in an in-memory connection
+    executor_conn = duckdb.connect(":memory:")
+    executor_conn.execute(f'ATTACH \'{db_path}\' AS "db1" (READ_ONLY)')
+    try:
+        domain.build_context()  # must not raise a file handle conflict
+    finally:
+        executor_conn.close()
+
+    assert domain.is_context_built()
+
+
 def test_add_additional_context_multiple_calls_mixed_sources(domain: Domain, temp_context_file: Path) -> None:
     """Calling add_additional_context multiple times should append in order."""
     first = "First global instruction."
