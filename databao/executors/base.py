@@ -3,6 +3,7 @@ from collections.abc import Callable
 from typing import Any, TextIO
 
 import duckdb
+from databao_context_engine import DuckDBConnectionConfig
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import BaseTool
@@ -11,8 +12,8 @@ from langgraph.graph.state import CompiledStateGraph
 from databao.configs.agent import AgentConfig
 from databao.configs.llm import LLMConfig
 from databao.core import Cache
-from databao.core.data_source import DBDataSource, DBTDataSource, DFDataSource
-from databao.core.domain import Domain
+from databao.core.data_source import DBDataSource, DBTDataSource, DFDataSource, Sources
+from databao.core.domain import Domain, _Domain
 from databao.core.executor import ExecutionResult, Executor, OutputModalityHints
 from databao.core.opa import Opa
 from databao.databases import register_db_in_duckdb
@@ -44,18 +45,54 @@ class GraphExecutor(Executor, ABC):
         self._compiled_tools_version: int = 0
         self._compiled_at_version: int = -1
 
-    def register_db(self, source: DBDataSource) -> None:
-        """Register a database source into the shared DuckDB connection."""
-        register_db_in_duckdb(self._duckdb_connection, source.config, source.name)
-        self._registered_dbs[source.name] = source
+    def _init_sources_from_domain(self, domain: Domain, *, register_in_duckdb: bool = True) -> None:
+        """Sync sources from the domain into the executor's registered dictionaries.
 
-    def register_df(self, source: DFDataSource) -> None:
-        """Register a DataFrame source into the shared DuckDB connection."""
-        self._duckdb_connection.register(source.name, source.df)
-        self._registered_dfs[source.name] = source
+        When ``register_in_duckdb`` is True (the default), database and dataframe
+        sources are also registered in the shared ``_duckdb_connection``.  Pass
+        ``False`` when the subclass manages its own DuckDB connections (e.g.
+        ``DbtProjectExecutor``).
+        """
+        if not isinstance(domain, _Domain):
+            return
 
-    def register_dbt(self, source: DBTDataSource) -> None:
-        self._registered_dbts[source.name] = source
+        sources: Sources = domain.sources
+
+        for name, db_source in sources.dbs.items():
+            if name not in self._registered_dbs:
+                if register_in_duckdb:
+                    register_db_in_duckdb(self._duckdb_connection, db_source.config, name)
+                self._registered_dbs[name] = db_source
+
+        for name, df_source in sources.dfs.items():
+            if name not in self._registered_dfs:
+                if register_in_duckdb:
+                    self._duckdb_connection.register(name, df_source.df)
+                self._registered_dfs[name] = df_source
+
+        for name, dbt_source in sources.dbts.items():
+            if name not in self._registered_dbts:
+                self._registered_dbts[name] = dbt_source
+
+    def prepare_for_execution(self, domain: "Domain") -> None:
+        if not domain.supports_context or domain.is_context_built():
+            return
+
+        # DuckDB does not allow two connections to hold a file open simultaneously.
+        # Temporarily detach file-based DuckDB sources so the context engine can attach them.
+        duckdb_file_sources = {
+            name: source
+            for name, source in self._registered_dbs.items()
+            if isinstance(source.config, DuckDBConnectionConfig)
+        }
+        for name in duckdb_file_sources:
+            self._duckdb_connection.execute(f'DETACH "{name}"')
+
+        try:
+            super().prepare_for_execution(domain)
+        finally:
+            for name, source in duckdb_file_sources.items():
+                register_db_in_duckdb(self._duckdb_connection, source.config, name)
 
     def register_tools(self, tools: list[BaseTool]) -> None:
         """Register additional LangChain tools and invalidate the cached compiled graph."""

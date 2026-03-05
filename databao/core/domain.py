@@ -229,11 +229,7 @@ class _DCEProjectDomain(_Domain):
         return self._dce.search_context(retrieve_text, datasource_ids=datasource_ids)
 
     def is_context_built(self) -> bool:
-        if self._dce.is_context_built():
-            return True
-        # NOTE: (@gas) dbt datasources are configured in DCE but may not appear in the
-        # introspected list; treat them as "built" when present.
-        return len(self._configured) > 0
+        return self._dce.is_context_built()
 
     @property
     def supports_context(self) -> bool:

@@ -67,16 +67,6 @@ class Agent:
         self.__stream_ask = stream_ask
         self.__stream_plot = stream_plot
 
-        self._init_executor()
-
-    def _init_executor(self) -> None:
-        for db_source in self.sources.dbs.values():
-            self.executor.register_db(db_source)
-        for df_source in self.sources.dfs.values():
-            self.executor.register_df(df_source)
-        for dbt_source in self.sources.dbts.values():
-            self.executor.register_dbt(dbt_source)
-
     @deprecated("Use Domain.add_db() and initialize Agent with Domain instead.")
     def add_db(self, conn: DBConnection, *, name: str | None = None, context: str | Path | None = None) -> None:
         raise NotImplementedError(

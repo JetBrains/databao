@@ -15,7 +15,7 @@ def try_extract_dbt_dir_from_content(type: DatasourceType, content: dict[str, An
     dbt_file = DbtConfigFile.model_validate({"name": "", **content})
     target_dir = dbt_file.dbt_target_folder_path
     project_dir = target_dir.parent
-    return project_dir  # type: ignore[no-any-return]
+    return project_dir
 
 
 def _dbt_type() -> DatasourceType:

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import contextlib
 from pathlib import Path
 from typing import Any, TextIO, cast
 
@@ -58,14 +57,6 @@ class DbtProjectExecutor(GraphExecutor):
         )
         self._dbt_dirty: bool = True
 
-    def _detach_all_databases(self) -> None:
-        """Detach all databases from the shared connection to release file locks."""
-        with contextlib.suppress(Exception):
-            for db_source in self._registered_dbs.values():
-                self._duckdb_connection.execute(f'DETACH "{db_source.name}"')
-            for df_source in self._registered_dfs.values():
-                self._duckdb_connection.execute(f'DETACH "{df_source.name}"')
-
     @staticmethod
     def _resolve_project_dir(dbt_config: DbtConfig, sources: Sources) -> Path:
         """Extract the dbt project directory from explicit config or the domain's datasources."""
@@ -82,7 +73,7 @@ class DbtProjectExecutor(GraphExecutor):
     def _make_query_runner(self) -> DuckDbQueryRunner:
         """Create a short-lived DuckDB read-only query runner from the shared connection state.
 
-        Uses the base class's shared DuckDB connection metadata (registered data sources)
+        Uses the base class's registered data sources (populated by _init_sources_from_domain)
         to build a fresh read-only connection. This ensures dbt's writes are visible after each run.
         """
         con = duckdb.connect(":memory:")
@@ -92,7 +83,7 @@ class DbtProjectExecutor(GraphExecutor):
             if first_source_name is None:
                 first_source_name = name
         for name, df_source in self._registered_dfs.items():
-            con.register(name, df_source)
+            con.register(name, df_source.df)
             if first_source_name is None:
                 first_source_name = name
         # TODO: (@gas) check - should work without USE "{first_db_name}"
@@ -132,7 +123,7 @@ class DbtProjectExecutor(GraphExecutor):
             if source.description:
                 first_line = source.description.strip().split("\n")[0][:120]
                 desc = first_line
-            entries.append({"name": db_name, "description": desc, "type": db_type(source.config)})
+            entries.append({"name": db_name, "description": desc, "type": db_type(source.config).full_type})
         for df_name, source in sources.dfs.items():
             desc = ""
             if source.description:
@@ -167,10 +158,10 @@ class DbtProjectExecutor(GraphExecutor):
         stream: bool = True,
         writer: TextIO | None = None,
     ) -> ExecutionResult:
+        self._init_sources_from_domain(domain, register_in_duckdb=False)
+
         if not self._registered_dbs and not self._registered_dfs:
             raise DbtMissingWarehouseError()
-
-        self._detach_all_databases()
 
         sources = cast(_Domain, domain).sources
         project_dir = self._resolve_project_dir(self._dbt_config, sources)

@@ -86,6 +86,7 @@ class LighthouseExecutor(GraphExecutor):
         stream: bool = True,
         writer: TextIO | None = None,
     ) -> ExecutionResult:
+        self._init_sources_from_domain(domain)
         system_prompt = self.render_system_prompt(self._duckdb_connection, domain, agent_config.recursion_limit)
         init_state = self._graph.init_state([], limit_max_rows=rows_limit)
 
