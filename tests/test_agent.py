@@ -143,14 +143,16 @@ def test_build_context_with_file_duckdb_source(tmp_path: Path, duckdb_conn: Duck
     while that ATTACH was held.
     """
     # Capture the file path before add_db() closes the connection
-    db_path = duckdb_conn.execute("PRAGMA database_list").fetchone()[2]
+    row = duckdb_conn.execute("PRAGMA database_list").fetchone()
+    assert row is not None
+    db_path = row[2]
 
     domain = databao.domain(tmp_path)
     domain.add_db(duckdb_conn)  # closes duckdb_conn, stores file path as config
 
     # Simulate what the executor does: ATTACH the file READ_ONLY in an in-memory connection
     executor_conn = duckdb.connect(":memory:")
-    executor_conn.execute(f'ATTACH \'{db_path}\' AS "db1" (READ_ONLY)')
+    executor_conn.execute(f"ATTACH '{db_path}' AS \"db1\" (READ_ONLY)")
     try:
         domain.build_context()  # must not raise a file handle conflict
     finally:
