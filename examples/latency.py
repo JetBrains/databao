@@ -20,7 +20,7 @@ def run_scenario() -> bool:
     # llm_config = bao.LLMConfig(name="claude-sonnet-4-5")
 
     # llm_config = bao.LLMConfig.from_yaml("configs/qwen3-8b-ollama.yaml")  # Use a custom config file
-    # llm_config = LLMConfigDirectory.QWEN3_8B_OLLAMA  # Use one of the preconfigured configs
+    # llm_config = bao.LLMConfigDirectory.QWEN3_8B_OLLAMA  # Use one of the preconfigured configs
     agent = bao.agent(domain, name="my_agent", llm_config=llm_config, stream_ask=False)
 
     thread = agent.thread(lazy=True)
