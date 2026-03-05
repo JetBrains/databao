@@ -78,6 +78,9 @@ class ExecuteSubmit:
     MAX_TOOL_ROWS = 12
     """Max number of rows to return in SQL tool calls."""
 
+    MAX_DF_CELL_CHARS = 1024
+    """Max number of characters a dataframe cell can have before it is trimmed."""
+
     def __init__(self, connection: DuckDBPyConnection):
         self._connection = connection
 
@@ -155,9 +158,9 @@ class ExecuteSubmit:
                 limit = graph_state["limit_max_rows"]
                 df = execute_duckdb_sql(sql, self._connection, limit=limit)
 
-                # Limit the size of sampled values to show to avoid context size explosions
+                # Limit the size of sampled values to show to avoid context size explosions (e.g., json/binary blobs)
                 df_display = df.head(self.MAX_TOOL_ROWS)
-                df_display = trim_dataframe_values(df_display, max_cell_chars=256)
+                df_display = trim_dataframe_values(df_display, max_cell_chars=self.MAX_DF_CELL_CHARS)
 
                 df_csv = df_display.to_csv(index=False)
                 df_markdown = dataframe_to_markdown(df_display, index=False)
