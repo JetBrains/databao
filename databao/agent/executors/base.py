@@ -1,3 +1,4 @@
+import logging
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import Any, TextIO
@@ -19,6 +20,8 @@ from databao.agent.core.opa import Opa
 from databao.agent.databases import register_db_in_duckdb
 from databao.agent.executors.frontend.text_frontend import TextStreamFrontend
 from databao.agent.executors.history_cleaning import clean_tool_history
+
+logger = logging.getLogger(__name__)
 
 
 class GraphExecutor(Executor, ABC):
@@ -61,7 +64,11 @@ class GraphExecutor(Executor, ABC):
         for name, db_source in sources.dbs.items():
             if name not in self._registered_dbs:
                 if register_in_duckdb:
-                    register_db_in_duckdb(self._duckdb_connection, db_source.config, name)
+                    try:
+                        register_db_in_duckdb(self._duckdb_connection, db_source.config, name)
+                    except Exception as exc:
+                        logger.warning("Datasource '%s' is not available and will be skipped: %s", name, exc)
+                        continue
                 self._registered_dbs[name] = db_source
 
         for name, df_source in sources.dfs.items():
