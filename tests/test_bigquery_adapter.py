@@ -10,9 +10,9 @@ from databao_context_engine.plugins.databases.bigquery.config_file import (
     BigQueryServiceAccountKeyFileAuth,
 )
 
-from databao.databases.bigquery_adapter import BigQueryAdapter
-from databao.databases.duckdb_adapter import DuckDBAdapter
-from databao.databases.postgresql_adapter import PostgreSQLAdapter
+from databao.agent.databases.bigquery_adapter import BigQueryAdapter
+from databao.agent.databases.duckdb_adapter import DuckDBAdapter
+from databao.agent.databases.postgresql_adapter import PostgreSQLAdapter
 
 
 @pytest.fixture

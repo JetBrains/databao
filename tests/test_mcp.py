@@ -11,13 +11,13 @@ import pytest
 from mcp.types import TextContent
 from mcp.types import Tool as McpTool
 
-import databao
-from databao.configs import LLMConfigDirectory
-from databao.core.agent import Agent
-from databao.core.domain import Domain
-from databao.mcp.adapter import _format_tool_result, _json_schema_to_pydantic, mcp_tools_to_langchain
-from databao.mcp.config import parse_mcp_config
-from databao.mcp.connection import McpConnection
+import databao.agent as bao
+from databao.agent.configs import LLMConfigDirectory
+from databao.agent.core.agent import Agent
+from databao.agent.core.domain import Domain
+from databao.agent.mcp.adapter import _format_tool_result, _json_schema_to_pydantic, mcp_tools_to_langchain
+from databao.agent.mcp.config import parse_mcp_config
+from databao.agent.mcp.connection import McpConnection
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -26,14 +26,14 @@ from databao.mcp.connection import McpConnection
 
 @pytest.fixture
 def domain() -> Domain:
-    d = databao.domain()
+    d = bao.domain()
     d.add_df(pd.DataFrame({"x": [1, 2, 3]}))
     return d
 
 
 def _new_agent(domain: Domain) -> Agent:
     llm_config = LLMConfigDirectory.DEFAULT.model_copy(update={"model_kwargs": {"api_key": "test"}})
-    return databao.agent(domain, llm_config=llm_config)
+    return bao.agent(domain, llm_config=llm_config)
 
 
 # ---------------------------------------------------------------------------
@@ -287,8 +287,8 @@ class TestAgentAddMcpValidation:
         with pytest.raises(ValueError, match="not both"):
             agent.add_mcp(url="http://x", command="y")
 
-    @patch("databao.mcp.connection.McpConnection.connect_stdio")
-    @patch("databao.mcp.adapter.mcp_tools_to_langchain")
+    @patch("databao.agent.mcp.connection.McpConnection.connect_stdio")
+    @patch("databao.agent.mcp.adapter.mcp_tools_to_langchain")
     def test_stdio_transport(
         self,
         mock_to_lc: MagicMock,
@@ -305,8 +305,8 @@ class TestAgentAddMcpValidation:
 
         mock_connect.assert_called_once_with("python", args=["server.py"], env={"KEY": "val"})
 
-    @patch("databao.mcp.connection.McpConnection.connect_sse")
-    @patch("databao.mcp.adapter.mcp_tools_to_langchain")
+    @patch("databao.agent.mcp.connection.McpConnection.connect_sse")
+    @patch("databao.agent.mcp.adapter.mcp_tools_to_langchain")
     def test_sse_transport(
         self,
         mock_to_lc: MagicMock,
@@ -323,8 +323,8 @@ class TestAgentAddMcpValidation:
 
         mock_connect.assert_called_once_with("http://localhost:8080/sse", headers=None, auth=None)
 
-    @patch("databao.mcp.connection.McpConnection.connect_streamable_http")
-    @patch("databao.mcp.adapter.mcp_tools_to_langchain")
+    @patch("databao.agent.mcp.connection.McpConnection.connect_streamable_http")
+    @patch("databao.agent.mcp.adapter.mcp_tools_to_langchain")
     def test_streamable_http_transport(
         self,
         mock_to_lc: MagicMock,
@@ -348,7 +348,7 @@ class TestAgentAddMcpValidation:
 
 
 class TestExtraToolsRegistration:
-    @patch("databao.mcp.connection.McpConnection.connect_stdio")
+    @patch("databao.agent.mcp.connection.McpConnection.connect_stdio")
     def test_tools_registered_on_executor(self, mock_connect: MagicMock, domain: Domain) -> None:
         mcp_tool = McpTool(
             name="my_tool",
@@ -368,7 +368,7 @@ class TestExtraToolsRegistration:
         agent = _new_agent(domain)
         agent.add_mcp(command="test")
 
-        from databao.executors.base import GraphExecutor
+        from databao.agent.executors.base import GraphExecutor
 
         assert isinstance(agent.executor, GraphExecutor)
         assert len(agent.executor._extra_tools) == 1
@@ -470,8 +470,8 @@ class TestAgentAddMcpConfig:
         with pytest.raises(ValueError, match="Cannot combine"):
             agent.add_mcp({"mcpServers": {"s": {"command": "x"}}}, command="y")
 
-    @patch("databao.mcp.connection.McpConnection.connect_stdio")
-    @patch("databao.mcp.adapter.mcp_tools_to_langchain")
+    @patch("databao.agent.mcp.connection.McpConnection.connect_stdio")
+    @patch("databao.agent.mcp.adapter.mcp_tools_to_langchain")
     def test_claude_code_config_connects_all_servers(
         self,
         mock_to_lc: MagicMock,
@@ -525,8 +525,8 @@ class TestAgentAddMcpTransportValidation:
 
 
 class TestSseUrlAutoDetection:
-    @patch("databao.mcp.connection.McpConnection.connect_sse")
-    @patch("databao.mcp.adapter.mcp_tools_to_langchain")
+    @patch("databao.agent.mcp.connection.McpConnection.connect_sse")
+    @patch("databao.agent.mcp.adapter.mcp_tools_to_langchain")
     def test_url_ending_with_sse_uses_sse_transport(
         self, mock_to_lc: MagicMock, mock_connect: MagicMock, domain: Domain
     ) -> None:
@@ -541,8 +541,8 @@ class TestSseUrlAutoDetection:
 
         mock_connect.assert_called_once_with("http://example.com/sse", headers=None, auth=None)
 
-    @patch("databao.mcp.connection.McpConnection.connect_sse")
-    @patch("databao.mcp.adapter.mcp_tools_to_langchain")
+    @patch("databao.agent.mcp.connection.McpConnection.connect_sse")
+    @patch("databao.agent.mcp.adapter.mcp_tools_to_langchain")
     def test_url_ending_with_sse_trailing_slash(
         self, mock_to_lc: MagicMock, mock_connect: MagicMock, domain: Domain
     ) -> None:
@@ -557,8 +557,8 @@ class TestSseUrlAutoDetection:
 
         mock_connect.assert_called_once_with("http://example.com/sse/", headers=None, auth=None)
 
-    @patch("databao.mcp.connection.McpConnection.connect_streamable_http")
-    @patch("databao.mcp.adapter.mcp_tools_to_langchain")
+    @patch("databao.agent.mcp.connection.McpConnection.connect_streamable_http")
+    @patch("databao.agent.mcp.adapter.mcp_tools_to_langchain")
     def test_non_sse_url_defaults_to_streamable_http(
         self, mock_to_lc: MagicMock, mock_connect: MagicMock, domain: Domain
     ) -> None:
@@ -575,8 +575,8 @@ class TestSseUrlAutoDetection:
 
 
 class TestConfigNameUsedAsKey:
-    @patch("databao.mcp.connection.McpConnection.connect_stdio")
-    @patch("databao.mcp.adapter.mcp_tools_to_langchain")
+    @patch("databao.agent.mcp.connection.McpConnection.connect_stdio")
+    @patch("databao.agent.mcp.adapter.mcp_tools_to_langchain")
     def test_config_name_used_in_mcp_servers(
         self, mock_to_lc: MagicMock, mock_connect: MagicMock, domain: Domain
     ) -> None:
@@ -607,7 +607,7 @@ class TestParseMcpConfigEdgeCases:
 
 
 class TestAgentToolNameCollision:
-    @patch("databao.mcp.connection.McpConnection.connect_stdio")
+    @patch("databao.agent.mcp.connection.McpConnection.connect_stdio")
     def test_tool_name_collision_warns(
         self, mock_connect: MagicMock, domain: Domain, caplog: pytest.LogCaptureFixture
     ) -> None:
@@ -633,7 +633,7 @@ class TestAgentToolNameCollision:
         mock_connect.side_effect = [mock_conn_a, mock_conn_b]
 
         agent = _new_agent(domain)
-        with caplog.at_level(logging.WARNING, logger="databao.mcp.manager"):
+        with caplog.at_level(logging.WARNING, logger="databao.agent.mcp.manager"):
             agent.add_mcp(command="server_a")
             agent.add_mcp(command="server_b")
 
@@ -641,8 +641,8 @@ class TestAgentToolNameCollision:
 
 
 class TestAgentMcpServers:
-    @patch("databao.mcp.connection.McpConnection.connect_stdio")
-    @patch("databao.mcp.adapter.mcp_tools_to_langchain")
+    @patch("databao.agent.mcp.connection.McpConnection.connect_stdio")
+    @patch("databao.agent.mcp.adapter.mcp_tools_to_langchain")
     def test_mcp_servers_returns_names(
         self,
         mock_to_lc: MagicMock,
@@ -668,8 +668,8 @@ class TestAgentMcpServers:
         agent.add_mcp(command="b")
         assert set(agent.mcp_servers) == {"stdio:a", "stdio:b"}
 
-    @patch("databao.mcp.connection.McpConnection.connect_stdio")
-    @patch("databao.mcp.adapter.mcp_tools_to_langchain")
+    @patch("databao.agent.mcp.connection.McpConnection.connect_stdio")
+    @patch("databao.agent.mcp.adapter.mcp_tools_to_langchain")
     def test_duplicate_server_replaces_and_warns(
         self,
         mock_to_lc: MagicMock,
@@ -689,7 +689,7 @@ class TestAgentMcpServers:
 
         agent = _new_agent(domain)
         agent.add_mcp(command="x")
-        with caplog.at_level(logging.WARNING, logger="databao.mcp.manager"):
+        with caplog.at_level(logging.WARNING, logger="databao.agent.mcp.manager"):
             agent.add_mcp(command="x")
 
         conn_old.close.assert_called_once()
@@ -698,7 +698,7 @@ class TestAgentMcpServers:
 
 
 class TestAgentClose:
-    @patch("databao.mcp.connection.McpConnection.connect_stdio")
+    @patch("databao.agent.mcp.connection.McpConnection.connect_stdio")
     def test_close_calls_connection_close(self, mock_connect: MagicMock, domain: Domain) -> None:
         mock_conn = MagicMock(spec=McpConnection)
         mock_conn.server_name = "stdio:test"
@@ -730,7 +730,7 @@ class TestAgentAuthParameter:
             agent.add_mcp(url="http://localhost/sse", auth=42)
 
     def test_oauth_string_triggers_provider(self, domain: Domain) -> None:
-        from databao.mcp.manager import _resolve_auth
+        from databao.agent.mcp.manager import _resolve_auth
 
         result = _resolve_auth("oauth", "http://example.com/sse")
         from mcp.client.auth import OAuthClientProvider
@@ -738,7 +738,7 @@ class TestAgentAuthParameter:
         assert isinstance(result, OAuthClientProvider)
 
     def test_oauth_true_triggers_provider(self, domain: Domain) -> None:
-        from databao.mcp.manager import _resolve_auth
+        from databao.agent.mcp.manager import _resolve_auth
 
         result = _resolve_auth(True, "http://example.com/sse")
         from mcp.client.auth import OAuthClientProvider
@@ -746,31 +746,31 @@ class TestAgentAuthParameter:
         assert isinstance(result, OAuthClientProvider)
 
     def test_false_returns_none(self) -> None:
-        from databao.mcp.manager import _resolve_auth
+        from databao.agent.mcp.manager import _resolve_auth
 
         assert _resolve_auth(False, "http://x") is None
 
     def test_none_returns_none(self) -> None:
-        from databao.mcp.manager import _resolve_auth
+        from databao.agent.mcp.manager import _resolve_auth
 
         assert _resolve_auth(None, "http://x") is None
 
     def test_httpx_auth_passthrough(self) -> None:
         import httpx
 
-        from databao.mcp.manager import _resolve_auth
+        from databao.agent.mcp.manager import _resolve_auth
 
         custom_auth = httpx.BasicAuth("user", "pass")
         assert _resolve_auth(custom_auth, "http://x") is custom_auth
 
     def test_oauth_without_url_raises(self) -> None:
-        from databao.mcp.manager import _resolve_auth
+        from databao.agent.mcp.manager import _resolve_auth
 
         with pytest.raises(ValueError, match="requires a URL"):
             _resolve_auth("oauth", None)
 
-    @patch("databao.mcp.connection.McpConnection.connect_sse")
-    @patch("databao.mcp.adapter.mcp_tools_to_langchain")
+    @patch("databao.agent.mcp.connection.McpConnection.connect_sse")
+    @patch("databao.agent.mcp.adapter.mcp_tools_to_langchain")
     def test_auth_passed_to_connect_sse(
         self,
         mock_to_lc: MagicMock,
@@ -791,8 +791,8 @@ class TestAgentAuthParameter:
 
         mock_connect.assert_called_once_with("http://localhost/sse", headers=None, auth=custom_auth)
 
-    @patch("databao.mcp.connection.McpConnection.connect_streamable_http")
-    @patch("databao.mcp.adapter.mcp_tools_to_langchain")
+    @patch("databao.agent.mcp.connection.McpConnection.connect_streamable_http")
+    @patch("databao.agent.mcp.adapter.mcp_tools_to_langchain")
     def test_auth_passed_to_connect_streamable_http(
         self,
         mock_to_lc: MagicMock,
@@ -817,7 +817,7 @@ class TestAgentAuthParameter:
 class TestFileTokenStorage:
     @pytest.fixture
     def storage(self, tmp_path: Path) -> Any:
-        from databao.mcp.oauth import FileTokenStorage
+        from databao.agent.mcp.oauth import FileTokenStorage
 
         storage = FileTokenStorage("http://test-server")
         storage._dir = tmp_path
@@ -854,7 +854,7 @@ class TestCreateOauthProvider:
     def test_returns_oauth_client_provider(self) -> None:
         from mcp.client.auth import OAuthClientProvider
 
-        from databao.mcp.oauth import create_oauth_provider
+        from databao.agent.mcp.oauth import create_oauth_provider
 
         provider = create_oauth_provider("http://example.com/sse")
         assert isinstance(provider, OAuthClientProvider)

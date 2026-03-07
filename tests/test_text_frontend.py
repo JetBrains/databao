@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from databao.executors.frontend.text_frontend import dataframe_to_markdown, escape_markdown_text
+from databao.agent.executors.frontend.text_frontend import dataframe_to_markdown, escape_markdown_text
 
 
 @pytest.mark.parametrize(

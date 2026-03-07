@@ -7,8 +7,8 @@ from unittest.mock import MagicMock
 import pandas as pd
 import pytest
 
-from databao.multimodal.jupyter_widget import MultimodalWidget
-from databao.visualizers.vega_chat import VegaChatResult
+from databao.agent.multimodal.jupyter_widget import MultimodalWidget
+from databao.agent.visualizers.vega_chat import VegaChatResult
 
 # ---------------------------------------------------------------------------
 # Helpers

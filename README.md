@@ -93,19 +93,21 @@ engine = create_engine(
 ### 2. Create a Databao agent and register sources
 
 ```python
-import databao
-from databao import LLMConfig
+import databao.agent as bao
 
 # Option A - Local: install and run any compatible local LLM
 # For list of compatible models, see "Local Models" below
-# llm_config = LLMConfig(name="ollama:gpt-oss:20b", temperature=0)
+# llm_config = bao.LLMConfig(name="ollama:gpt-oss:20b", temperature=0)
 
 # Option B - Cloud (requires an API key, e.g. OPENAI_API_KEY)
-llm_config = LLMConfig(name="gpt-4o-mini", temperature=0)
-agent = databao.new_agent(name="demo", llm_config=llm_config)
+llm_config = bao.LLMConfig(name="gpt-4o-mini", temperature=0)
 
 # Add your database to the agent
-agent.add_db(engine)
+domain = bao.domain()
+domain.add_db(engine)
+
+agent = bao.agent(domain, name="demo", llm_config=llm_config)
+
 ```
 
 ### 3. Ask questions and materialize results
@@ -157,17 +159,17 @@ Databao agent works great with local LLMs — your data never leaves your machin
 ### Ollama
 
 1. Install [Ollama](https://ollama.com/download) for your OS and make sure it’s running
-2. Use an `LLMConfig` with `name` of the form `"ollama:<model_name>"`:
+2. Use a `bao.LLMConfig` with `name` of the form `"ollama:<model_name>"`:
 
    ```python
-   llm_config = LLMConfig(name="ollama:gpt-oss:20b", temperature=0)
+   llm_config = bao.LLMConfig(name="ollama:gpt-oss:20b", temperature=0)
    ```
 
    The model will be downloaded automatically if it doesn't exist. Or run `ollama pull <model_name>` to download manually.
 
 ### OpenAI-compatible servers
 
-You can use any OpenAI-compatible server by setting `api_base_url` in the `LLMConfig`.
+You can use any OpenAI-compatible server by setting `api_base_url` in the `bao.LLMConfig`.
 
 For an example, see `examples/configs/qwen3-8b-oai.yaml`.
 

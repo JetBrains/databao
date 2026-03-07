@@ -109,12 +109,13 @@ warn_unused_configs = true
 warn_unused_ignores = true
 allow_redefinition_new = true
 local_partial_types = true
+explicit_package_bases = true
 files = ["databao", "tests", "examples"]
 plugins = ["pydantic.mypy", "sqlalchemy.ext.mypy.plugin"]
 
 [tool.ruff]
 line-length = 120
-extend-exclude = ["*.ipynb", "databao/databases/database_connection.py"]
+extend-exclude = ["*.ipynb", "databao/agent/databases/database_connection.py"]
 
 [tool.ruff.lint]
 select = [
