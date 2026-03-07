@@ -147,7 +147,7 @@ def test_build_context_with_file_duckdb_source(tmp_path: Path, duckdb_conn: Duck
     assert row is not None
     db_path = row[2]
 
-    domain = databao.domain(tmp_path)
+    domain = bao.domain(tmp_path)
     domain.add_db(duckdb_conn)  # closes duckdb_conn, stores file path as config
 
     # Simulate what the executor does: ATTACH the file READ_ONLY in an in-memory connection

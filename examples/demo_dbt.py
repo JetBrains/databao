@@ -29,7 +29,7 @@ with tempfile.TemporaryDirectory(prefix="dbt-agent-") as tmp_dce_proj_dir:
 
     duckdb_config = DuckDBConnectionConfig(database_path=str(DB_PATH))
     domain_ctx.add_db(duckdb_config, name="shopify", description="Shopify e-commerce data")
-    domain_ctx.add_dbt(DBT_PROJ_PATH, name="shopify-dbt", description="dbt transformations project")
+    domain_ctx.add_dbt(DBT_PROJ_PATH, name="shopify_dbt", description="dbt transformations project")
 
     domain_ctx.build_context()  # explicit call is optional
 
@@ -48,7 +48,7 @@ with tempfile.TemporaryDirectory(prefix="dbt-agent-") as tmp_dce_proj_dir:
 
     thread.ask(
         "What is our refund rate by month?",
-        metadata={"source": "shopify-dbt"},
+        metadata={"source": "shopify_dbt"},
     )
 
     print("\n=== TEXT ===\n")
