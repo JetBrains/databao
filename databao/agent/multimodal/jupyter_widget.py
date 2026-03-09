@@ -75,11 +75,6 @@ class MultimodalWidget(anywidget.AnyWidget):
         self.text = thread_text
         self.text_status = "loaded"
 
-        df = thread.df()
-        if df is not None:
-            self.dataframe_csv_content = dataframe_to_csv(df)
-            self.dataframe_csv_content_status = "loaded"
-
         self.on_msg(self._on_client_message)
 
         self._action_handlers: dict[ClientAction, Callable[[Any], None]] = {
