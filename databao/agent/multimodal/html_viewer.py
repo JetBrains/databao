@@ -116,7 +116,7 @@ class MultimodalHTTPRequestHandler(BaseHTTPRequestHandler):
                 if plot.spec is None or plot.spec_df is None:
                     raise ValueError("Failed to generate visualization")
 
-                spec_csv_data = plot.spec_df.to_csv(index=False)
+                spec_csv_data = dataframe_to_csv(plot.spec_df)
                 result = {"spec": plot.spec, "csvData": spec_csv_data}
 
                 result_queue.put(result)

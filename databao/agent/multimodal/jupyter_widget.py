@@ -97,7 +97,7 @@ class MultimodalWidget(anywidget.AnyWidget):
                 self.spec_status = "failed"
                 raise ValueError("Failed to generate visualization")
 
-            self.spec_csv_data = plot.spec_df.to_csv(index=False)
+            self.spec_csv_data = dataframe_to_csv(plot.spec_df)
             self.spec_status = "loaded"
             self.spec = plot.spec
 

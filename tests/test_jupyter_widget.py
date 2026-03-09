@@ -61,9 +61,15 @@ def test_init_sets_text(sample_df: pd.DataFrame) -> None:
     assert widget.text_status == "loaded"
 
 
-def test_init_sets_dataframe_csv_when_df_present(sample_df: pd.DataFrame) -> None:
+def test_init_leaves_dataframe_status_initial_when_df_present(sample_df: pd.DataFrame) -> None:
     thread = _make_thread(df=sample_df)
     widget = MultimodalWidget(thread=thread)
+
+    assert widget.dataframe_csv_content == ""
+    assert widget.dataframe_csv_content_status == "initial"
+
+    msg = {"action": {"type": "SELECT_MODALITY", "payload": json.dumps("DATAFRAME")}}
+    widget._handle_client_message(msg, [])
 
     assert widget.dataframe_csv_content != ""
     assert widget.dataframe_csv_content_status == "loaded"
