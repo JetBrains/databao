@@ -10,8 +10,6 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from edaplot.data_utils import spec_add_data
-
 from databao.agent.multimodal.utils import dataframe_to_csv
 from databao.agent.visualizers.vega_chat import VegaChatResult
 

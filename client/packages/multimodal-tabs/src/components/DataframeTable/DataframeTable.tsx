@@ -2,7 +2,7 @@ import { TableInfoModel, TableTool } from "@jetbrains/drt";
 import { Text } from "@radix-ui/themes";
 
 import { useDataService } from "@/hooks";
-import { Status } from "@/types";
+import type { Status } from "@/types";
 
 import { StatusRenderer } from "../StatusRenderer";
 
