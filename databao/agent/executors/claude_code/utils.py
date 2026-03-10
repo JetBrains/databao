@@ -26,7 +26,7 @@ def _separate_content_and_tool_calls(message: ClaudeAssistantMessage) -> tuple[l
     return tool_calls, contents
 
 
-def cast_claude_message_to_langchain_message(message: ClaudeMessage) -> BaseMessage | list[BaseMessage]:
+def cast_claude_message_to_langchain_message(message: ClaudeMessage) -> BaseMessage:
     """
     Cast the ClaudeMessage (which is a Union and not a base class and thus cannot be
     uniformly processed further) into the child class of langchain.messages.BaseMessage
