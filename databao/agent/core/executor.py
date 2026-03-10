@@ -2,7 +2,7 @@ import base64
 import logging
 import re
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, TextIO, TypeVar
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, TextIO, TypeVar
 
 from pandas import DataFrame
 from pydantic import BaseModel, ConfigDict
@@ -141,7 +141,7 @@ class ExecutionResult(BaseModel):
 ToolClass = TypeVar("ToolClass")
 
 
-class Executor[ToolClass](ABC):
+class Executor(Generic[ToolClass], ABC):
     """
     Defines the Executor interface as an abstract base class for execution of
     operations within a given agent.
