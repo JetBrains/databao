@@ -21,7 +21,7 @@ from claude_agent_sdk import (
 from claude_agent_sdk.types import McpSdkServerConfig, ResultMessage, ToolResultBlock
 from claude_agent_sdk.types import Message as ClaudeMessage
 from claude_agent_sdk.types import SystemMessage as ClaudeSystemMessage
-from langchain_core.messages import AIMessage, BaseMessage
+from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
 
 from databao.agent.configs.llm import LLMConfig
 from databao.agent.core.executor import ExecutionResult
@@ -232,23 +232,21 @@ query_id: The ID of the query to submit.""",
 
             langchain_message = cast_claude_message_to_langchain_message(message)
 
+            if isinstance(message, UserMessage):
+                sql, df = _extract_sql_and_dataframe(message)
+                if sql:
+                    sql_history.append(sql)
+                if df is not None:
+                    df_history.append(df)
+                    if isinstance(langchain_message, ToolMessage):
+                        langchain_message.artifact = {"df": df}  # To show the df when streaming
+
             message_log.append(langchain_message)
 
             if stream:
                 if isinstance(langchain_message, AIMessage):
                     frontend.write_full_ai_message(langchain_message)
                 frontend.write_stream_chunk("values", {"messages": message_log})
-
-            if not isinstance(message, UserMessage):
-                continue
-
-            sql, df = _extract_sql_and_dataframe(message)
-
-            if sql:
-                sql_history.append(sql)
-
-            if df is not None:
-                df_history.append(df)
 
         frontend.end()
 
