@@ -20,6 +20,7 @@ from databao.agent.duckdb.react_tools import execute_duckdb_sql
 from databao.agent.executors.frontend.text_frontend import dataframe_to_markdown
 from databao.agent.executors.llm import chat, model_bind_tools
 from databao.agent.executors.tools import make_search_context_tool
+from databao.agent.executors.langchain_tools import make_search_context_tool
 
 
 def exception_to_string(e: Exception | str) -> str:
