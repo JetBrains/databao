@@ -10,8 +10,14 @@ from typing import Any, TextIO
 
 import pandas as pd
 from _duckdb import DuckDBPyConnection
-from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, SdkMcpTool, UserMessage, create_sdk_mcp_server, tool, \
-    AssistantMessage
+from claude_agent_sdk import (
+    ClaudeAgentOptions,
+    ClaudeSDKClient,
+    SdkMcpTool,
+    UserMessage,
+    create_sdk_mcp_server,
+    tool,
+)
 from claude_agent_sdk.types import McpSdkServerConfig, ToolResultBlock
 from claude_agent_sdk.types import Message as ClaudeMessage
 from claude_agent_sdk.types import SystemMessage as ClaudeSystemMessage
@@ -247,6 +253,7 @@ class ClaudeModelWrapper:
             df=df_history[-1] if df_history else None,
         )
 
+
 def _log_message(message: BaseMessage | list[BaseMessage], frontend: TextStreamFrontend, stream: bool = False) -> None:
     if not stream:
         return
@@ -256,6 +263,7 @@ def _log_message(message: BaseMessage | list[BaseMessage], frontend: TextStreamF
         frontend.write_stream_chunk("values", {"messages": [message]})
     elif isinstance(message, list):
         frontend.write_stream_chunk("values", {"messages": message})
+
 
 def _extract_sql_and_dataframe(message: UserMessage) -> tuple[str | None, pd.DataFrame | None]:
     for result_block in message.content:
