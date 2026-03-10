@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import Any
 
 from claude_agent_sdk.types import AssistantMessage as ClaudeAssistantMessage
@@ -9,6 +8,7 @@ from claude_agent_sdk.types import ToolResultBlock as ClaudeToolResultBlock
 from claude_agent_sdk.types import ToolUseBlock as ClaudeToolUseBlock
 from claude_agent_sdk.types import UserMessage as ClaudeUserMessage
 from langchain_core.messages import AIMessage, BaseMessage, ChatMessage, SystemMessage, ToolCall, ToolMessage
+
 
 def _separate_content_and_tool_calls(message: ClaudeAssistantMessage) -> tuple[list[ToolCall], list[str]]:
     tool_calls = []
@@ -61,7 +61,6 @@ def tool_call(block: ClaudeToolUseBlock) -> ToolCall:
 
 
 def tool_call_result(contents: list[ClaudeToolResultBlock]) -> dict[str, Any]:
-
     return dict(tool_call_id=contents[0].tool_use_id, content_blocks=[content.content for content in contents])
 
 

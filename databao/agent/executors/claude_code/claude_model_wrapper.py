@@ -1,8 +1,8 @@
 import asyncio
 import json
 import logging
-import threading
 import queue
+import threading
 from collections.abc import Generator
 from io import StringIO
 from pathlib import Path
@@ -14,7 +14,6 @@ from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, SdkMcpTool, Us
 from claude_agent_sdk.types import McpSdkServerConfig, ToolResultBlock
 from claude_agent_sdk.types import Message as ClaudeMessage
 from claude_agent_sdk.types import SystemMessage as ClaudeSystemMessage
-from databao_context_engine import DatabaoContextEngine
 from langchain_core.messages import BaseMessage
 
 from databao.agent.configs.llm import LLMConfig
@@ -50,25 +49,19 @@ class ClaudeModelWrapper:
 
     __runtime_mcp_server: McpSdkServerConfig | None = None
 
-    def __init__(
-            self,
-            *,
-            config: LLMConfig,
-            connection: DuckDBPyConnection
-    ):
+    def __init__(self, *, config: LLMConfig, connection: DuckDBPyConnection):
         self._duckdb_connection = connection
         self.config = config
         self.sdk_mcp_tools = self._build_tools()
         self._tool_server_name = Path(__file__).stem + "_mcp_server"
         self.mcp_tool_names = [f"mcp__{self._tool_server_name}__{t.name}" for t in self.sdk_mcp_tools]
 
-
         self.options = ClaudeAgentOptions(
             max_turns=_DEFAULT_MAX_TURNS,
-            cwd='.',
+            cwd=".",
             allowed_tools=self.mcp_tool_names,
             disallowed_tools=self.config.disallowed_tools,
-            model=self.config.model_name,
+            model=self.config.name,
             mcp_servers={self._tool_server_name: self._build_tool_server()},
             permission_mode="acceptEdits",
         )
@@ -98,10 +91,13 @@ class ClaudeModelWrapper:
 
         @tool("run_sql_query", RUN_SQL_QUERY_TOOL_DESCRIPTION, {"sql": str})
         def _run_sql_query(args: dict) -> dict[str, Any]:
-            result = run_sql_query(args.get("sql", ""), con=self._duckdb_connection,
-                                    sql_row_limit=self.SQL_ROW_LIMIT,
-                                    display_row_limit=self.DISPLAY_ROW_LIMIT,
-                                    display_cell_char_limit=self.DISPLAY_CELL_CHAR_LIMIT,)
+            result = run_sql_query(
+                args.get("sql", ""),
+                con=self._duckdb_connection,
+                sql_row_limit=self.SQL_ROW_LIMIT,
+                display_row_limit=self.DISPLAY_ROW_LIMIT,
+                display_cell_char_limit=self.DISPLAY_CELL_CHAR_LIMIT,
+            )
             if "error" in result:
                 return {"content": [{"type": "text", "text": json.dumps(result, default=str)}]}
 
@@ -133,9 +129,7 @@ class ClaudeModelWrapper:
         def submit_query_id(args: dict) -> dict[str, Any]:
             query_id = args.get("query")
             if query_id not in self._query_cache:
-                return {
-                    "content": [{"type": "text", "text": json.dumps({"error": f"Query id {query_id} not found"})}]
-                }
+                return {"content": [{"type": "text", "text": json.dumps({"error": f"Query id {query_id} not found"})}]}
             sql, csv = self._query_cache[query_id]
             return {"content": [{"type": "text", "text": json.dumps({"sql": sql, "csv": csv})}]}
 
@@ -173,7 +167,6 @@ class ClaudeModelWrapper:
             )
 
     def solve(self, prompt: str) -> Generator[ClaudeMessage, None, None]:
-
         _LOGGER.info(f"Querying {prompt}")
 
         _sentinel = object()
@@ -202,8 +195,8 @@ class ClaudeModelWrapper:
         _LOGGER.info(f"End of conversation. Got {n_messages} messages.\n\n")
 
     def ask(
-            self,
-            prompt: str,
+        self,
+        prompt: str,
     ) -> ExecutionResult:
         """
         Iterate through the messages from claude, cast them into BaseMessage
@@ -231,7 +224,12 @@ class ClaudeModelWrapper:
             if df is not None:
                 df_history.append(df)
 
-        return ExecutionResult(text=message_log[-1].content if message_log else "", meta={}, code=sql_history[-1] if df_history else "", df=df_history[-1] if df_history else None, )
+        return ExecutionResult(
+            text=message_log[-1].content if message_log else "",
+            meta={},
+            code=sql_history[-1] if df_history else "",
+            df=df_history[-1] if df_history else None,
+        )
 
 
 def _extract_sql_and_dataframe(message: UserMessage) -> tuple[str | None, pd.DataFrame | None]:

@@ -13,6 +13,7 @@ def exception_to_string(e: Exception | str) -> str:
         return e
     return f"Exception Name: {type(e).__name__}. Exception Desc: {e}"
 
+
 def trim_string_middle(
     content: str, max_length: int | None, sep: str = "[...trimmed...]", front_percentage: float = 0.7
 ) -> str:
@@ -36,6 +37,7 @@ def trim_dataframe_values(df: pd.DataFrame, max_cell_chars: int | None) -> pd.Da
             continue
         df_sanitized[col] = df_sanitized[col].apply(trim_cell)
     return df_sanitized
+
 
 def run_sql_query(
     sql: str, con: DuckDBPyConnection, sql_row_limit: int | None, display_row_limit: int, display_cell_char_limit: int

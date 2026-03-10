@@ -1,7 +1,7 @@
 import logging
-from typing import Any, TextIO, cast, Callable
+from typing import Any, TextIO, cast
 
-from claude_agent_sdk import SdkMcpTool, tool
+from claude_agent_sdk import SdkMcpTool
 from duckdb import DuckDBPyConnection
 
 from databao.agent.configs import LLMConfig
@@ -9,25 +9,15 @@ from databao.agent.configs.agent import AgentConfig
 from databao.agent.core import Cache, Domain, ExecutionResult, Opa
 from databao.agent.core.domain import _Domain
 from databao.agent.databases.databases import db_type as get_db_type
-from databao.agent.duckdb.schema_inspection import (
-    TableInfo,
-    inspect_duckdb_schema,
-    summarize_duckdb_schema,
-    summarize_duckdb_schema_overview,
-)
 from databao.agent.executors import LighthouseExecutor
-from databao.agent.executors.base import GraphExecutor, DuckDBExecutor
+from databao.agent.executors.base import DuckDBExecutor
 from databao.agent.executors.claude_code.claude_model_wrapper import ClaudeModelWrapper
-from databao.agent.executors.history_cleaning import clean_tool_history
-from databao.agent.executors.lighthouse.graph import ExecuteSubmit, RUN_SQL_QUERY_TOOL_DESCRIPTION
 from databao.agent.executors.prompt import build_context_text, get_today_date_str, load_prompt_template
-from databao.agent.executors.utils import run_sql_query as _run_sql_query
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class ClaudeCodeExecutor(DuckDBExecutor[SdkMcpTool]):
-
     def __init__(self, writer: Any = None) -> None:
         super().__init__(writer=writer)
         self._prompt_template = load_prompt_template("databao.agent.executors.lighthouse", "system_prompt.jinja")
@@ -106,12 +96,10 @@ class ClaudeCodeExecutor(DuckDBExecutor[SdkMcpTool]):
         stream: bool = True,
         writer: TextIO | None = None,
     ) -> ExecutionResult:
-
         self._init_sources_from_domain(domain)
         system_prompt = self.render_system_prompt(self._duckdb_connection, domain, agent_config.recursion_limit)
-        with ClaudeModelWrapper(config = llm_config, connection=self._duckdb_connection)  as agent:
+        with ClaudeModelWrapper(config=llm_config, connection=self._duckdb_connection) as agent:
             messages: str = self._process_opas(opas, cache)
-            execution_result = agent.ask(system_prompt+messages)
-
+            execution_result = agent.ask(system_prompt + messages)
 
         return execution_result
