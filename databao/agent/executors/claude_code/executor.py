@@ -98,8 +98,10 @@ class ClaudeCodeExecutor(DuckDBExecutor[SdkMcpTool[Any]]):
     ) -> ExecutionResult:
         self._init_sources_from_domain(domain)
         system_prompt = self.render_system_prompt(self._duckdb_connection, domain, agent_config.recursion_limit)
-        with ClaudeModelWrapper(config=llm_config, connection=self._duckdb_connection) as agent:
-            messages: str = self._process_opas(opas, cache)
-            execution_result = agent.ask(system_prompt + messages, stream=stream)
+        with ClaudeModelWrapper(
+            config=llm_config, connection=self._duckdb_connection, system_prompt=system_prompt
+        ) as agent:
+            user_messages: str = self._process_opas(opas, cache)
+            execution_result = agent.ask(user_messages, stream=stream)
 
         return execution_result

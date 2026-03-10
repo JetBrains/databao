@@ -18,7 +18,7 @@ from claude_agent_sdk import (
     create_sdk_mcp_server,
     tool,
 )
-from claude_agent_sdk.types import McpSdkServerConfig, ResultMessage, ToolResultBlock
+from claude_agent_sdk.types import McpSdkServerConfig, ResultMessage, SystemPromptPreset, ToolResultBlock
 from claude_agent_sdk.types import Message as ClaudeMessage
 from claude_agent_sdk.types import SystemMessage as ClaudeSystemMessage
 from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
@@ -58,7 +58,14 @@ class ClaudeModelWrapper:
 
     __runtime_mcp_server: McpSdkServerConfig | None = None
 
-    def __init__(self, *, config: LLMConfig, connection: DuckDBPyConnection):
+    def __init__(
+        self,
+        *,
+        config: LLMConfig,
+        connection: DuckDBPyConnection,
+        system_prompt: str,
+        append_system_prompt: bool = True,
+    ):
         self._duckdb_connection = connection
         self.config = config
         self.sdk_mcp_tools = self._build_tools()
@@ -72,6 +79,13 @@ class ClaudeModelWrapper:
             model=self.config.name,
             mcp_servers={self._tool_server_name: self._build_tool_server()},
             permission_mode="acceptEdits",
+            system_prompt=system_prompt
+            if not append_system_prompt
+            else SystemPromptPreset(
+                type="preset",  # Append to Claude's internal system prompt
+                preset="claude_code",
+                append=system_prompt,
+            ),
         )
         self.client = ClaudeSDKClient(options=self.options)
         self._query_cache: dict[int, tuple[str, str]] = {}
@@ -269,6 +283,7 @@ query_id: The ID of the query to submit.""",
 
 
 def _extract_sql_and_dataframe(message: UserMessage) -> tuple[str | None, pd.DataFrame | None]:
+    # TODO remove this!!!!! and return full df
     for result_block in message.content:
         if not isinstance(result_block, ToolResultBlock):
             continue
