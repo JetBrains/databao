@@ -233,7 +233,10 @@ class ClaudeModelWrapper:
             else:
                 message_log.append(langchain_message)
 
-            _log_message(langchain_message, frontend, stream=stream)
+            if stream:
+                if isinstance(langchain_message, AIMessage):
+                    frontend.write_stream_chunk("messages", (AIMessageChunk(content=langchain_message.content), {}))
+                frontend.write_stream_chunk("values", {"messages": message_log})
 
             if not isinstance(message, UserMessage):
                 continue
@@ -252,17 +255,6 @@ class ClaudeModelWrapper:
             code=sql_history[-1] if df_history else "",
             df=df_history[-1] if df_history else None,
         )
-
-
-def _log_message(message: BaseMessage | list[BaseMessage], frontend: TextStreamFrontend, stream: bool = False) -> None:
-    if not stream:
-        return
-    if isinstance(message, AIMessage):
-        frontend.write_stream_chunk("messages", (AIMessageChunk(content=message.content), {}))
-    elif isinstance(message, ToolMessage):
-        frontend.write_stream_chunk("values", {"messages": [message]})
-    elif isinstance(message, list):
-        frontend.write_stream_chunk("values", {"messages": message})
 
 
 def _extract_sql_and_dataframe(message: UserMessage) -> tuple[str | None, pd.DataFrame | None]:
