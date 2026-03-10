@@ -12,7 +12,7 @@ from databao_context_engine import (
 )
 from databao_context_engine.pluginlib.build_plugin import AbstractConfigFile
 from snowflake.connector.network import SNOWFLAKE_HOST_SUFFIX
-from sqlalchemy import Connection, Engine, make_url
+from sqlalchemy import Connection, Engine, create_engine, make_url
 
 from databao.agent.databases.database_adapter import DatabaseAdapter
 from databao.agent.databases.database_connection import DBConnection, DBConnectionConfig, DBConnectionRuntime
@@ -113,6 +113,58 @@ class SnowflakeAdapter(DatabaseAdapter):
         config_file = SnowflakeConfigFile.model_validate({"name": "", **content})
         return config_file.connection
 
+    @classmethod
+    def create_sqlalchemy_engine(cls, config: DBConnectionConfig) -> Engine | None:
+        if not isinstance(config, SnowflakeConnectionProperties):
+            return None
+
+        from snowflake.sqlalchemy import URL  # type: ignore[import-untyped]
+
+        url_kwargs: dict[str, str] = {"account": config.account}
+        if config.user:
+            url_kwargs["user"] = config.user
+        if config.database:
+            url_kwargs["database"] = config.database
+        if config.warehouse:
+            url_kwargs["warehouse"] = config.warehouse
+        if config.role:
+            url_kwargs["role"] = config.role
+
+        connect_args: dict[str, Any] = {}
+        auth = config.auth
+        if isinstance(auth, SnowflakePasswordAuth):
+            url_kwargs["password"] = auth.password
+        elif isinstance(auth, SnowflakeKeyPairAuth):
+            connect_args["private_key"] = cls._load_private_key_bytes(auth)
+        elif isinstance(auth, SnowflakeSSOAuth):
+            url_kwargs["authenticator"] = auth.authenticator
+        else:
+            return None
+
+        if connect_args:
+            return create_engine(URL(**url_kwargs), connect_args=connect_args)
+        return create_engine(URL(**url_kwargs))
+
+    @staticmethod
+    def _load_private_key_bytes(auth: SnowflakeKeyPairAuth) -> bytes:
+        from cryptography.hazmat.primitives import serialization
+
+        if auth.private_key:
+            pem_data = auth.private_key.encode()
+        elif auth.private_key_file:
+            pem_data = Path(auth.private_key_file).read_bytes()
+        else:
+            raise ValueError("No private key provided.")
+
+        passphrase = auth.private_key_file_pwd.encode() if auth.private_key_file_pwd else None
+        private_key = serialization.load_pem_private_key(pem_data, password=passphrase)
+        return private_key.private_bytes(
+            encoding=serialization.Encoding.DER,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+
+    # TODO: url and name should be escaped properly
     @classmethod
     def register_in_duckdb(cls, shared_conn: DuckDBPyConnection, config: DBConnectionConfig, name: str) -> None:
         if not isinstance(config, SnowflakeConnectionProperties):
