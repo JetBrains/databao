@@ -20,12 +20,12 @@ from databao.agent.executors.llm import chat, model_bind_tools
 from databao.agent.executors.utils import exception_to_string
 from databao.agent.executors.utils import run_sql_query as _run_sql_query
 
-RUN_SQL_QUERY_TOOL_DESCRIPTION = """
-            Run a SELECT SQL query in the database. Returns the first 12 rows in csv format.
+RUN_SQL_QUERY_TOOL_DESCRIPTION = """\
+Run a SELECT SQL query in the database. Returns the first 12 rows in csv format.
 
-            Args:
-                sql: SQL query
-            """
+Args:
+    sql: SQL query
+"""
 
 
 class AgentState(TypedDict):
