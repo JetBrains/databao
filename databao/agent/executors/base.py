@@ -95,6 +95,18 @@ class GraphExecutor(DuckDBExecutor[BaseTool], ABC):
             self._extra_tools[t.name] = t
         self._compiled_tools_version += 1
 
+    def drop_last_opa_group(self, cache: Cache, n: int = 1) -> None:
+        """Drop last n groups of operations from the message history."""
+        messages = cache.get("state", default={}).get("messages", [])
+        human_messages = [m for m in messages if isinstance(m, HumanMessage)]
+        if len(human_messages) < n:
+            raise ValueError(f"Cannot drop last {n} operations - only {len(human_messages)} operations found.")
+        c = 0
+        while c < n:
+            m = messages.pop()
+            if isinstance(m, HumanMessage):
+                c += 1
+
     @abstractmethod
     def _compile_graph(
         self,

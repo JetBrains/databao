@@ -17,7 +17,7 @@ from databao.agent.executors.prompt import build_context_text, get_today_date_st
 _LOGGER = logging.getLogger(__name__)
 
 
-class ClaudeCodeExecutor(DuckDBExecutor[SdkMcpTool]):
+class ClaudeCodeExecutor(DuckDBExecutor[SdkMcpTool[Any]]):
     def __init__(self, writer: Any = None) -> None:
         super().__init__(writer=writer)
         self._prompt_template = load_prompt_template("databao.agent.executors.lighthouse", "system_prompt.jinja")
@@ -25,7 +25,7 @@ class ClaudeCodeExecutor(DuckDBExecutor[SdkMcpTool]):
         self._max_columns_per_table: int | None = None
         self._max_schema_summary_length: int | None = 250_000  # 1 token ~= 4 characters
 
-    def register_tools(self, tools: list[SdkMcpTool]) -> None:
+    def register_tools(self, tools: list[SdkMcpTool[Any]]) -> None:
         """Register additional tools to be available during execution."""
         # TODO: add to allowed tool list
 
@@ -59,7 +59,7 @@ class ClaudeCodeExecutor(DuckDBExecutor[SdkMcpTool]):
             df_label_fn=lambda name: f"DF {name} (fully qualified name 'temp.main.{name}')",
         )
 
-        dce_search_enabled = self.has_search_context_tool(domain)
+        dce_search_enabled = False
 
         prompt = self._prompt_template.render(
             date=get_today_date_str(),

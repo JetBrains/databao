@@ -89,8 +89,8 @@ class LighthouseExecutor(GraphExecutor):
     def inspect_database_schema(
         connection: DuckDBPyConnection,
         db_types: dict[str, str],
-        max_schema_summary_length: int,
-        max_columns_per_table: int,
+        max_schema_summary_length: int | None,
+        max_columns_per_table: int | None,
     ) -> str:
         try:
             tables = inspect_duckdb_schema(connection)

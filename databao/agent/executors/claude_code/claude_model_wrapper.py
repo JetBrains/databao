@@ -60,7 +60,6 @@ class ClaudeModelWrapper:
             max_turns=_DEFAULT_MAX_TURNS,
             cwd=".",
             allowed_tools=self.mcp_tool_names,
-            disallowed_tools=self.config.disallowed_tools,
             model=self.config.name,
             mcp_servers={self._tool_server_name: self._build_tool_server()},
             permission_mode="acceptEdits",
@@ -86,11 +85,11 @@ class ClaudeModelWrapper:
         asyncio.run_coroutine_threadsafe(self.client.__aexit__(exc_type, exc_val, exc_tb), self._loop).result()
         self._end_loop()
 
-    def _build_tools(self) -> list[SdkMcpTool]:
+    def _build_tools(self) -> list[SdkMcpTool[Any]]:
         tools = []
 
         @tool("run_sql_query", RUN_SQL_QUERY_TOOL_DESCRIPTION, {"sql": str})
-        def _run_sql_query(args: dict) -> dict[str, Any]:
+        async def _run_sql_query(args: dict[str, Any]) -> dict[str, Any]:
             result = run_sql_query(
                 args.get("sql", ""),
                 con=self._duckdb_connection,
@@ -126,7 +125,7 @@ class ClaudeModelWrapper:
                """,
             {"query": int},
         )
-        def submit_query_id(args: dict) -> dict[str, Any]:
+        async def submit_query_id(args: dict[str, Any]) -> dict[str, Any]:
             query_id = args.get("query")
             if query_id not in self._query_cache:
                 return {"content": [{"type": "text", "text": json.dumps({"error": f"Query id {query_id} not found"})}]}
@@ -170,7 +169,7 @@ class ClaudeModelWrapper:
         _LOGGER.info(f"Querying {prompt}")
 
         _sentinel = object()
-        q: queue.Queue = queue.Queue()
+        q: queue.Queue[Any] = queue.Queue()
 
         async def _produce() -> None:
             await self.client.query(prompt=prompt)

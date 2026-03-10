@@ -40,7 +40,7 @@ def cast_claude_message_to_langchain_message(message: ClaudeMessage) -> BaseMess
         non_empty_tool_results = [block for block in tool_result_blocks if block.content]
         if non_empty_tool_results:
             return ToolMessage(**tool_call_result(non_empty_tool_results))
-        return claude_message(ChatMessage(role="user", content=message.content))
+        return ChatMessage(role="user", content=message.content)
 
     if isinstance(message, ClaudeSystemMessage):
         return SystemMessage(content=[], **claude_message(message.data))
