@@ -252,7 +252,7 @@ query_id: The ID of the query to submit.""",
 
         return ExecutionResult(
             text=message_log[-1].text if message_log else "",
-            meta={},
+            meta={ExecutionResult.META_MESSAGES_KEY: message_log},
             code=sql_history[-1] if df_history else "",
             df=df_history[-1] if df_history else None,
         )
