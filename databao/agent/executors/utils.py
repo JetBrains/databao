@@ -1,11 +1,41 @@
+import math
 from typing import Any
 
+import pandas as pd
 from _duckdb import DuckDBPyConnection
 
 from databao.agent.duckdb.react_tools import execute_duckdb_sql
 from databao.agent.executors.frontend.text_frontend import dataframe_to_markdown
-from databao.agent.executors.lighthouse.graph import trim_dataframe_values, exception_to_string
 
+
+def exception_to_string(e: Exception | str) -> str:
+    if isinstance(e, str):
+        return e
+    return f"Exception Name: {type(e).__name__}. Exception Desc: {e}"
+
+def trim_string_middle(
+    content: str, max_length: int | None, sep: str = "[...trimmed...]", front_percentage: float = 0.7
+) -> str:
+    if max_length is None or len(content) <= max_length:
+        return content
+    take_front = max(0, math.ceil(max_length * front_percentage) - len(sep) // 2)
+    take_end = max(0, max_length - take_front - len(sep))
+    return content[:take_front] + sep + content[len(content) - take_end :]
+
+
+def trim_dataframe_values(df: pd.DataFrame, max_cell_chars: int | None) -> pd.DataFrame:
+    df_sanitized = df.copy()
+    if max_cell_chars is None:
+        return df_sanitized
+
+    def trim_cell(val: Any) -> str:
+        return trim_string_middle(str(val), max_cell_chars)
+
+    for col, dtype in zip(df_sanitized.columns, df_sanitized.dtypes, strict=True):
+        if not pd.api.types.is_object_dtype(dtype) and not pd.api.types.is_string_dtype(dtype):
+            continue
+        df_sanitized[col] = df_sanitized[col].apply(trim_cell)
+    return df_sanitized
 
 def run_sql_query(
     sql: str, con: DuckDBPyConnection, sql_row_limit: int | None, display_row_limit: int, display_cell_char_limit: int
