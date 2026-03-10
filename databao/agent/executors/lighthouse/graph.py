@@ -147,30 +147,15 @@ class ExecuteSubmit:
         return make_search_context_tool(domain) is not None
 
     def make_tools(self, domain: Domain, extra_tools: list[BaseTool] | None = None) -> list[BaseTool]:
-        @tool(parse_docstring=True)
+        @tool(description=RUN_SQL_QUERY_TOOL_DESCRIPTION)
         def run_sql_query(sql: str, graph_state: Annotated[AgentState, InjectedState]) -> dict[str, Any]:
-            """
-            Run a SELECT SQL query in the database. Returns the first 12 rows in csv format.
-
-            Args:
-                sql: SQL query
-            """
-            try:
-                limit = graph_state["limit_max_rows"]
-                df = execute_duckdb_sql(sql, self._connection, limit=limit)
-
-                # Limit the size of sampled values to show to avoid context size explosions (e.g., json/binary blobs)
-                df_display = df.head(self.MAX_TOOL_ROWS)
-                df_display = trim_dataframe_values(df_display, max_cell_chars=self.MAX_DF_CELL_CHARS)
-
-                df_csv = df_display.to_csv(index=False)
-                df_markdown = dataframe_to_markdown(df_display, index=False)
-                if len(df) > self.MAX_TOOL_ROWS:
-                    df_csv += f"\nResult is truncated from {len(df)} to {self.MAX_TOOL_ROWS} rows."
-                    df_markdown += f"\nResult is truncated from {len(df)} to {self.MAX_TOOL_ROWS} rows."
-                return {"df": df, "sql": sql, "csv": df_csv, "markdown": df_markdown}
-            except Exception as e:
-                return {"error": exception_to_string(e)}
+            return _run_sql_query(
+                sql,
+                con=self._connection,
+                sql_row_limit=graph_state["limit_max_rows"],
+                display_row_limit=self.DISPLAY_ROW_LIMIT,
+                display_cell_char_limit=self.DISPLAY_CELL_CHAR_LIMIT,
+            )
 
         @tool(parse_docstring=True)
         def submit_result(
