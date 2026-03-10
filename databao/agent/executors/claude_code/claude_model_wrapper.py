@@ -75,8 +75,8 @@ class ClaudeModelWrapper:
         self._thread = threading.Thread(target=self._loop.run_forever, daemon=True, name=f"{self._tool_server_name}")
         self._thread.start()
 
-
         self._ready_event = threading.Event()
+
         async def _lifecycle() -> None:
             self._exit_event = asyncio.Event()
             async with self.client:
