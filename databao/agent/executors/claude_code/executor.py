@@ -20,7 +20,7 @@ _LOGGER = logging.getLogger(__name__)
 class ClaudeCodeExecutor(DuckDBExecutor[SdkMcpTool[Any]]):
     def __init__(self, writer: Any = None) -> None:
         super().__init__(writer=writer)
-        self._prompt_template = load_prompt_template("databao.agent.executors.lighthouse", "system_prompt.jinja")
+        self._prompt_template = load_prompt_template("databao.agent.executors.claude_code", "system_prompt.jinja")
 
         self._max_columns_per_table: int | None = None
         self._max_schema_summary_length: int | None = 250_000  # 1 token ~= 4 characters
