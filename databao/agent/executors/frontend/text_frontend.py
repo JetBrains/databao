@@ -94,7 +94,7 @@ class TextStreamFrontend:
                     if sql is not None:
                         self.write(f"\n```sql\n{sql.strip()}\n```\n\n")
 
-    def write_stream_chunk(self, mode: Literal["messages", "values"], chunk: Any) -> None:
+    def write_stream_chunk(self, mode: str, chunk: Any) -> None:
         if mode == "messages":
             token_chunk, _token_metadata = chunk
             self.write_message_chunk(token_chunk)
