@@ -6,7 +6,7 @@ import threading
 from collections.abc import Generator
 from io import StringIO
 from pathlib import Path
-from typing import Any
+from typing import Any, TextIO
 
 import pandas as pd
 from _duckdb import DuckDBPyConnection
@@ -14,11 +14,12 @@ from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, SdkMcpTool, Us
 from claude_agent_sdk.types import McpSdkServerConfig, ToolResultBlock
 from claude_agent_sdk.types import Message as ClaudeMessage
 from claude_agent_sdk.types import SystemMessage as ClaudeSystemMessage
-from langchain_core.messages import BaseMessage
+from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage
 
 from databao.agent.configs.llm import LLMConfig
 from databao.agent.core.executor import ExecutionResult
 from databao.agent.executors.claude_code.utils import cast_claude_message_to_langchain_message
+from databao.agent.executors.frontend.text_frontend import TextStreamFrontend
 from databao.agent.executors.lighthouse.graph import RUN_SQL_QUERY_TOOL_DESCRIPTION
 from databao.agent.executors.utils import run_sql_query
 
@@ -196,17 +197,25 @@ class ClaudeModelWrapper:
     def ask(
         self,
         prompt: str,
+        *,
+        stream: bool = False,
+        writer: TextIO | None = None,
     ) -> ExecutionResult:
         """
         Iterate through the messages from claude, cast them into BaseMessage
         object so that they are compatible with the Experiment class and pack
         them into a SolverResult object.
         """
+        frontend = TextStreamFrontend({"prompt": prompt}, writer=writer)
+
         message_log: list[BaseMessage] = []
         df_history: list[pd.DataFrame] = []
         sql_history: list[str] = []
         for message in self.solve(prompt):
             langchain_message = cast_claude_message_to_langchain_message(message)
+            if isinstance(langchain_message, AIMessage) and stream:
+                frontend.write_stream_chunk("messages", (AIMessageChunk(content=langchain_message.content), {}))
+
             if isinstance(langchain_message, list):
                 message_log.extend(langchain_message)
             else:
