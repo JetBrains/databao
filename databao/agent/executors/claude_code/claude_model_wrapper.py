@@ -22,6 +22,7 @@ from claude_agent_sdk.types import McpSdkServerConfig, ResultMessage, ToolResult
 from claude_agent_sdk.types import Message as ClaudeMessage
 from claude_agent_sdk.types import SystemMessage as ClaudeSystemMessage
 from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
+from mcp.types import ToolAnnotations
 
 from databao.agent.configs.llm import LLMConfig
 from databao.agent.core.executor import ExecutionResult
@@ -101,9 +102,17 @@ class ClaudeModelWrapper:
         self._thread.join()
 
     def _build_tools(self) -> list[SdkMcpTool[Any]]:
+        # Set read only hints to enable parallel tool execution
+        # (see https://platform.claude.com/docs/en/agent-sdk/agent-loop#parallel-tool-execution)
+
         tools = []
 
-        @tool("run_sql_query", RUN_SQL_QUERY_TOOL_DESCRIPTION, {"sql": str})
+        @tool(
+            "run_sql_query",
+            RUN_SQL_QUERY_TOOL_DESCRIPTION,
+            {"sql": str},
+            annotations=ToolAnnotations(readOnlyHint=True),
+        )
         async def _run_sql_query(args: dict[str, Any]) -> dict[str, Any]:
             result = run_sql_query(
                 args.get("sql", ""),
@@ -139,6 +148,7 @@ user's question.
 Args:
 query_id: The ID of the query to submit.""",
             {"query_id": int},
+            annotations=ToolAnnotations(readOnlyHint=True),
         )
         async def submit_query_id(args: dict[str, Any]) -> dict[str, Any]:
             query_id: int | None = args.get("query_id")
