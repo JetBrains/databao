@@ -19,8 +19,15 @@ from databao.agent.core import Domain, ExecutionResult
 from databao.agent.duckdb.react_tools import execute_duckdb_sql
 from databao.agent.executors.frontend.text_frontend import dataframe_to_markdown
 from databao.agent.executors.llm import chat, model_bind_tools
-from databao.agent.executors.tools import make_search_context_tool
 from databao.agent.executors.langchain_tools import make_search_context_tool
+from databao.agent.executors.utils import run_sql_query as _run_sql_query
+
+RUN_SQL_QUERY_TOOL_DESCRIPTION = """
+            Run a SELECT SQL query in the database. Returns the first 12 rows in csv format.
+
+            Args:
+                sql: SQL query
+            """
 
 
 def exception_to_string(e: Exception | str) -> str:
@@ -76,10 +83,10 @@ class ExecuteSubmit:
     """Simple graph with two tools: run_sql_query and submit_result.
     All context must be in the SystemMessage."""
 
-    MAX_TOOL_ROWS = 12
+    DISPLAY_ROW_LIMIT = 12
     """Max number of rows to return in SQL tool calls."""
 
-    MAX_DF_CELL_CHARS = 1024
+    DISPLAY_CELL_CHAR_LIMIT = 1024
     """Max number of characters a dataframe cell can have before it is trimmed."""
 
     def __init__(self, connection: DuckDBPyConnection):
