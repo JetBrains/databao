@@ -117,7 +117,7 @@ class ClaudeModelWrapper:
 
             result_to_return = {"sql": args.get("sql", ""), "csv": result.get("csv", "")}
 
-            if (sql := result.get("sql")) and (csv := result.get("df")) is not None:
+            if (sql := result.get("sql")) and (csv := result.get("csv")) is not None:
                 query_id = len(self._query_cache) + 1
                 self._query_cache[query_id] = sql, csv
                 result_to_return |= {"query_id": query_id}
