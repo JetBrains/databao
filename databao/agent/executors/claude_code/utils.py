@@ -1,9 +1,10 @@
 from typing import Any
 
-from claude_agent_sdk.types import AssistantMessage as ClaudeAssistantMessage, ThinkingBlock
+from claude_agent_sdk.types import AssistantMessage as ClaudeAssistantMessage
 from claude_agent_sdk.types import Message as ClaudeMessage
 from claude_agent_sdk.types import ResultMessage as ClaudeResultMessage
 from claude_agent_sdk.types import SystemMessage as ClaudeSystemMessage
+from claude_agent_sdk.types import ThinkingBlock
 from claude_agent_sdk.types import ToolResultBlock as ClaudeToolResultBlock
 from claude_agent_sdk.types import ToolUseBlock as ClaudeToolUseBlock
 from claude_agent_sdk.types import UserMessage as ClaudeUserMessage
