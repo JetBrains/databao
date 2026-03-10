@@ -1,6 +1,6 @@
 from typing import Any
 
-from claude_agent_sdk.types import AssistantMessage as ClaudeAssistantMessage
+from claude_agent_sdk.types import AssistantMessage as ClaudeAssistantMessage, ThinkingBlock
 from claude_agent_sdk.types import Message as ClaudeMessage
 from claude_agent_sdk.types import ResultMessage as ClaudeResultMessage
 from claude_agent_sdk.types import SystemMessage as ClaudeSystemMessage
@@ -16,8 +16,12 @@ def _separate_content_and_tool_calls(message: ClaudeAssistantMessage) -> tuple[l
     for block in message.content:
         if isinstance(block, ClaudeToolUseBlock):
             tool_calls.append(tool_call(block))
+        elif isinstance(block, ThinkingBlock):
+            contents.append(text_message(block.thinking))
+        elif isinstance(block, ClaudeToolResultBlock):
+            contents.append(text_message(str(block.content)))
         else:
-            contents.append(text_message(block.text))  # type: ignore[union-attr]
+            contents.append(text_message(block.text))
     return tool_calls, contents
 
 
