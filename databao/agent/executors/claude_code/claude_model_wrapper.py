@@ -18,7 +18,7 @@ from claude_agent_sdk import (
     create_sdk_mcp_server,
     tool,
 )
-from claude_agent_sdk.types import McpSdkServerConfig, ToolResultBlock
+from claude_agent_sdk.types import McpSdkServerConfig, ResultMessage, ToolResultBlock
 from claude_agent_sdk.types import Message as ClaudeMessage
 from claude_agent_sdk.types import SystemMessage as ClaudeSystemMessage
 from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage
@@ -225,6 +225,11 @@ class ClaudeModelWrapper:
         sql_history: list[str] = []
         frontend = TextStreamFrontend({"messages": message_log}, writer=writer)
         for message in self.solve(prompt):
+            # Skip the final text-only ResultMessage, as the previous AssistantMessage already contains the text
+            # of this message.
+            if isinstance(message, ResultMessage):
+                continue
+
             langchain_message = cast_claude_message_to_langchain_message(message)
 
             if isinstance(langchain_message, list):
@@ -251,7 +256,7 @@ class ClaudeModelWrapper:
         frontend.end()
 
         return ExecutionResult(
-            text=message_log[-1].content if message_log else "",
+            text=message_log[-1].text if message_log else "",
             meta={},
             code=sql_history[-1] if df_history else "",
             df=df_history[-1] if df_history else None,
