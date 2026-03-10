@@ -38,6 +38,23 @@ class TextStreamFrontend:
         df_str = dataframe_to_markdown(df.head(rows_to_show))
         self.write(f"{df_str}\n\n")
 
+    def write_full_ai_message(self, message: AIMessage) -> None:
+        reasoning_text = get_reasoning_content(message)
+        text = reasoning_text + message.text
+        if self._escape_markdown:
+            text = escape_markdown_text(text)
+        self.write(text)
+
+        if tool_calls := message.tool_calls:
+            self.write("\n\n")
+            for tool_call in tool_calls:
+                self.write(f"[tool_call: '{tool_call['name']}']\n")
+            self.write("```\n")  # Open code block
+            for tool_call in tool_calls:
+                if tool_call["args"] is not None:
+                    self.write(str(tool_call["args"]))
+            self.write("\n```\n\n")  # Close code block
+
     def write_message_chunk(self, chunk: BaseMessageChunk) -> None:
         if not isinstance(chunk, AIMessageChunk):
             return  # Handle ToolMessage results in write_state_chunk
