@@ -21,7 +21,7 @@ from claude_agent_sdk import (
 from claude_agent_sdk.types import McpSdkServerConfig, ToolResultBlock
 from claude_agent_sdk.types import Message as ClaudeMessage
 from claude_agent_sdk.types import SystemMessage as ClaudeSystemMessage
-from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, ToolMessage
+from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage
 
 from databao.agent.configs.llm import LLMConfig
 from databao.agent.core.executor import ExecutionResult
@@ -220,11 +220,10 @@ class ClaudeModelWrapper:
         object so that they are compatible with the Experiment class and pack
         them into a SolverResult object.
         """
-        frontend = TextStreamFrontend({"prompt": prompt}, writer=writer)
-
         message_log: list[BaseMessage] = []
         df_history: list[pd.DataFrame] = []
         sql_history: list[str] = []
+        frontend = TextStreamFrontend({"messages": message_log}, writer=writer)
         for message in self.solve(prompt):
             langchain_message = cast_claude_message_to_langchain_message(message)
 
@@ -248,6 +247,8 @@ class ClaudeModelWrapper:
 
             if df is not None:
                 df_history.append(df)
+
+        frontend.end()
 
         return ExecutionResult(
             text=message_log[-1].content if message_log else "",
