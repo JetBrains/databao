@@ -128,20 +128,20 @@ class ClaudeModelWrapper:
 
         @tool(
             "submit_query_id",
-            """This tool call must be the last tool to be called by the model.
-              It will provide to the user the generated sql and the output thereof resulting from the query with
-               the respective query id. You will find the query ids of the error-free queries in the outputs of
-               the run_sql_query tool in the`query_id` key. The `query_id` itself need not be the one of the last
-               generated query, it rather needs to reference the query which most closely matches the
-               user's question.
+            """\
+This tool call must be the last tool to be called by the model.
+It will provide to the user the generated sql and the output thereof resulting from the query with
+the respective query id. You will find the query ids of the error-free queries in the outputs of
+the run_sql_query tool in the `query_id` key. The `query_id` itself need not be the one of the last
+generated query, it rather needs to reference the query which most closely matches the
+user's question.
 
-               Args:
-                    query_id: The ID of the query to submit.
-               """,
-            {"query": int},
+Args:
+query_id: The ID of the query to submit.""",
+            {"query_id": int},
         )
         async def submit_query_id(args: dict[str, Any]) -> dict[str, Any]:
-            query_id = args.get("query")
+            query_id: int | None = args.get("query_id")
             if query_id not in self._query_cache:
                 return {"content": [{"type": "text", "text": json.dumps({"error": f"Query id {query_id} not found"})}]}
             sql, csv = self._query_cache[query_id]
