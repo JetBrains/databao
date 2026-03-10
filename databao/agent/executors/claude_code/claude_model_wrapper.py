@@ -67,24 +67,31 @@ class ClaudeModelWrapper:
         )
         self.client = ClaudeSDKClient(options=self.options)
         self._query_cache: dict[int, tuple[str, str]] = {}
+        self._ready_event: threading.Event
+        self._exit_event: asyncio.Event
 
-    def _start_loop(self) -> None:
+    def __enter__(self) -> "ClaudeModelWrapper":
         self._loop = asyncio.new_event_loop()
         self._thread = threading.Thread(target=self._loop.run_forever, daemon=True, name=f"{self._tool_server_name}")
         self._thread.start()
 
-    def _end_loop(self) -> None:
-        self._loop.call_soon_threadsafe(self._loop.stop)
-        self._thread.join()
 
-    def __enter__(self) -> "ClaudeModelWrapper":
-        self._start_loop()
-        asyncio.run_coroutine_threadsafe(self.client.__aenter__(), self._loop).result()
+        self._ready_event = threading.Event()
+        async def _lifecycle() -> None:
+            self._exit_event = asyncio.Event()
+            async with self.client:
+                self._ready_event.set()
+                await self._exit_event.wait()
+
+        self._lifecycle_task = asyncio.run_coroutine_threadsafe(_lifecycle(), self._loop)
+        self._ready_event.wait()
         return self
 
     def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: Any) -> None:
-        asyncio.run_coroutine_threadsafe(self.client.__aexit__(exc_type, exc_val, exc_tb), self._loop).result()
-        self._end_loop()
+        self._loop.call_soon_threadsafe(self._exit_event.set)
+        self._lifecycle_task.result()
+        self._loop.call_soon_threadsafe(self._loop.stop)
+        self._thread.join()
 
     def _build_tools(self) -> list[SdkMcpTool[Any]]:
         tools = []
