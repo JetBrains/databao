@@ -2,9 +2,8 @@ import base64
 import logging
 import re
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, TextIO
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, TextIO, TypeVar
 
-from langchain_core.tools import BaseTool
 from pandas import DataFrame
 from pydantic import BaseModel, ConfigDict
 
@@ -139,7 +138,10 @@ class ExecutionResult(BaseModel):
         return mimebundle
 
 
-class Executor(ABC):
+ToolClass = TypeVar("ToolClass")
+
+
+class Executor[ToolClass](ABC):
     """
     Defines the Executor interface as an abstract base class for execution of
     operations within a given agent.
@@ -149,8 +151,8 @@ class Executor(ABC):
     """
 
     @abstractmethod
-    def register_tools(self, tools: list[BaseTool]) -> None:
-        """Register additional LangChain tools to be available during execution."""
+    def register_tools(self, tools: list[ToolClass]) -> None:
+        """Register additional tools to be available during execution."""
 
     @abstractmethod
     def drop_last_opa_group(self, cache: "Cache", n: int = 1) -> None:
