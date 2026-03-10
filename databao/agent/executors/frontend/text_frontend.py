@@ -40,7 +40,7 @@ class TextStreamFrontend:
 
     def write_message_chunk(self, chunk: BaseMessageChunk) -> None:
         if not isinstance(chunk, AIMessageChunk):
-            return  # Handle ToolMessage results in add_state_chunk
+            return  # Handle ToolMessage results in write_state_chunk
 
         reasoning_text = get_reasoning_content(chunk)
         text = reasoning_text + chunk.text
