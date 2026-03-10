@@ -20,10 +20,10 @@ from databao.agent.executors.frontend.text_frontend import TextStreamFrontend
 from databao.agent.executors.history_cleaning import clean_tool_history
 
 
-class GraphExecutor(Executor, ABC):
+class DuckDBExecutor[ToolClass](Executor[ToolClass], ABC):
     """
-    Base class for LangGraph executors that execute with a DuckDB connection and LLM configuration.
-    Provides common functionality for graph caching, message handling, and OPA processing.
+    Base class for executors that execute with a DuckDB connection and LLM configuration.
+    Provides common functionality for message handling and OPA processing.
     """
 
     def __init__(self, writer: TextIO | None = None) -> None:
@@ -33,16 +33,11 @@ class GraphExecutor(Executor, ABC):
             writer: Optional TextIO for streaming output. If provided, streaming
                     output will be written to this writer instead of stdout.
         """
-        self._graph_recursion_limit = 50
         self._writer = writer
         self._duckdb_connection: duckdb.DuckDBPyConnection = duckdb.connect(":memory:")
         self._registered_dbs: dict[str, DBDataSource] = {}
         self._registered_dfs: dict[str, DFDataSource] = {}
         self._registered_dbts: dict[str, DBTDataSource] = {}
-        self._extra_tools: dict[str, BaseTool] = {}
-        self._compiled_graph: CompiledStateGraph[Any] | None = None
-        self._compiled_tools_version: int = 0
-        self._compiled_at_version: int = -1
 
     def _init_sources_from_domain(self, domain: Domain, *, register_in_duckdb: bool = True) -> None:
         """Sync sources from the domain into the executor's registered dictionaries.
@@ -73,6 +68,27 @@ class GraphExecutor(Executor, ABC):
             if name not in self._registered_dbts:
                 self._registered_dbts[name] = dbt_source
 
+
+class GraphExecutor(DuckDBExecutor[BaseTool], ABC):
+    """
+    Base class for LangGraph executors that execute with a DuckDB connection and LLM configuration.
+    Provides common functionality for graph caching, message handling, and OPA processing.
+    """
+
+    def __init__(self, writer: TextIO | None = None) -> None:
+        """Initialize agent with graph caching infrastructure.
+
+        Args:
+            writer: Optional TextIO for streaming output. If provided, streaming
+                    output will be written to this writer instead of stdout.
+        """
+        super().__init__(writer)
+        self._extra_tools: dict[str, BaseTool] = {}
+        self._graph_recursion_limit = 50
+        self._compiled_graph: CompiledStateGraph[Any] | None = None
+        self._compiled_tools_version: int = 0
+        self._compiled_at_version: int = -1
+
     def register_tools(self, tools: list[BaseTool]) -> None:
         """Register additional LangChain tools and invalidate the cached compiled graph."""
         for t in tools:
@@ -98,18 +114,6 @@ class GraphExecutor(Executor, ABC):
             self._compiled_graph = self._compile_graph(llm_config, agent_config, domain, extra)
             self._compiled_at_version = self._compiled_tools_version
         return self._compiled_graph
-
-    def drop_last_opa_group(self, cache: Cache, n: int = 1) -> None:
-        """Drop last n groups of operations from the message history."""
-        messages = cache.get("state", default={}).get("messages", [])
-        human_messages = [m for m in messages if isinstance(m, HumanMessage)]
-        if len(human_messages) < n:
-            raise ValueError(f"Cannot drop last {n} operations - only {len(human_messages)} operations found.")
-        c = 0
-        while c < n:
-            m = messages.pop()
-            if isinstance(m, HumanMessage):
-                c += 1
 
     def _process_opas(self, opas: list[Opa], cache: Cache) -> list[Any]:
         """
