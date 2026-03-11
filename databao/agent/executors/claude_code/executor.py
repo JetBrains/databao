@@ -73,7 +73,7 @@ class ClaudeCodeExecutor(DuckDBExecutor[SdkMcpTool[Any]]):
 
         return prompt.strip()
 
-    def _process_opas(self, opas: list[Opa], cache: Cache) -> str:
+    def _process_opas(self, opas: list[Opa]) -> str:
         """
         Process a single opa and convert it to a message, appending to message history.
 
@@ -103,7 +103,7 @@ class ClaudeCodeExecutor(DuckDBExecutor[SdkMcpTool[Any]]):
             system_prompt=system_prompt,
             session_id=self._claude_session_id,
         ) as agent:
-            user_messages: str = self._process_opas(opas, cache)
+            user_messages: str = self._process_opas(opas)
             execution_result, self._claude_session_id = agent.ask(user_messages, stream=stream)
 
         return execution_result
