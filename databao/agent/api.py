@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, TextIO
+from typing import TextIO
 
 from typing_extensions import deprecated
 

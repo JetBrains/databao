@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import Any, Generic, TextIO
+from typing import Any, TextIO
 
 import duckdb
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
