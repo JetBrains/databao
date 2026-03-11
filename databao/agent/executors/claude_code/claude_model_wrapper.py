@@ -244,11 +244,14 @@ query_id: The ID of the query to submit.""",
         object so that they are compatible with the Experiment class and pack
         them into a SolverResult object.
         """
+        session_id = None
         message_log: list[BaseMessage] = []
         df_history: list[pd.DataFrame] = []
         sql_history: list[str] = []
         frontend = TextStreamFrontend({"messages": message_log}, writer=writer)
         for message in self.solve(prompt):
+            if isinstance(message, ClaudeSystemMessage):
+                session_id = message.data.get("session_id", "default")
             # Skip the final text-only ResultMessage, as the previous AssistantMessage already contains the text
             # of this message.
             if isinstance(message, ResultMessage):
@@ -279,7 +282,7 @@ query_id: The ID of the query to submit.""",
             meta={ExecutionResult.META_MESSAGES_KEY: message_log},
             code=sql_history[-1] if df_history else "",
             df=df_history[-1] if df_history else None,
-        )
+        ), session_id
 
 
 def _extract_sql_and_dataframe(message: UserMessage) -> tuple[str | None, pd.DataFrame | None]:
