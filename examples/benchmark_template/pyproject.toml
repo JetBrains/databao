@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "databao-benchmark-template"
+version = "0.1.0"
+description = "Template for building text-to-SQL benchmarks with databao"
+requires-python = ">=3.11"
+dependencies = [
+    "openai",
+    "ragas",
+    "datacompy",
+    "pandas",
+    "tabulate",
+    "sqlalchemy",
+]
+
+[project.optional-dependencies]
+databao = [
+    "databao-agent",
+]
+snowflake = [
+    "snowflake-sqlalchemy",
+    "cryptography",
+]
+langsmith = [
+    "langsmith",
+]
+
+[tool.setuptools]
+packages = ["benchmark"]

@@ -1,0 +1,2 @@
+user_input,gold_sql,difficulty
+What is 1+1?,SELECT 1+1 AS answer,easy
