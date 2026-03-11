@@ -289,7 +289,8 @@ query_id: The ID of the query to submit.""",
                     frontend.write_full_ai_message(lc_message)
                 frontend.write_stream_chunk("values", {"messages": message_log})
 
-        frontend.end()
+        if stream:
+            frontend.end()
 
         if submitted_query_result is None:
             # Fallback to the last executed query if no query was submitted
