@@ -8,11 +8,13 @@ from databao.agent.configs.agent import DEFAULT_AGENT_CONFIG, AgentConfig
 from databao.agent.configs.llm import LLMConfig, LLMConfigDirectory
 from databao.agent.core import Agent, Cache, Executor, Visualizer
 from databao.agent.core.domain import Domain, _DCEProjectDomain, _InMemoryDomain
-from databao.agent.executors import ReactDuckDBExecutor
-from databao.agent.executors.claude_code.executor import ClaudeCodeExecutor
+from databao.agent.executors import (
+    ClaudeCodeExecutor,
+    DbtProjectExecutor,
+    LighthouseExecutor,
+    ReactDuckDBExecutor,
+)
 from databao.agent.executors.dbt.config import DbtConfig
-from databao.agent.executors.dbt.executor import DbtProjectExecutor
-from databao.agent.executors.lighthouse.executor import LighthouseExecutor
 from databao.agent.visualizers.vega_chat import VegaChatVisualizer
 
 
