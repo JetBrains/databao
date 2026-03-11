@@ -8,10 +8,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import config
 import pandas as pd
 from ragas import Dataset, experiment
 
-import config
 from benchmark.helpers import must_env
 from benchmark.metrics import make_metrics
 
@@ -63,7 +63,7 @@ def print_summary(results: pd.DataFrame, model_name: str) -> None:
     if "time_s" in results.columns:
         times = results["time_s"].dropna()
         if len(times) > 0:
-            print(f"\n  Timing (seconds):")
+            print("\n  Timing (seconds):")
             print(f"    Mean:   {times.mean():.1f}")
             print(f"    Median: {times.median():.1f}")
             print(f"    P95:    {times.quantile(0.95):.1f}")
@@ -76,7 +76,7 @@ def print_summary(results: pd.DataFrame, model_name: str) -> None:
         subset = results[results["difficulty"] == difficulty]
         total_d = len(subset)
         judge_ok_d = int(subset["llm_judge"].isin(["correct", "partially"]).sum())
-        print(f"  {str(difficulty):<8} — Judge: {judge_ok_d}/{total_d}")
+        print(f"  {difficulty!s:<8} — Judge: {judge_ok_d}/{total_d}")
 
     if "domain" in results.columns:
         print()
@@ -85,7 +85,7 @@ def print_summary(results: pd.DataFrame, model_name: str) -> None:
             subset = results[results["domain"] == domain]
             total_dom = len(subset)
             judge_ok_dom = int(subset["llm_judge"].isin(["correct", "partially"]).sum())
-            print(f"  {str(domain):<8} — Judge: {judge_ok_dom}/{total_dom}")
+            print(f"  {domain!s:<8} — Judge: {judge_ok_dom}/{total_dom}")
 
 
 def run_benchmark(

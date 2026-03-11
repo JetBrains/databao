@@ -111,6 +111,7 @@ allow_redefinition_new = true
 local_partial_types = true
 explicit_package_bases = true
 files = ["databao", "tests", "examples"]
+exclude = ["examples/benchmark_template/"]
 plugins = ["pydantic.mypy", "sqlalchemy.ext.mypy.plugin"]
 
 [tool.ruff]

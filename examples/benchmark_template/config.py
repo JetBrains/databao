@@ -27,14 +27,14 @@ DUCKDB_PATH = ""  # path to your .duckdb file
 # --- Snowflake ---
 # Only used when DATABASE_TYPE = "snowflake"
 # Install Snowflake support: pip install -e ".[snowflake]"
-SNOWFLAKE_AUTH = "password"          # "password", "key_pair", or "sso"
+SNOWFLAKE_AUTH = "password"  # "password", "key_pair", or "sso"
 SNOWFLAKE_USER = ""
-SNOWFLAKE_ACCOUNT = ""               # e.g. "xy12345.us-east-1"
+SNOWFLAKE_ACCOUNT = ""  # e.g. "xy12345.us-east-1"
 SNOWFLAKE_DATABASE = ""
 SNOWFLAKE_SCHEMA = ""
-SNOWFLAKE_WAREHOUSE = ""             # optional
-SNOWFLAKE_PASSWORD = ""              # for "password" auth
-SNOWFLAKE_PRIVATE_KEY_PATH = ""      # for "key_pair" auth (path to PEM file)
+SNOWFLAKE_WAREHOUSE = ""  # optional
+SNOWFLAKE_PASSWORD = ""  # for "password" auth
+SNOWFLAKE_PRIVATE_KEY_PATH = ""  # for "key_pair" auth (path to PEM file)
 
 # -------------------------------------------------------------------
 # Benchmark settings

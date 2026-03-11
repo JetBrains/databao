@@ -35,6 +35,7 @@ class DuckDBRunner:
 
     def execute_sql(self, sql: str) -> tuple[bool, pd.DataFrame | str]:
         import duckdb
+
         try:
             conn = duckdb.connect(self.db_path)
             df = conn.execute(sql).fetchdf()
@@ -74,9 +75,7 @@ class SnowflakeRunner:
             from cryptography.hazmat.primitives import serialization
 
             with open(private_key_path, "rb") as f:
-                private_key = serialization.load_pem_private_key(
-                    f.read(), password=None, backend=default_backend()
-                )
+                private_key = serialization.load_pem_private_key(f.read(), password=None, backend=default_backend())
             connect_args["private_key"] = private_key.private_bytes(
                 encoding=serialization.Encoding.DER,
                 format=serialization.PrivateFormat.PKCS8,
@@ -133,8 +132,9 @@ def create_databao_domain(runner=None):
     Args:
         runner: An existing runner (from create_runner()). If None, creates one.
     """
-    import databao.agent as bao
     import config
+
+    import databao.agent as bao
 
     if runner is None:
         runner = create_runner()
@@ -150,12 +150,15 @@ def create_databao_domain(runner=None):
         auth_method = config.SNOWFLAKE_AUTH.lower()
         if auth_method == "key_pair":
             from databao_context_engine import SnowflakeKeyPairAuth
+
             auth = SnowflakeKeyPairAuth(private_key_file=config.SNOWFLAKE_PRIVATE_KEY_PATH)
         elif auth_method == "password":
             from databao_context_engine import SnowflakePasswordAuth
+
             auth = SnowflakePasswordAuth(password=config.SNOWFLAKE_PASSWORD)
         elif auth_method == "sso":
             from databao_context_engine import SnowflakeSSOAuth
+
             auth = SnowflakeSSOAuth()
         else:
             raise ValueError(f"Unknown SNOWFLAKE_AUTH: {auth_method!r}")
@@ -173,6 +176,7 @@ def create_databao_domain(runner=None):
         # Create a fresh DuckDB connection for databao. Don't specify name=
         # because DuckDB auto-names the database from the file path.
         import duckdb
+
         domain.add_db(duckdb.connect(config.DUCKDB_PATH))
     else:
         # For Postgres, MySQL, SQLite, BigQuery, etc. -- pass the SQLAlchemy engine.

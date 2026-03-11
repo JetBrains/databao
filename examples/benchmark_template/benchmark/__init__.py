@@ -5,16 +5,16 @@ from benchmark.core import (
     run_benchmark,
     run_benchmark_cli,
 )
-from benchmark.db import SQLAlchemyRunner, DuckDBRunner, SnowflakeRunner, create_runner, create_databao_domain
+from benchmark.db import DuckDBRunner, SnowflakeRunner, SQLAlchemyRunner, create_databao_domain, create_runner
 from benchmark.helpers import df_to_markdown, must_env
 from benchmark.metrics import make_metrics
 
 __all__ = [
-    "SQLAlchemyRunner",
     "DuckDBRunner",
+    "SQLAlchemyRunner",
     "SnowflakeRunner",
-    "create_runner",
     "create_databao_domain",
+    "create_runner",
     "df_to_markdown",
     "load_benchmark_dataset",
     "make_benchmark_cli",

@@ -8,11 +8,11 @@ Setup:
 import asyncio
 from pathlib import Path
 
+from benchmark.core import make_benchmark_cli, run_benchmark, run_benchmark_cli
+from benchmark.db import create_databao_domain, create_runner
+
 import databao.agent as bao
 from databao.agent import LLMConfig
-
-from benchmark.core import make_benchmark_cli, run_benchmark, run_benchmark_cli
-from benchmark.db import create_runner, create_databao_domain
 
 DEFAULT_SQL_MODEL = "gpt-5.4"
 

@@ -3,11 +3,11 @@ from __future__ import annotations
 import json
 import os
 
+import config
 from openai import AsyncOpenAI
 from ragas.metrics.discrete import discrete_metric
 from ragas.metrics.result import MetricResult
 
-import config
 from benchmark.helpers import df_to_markdown
 
 try:
@@ -22,6 +22,7 @@ def _apply_langsmith_config() -> None:
         value = getattr(config, key, None)
         if value and key not in os.environ:
             os.environ[key] = value
+
 
 LLM_JUDGE_PROMPT = """Compare `Generated Dataframe` to `Gold Dataframe` to check if the Question was answered correctly.
 
