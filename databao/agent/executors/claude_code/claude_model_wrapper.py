@@ -65,7 +65,7 @@ class ClaudeModelWrapper:
         connection: DuckDBPyConnection,
         system_prompt: str,
         append_system_prompt: bool = True,
-        session_id: str ,
+        session_id: str | None = None,
     ):
         self._duckdb_connection = connection
         self.config = config
@@ -239,13 +239,13 @@ query_id: The ID of the query to submit.""",
         *,
         stream: bool = False,
         writer: TextIO | None = None,
-    ) -> tuple[ExecutionResult, str]:
+    ) -> tuple[ExecutionResult, str | None]:
         """
         Iterate through the messages from claude, cast them into BaseMessage
         object so that they are compatible with the Experiment class and pack
         them into a SolverResult object.
         """
-        session_id = None
+        session_id: str | None = None
         message_log: list[BaseMessage] = []
         df_history: list[pd.DataFrame] = []
         sql_history: list[str] = []
