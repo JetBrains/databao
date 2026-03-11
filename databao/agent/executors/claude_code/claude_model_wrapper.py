@@ -65,13 +65,13 @@ class ClaudeModelWrapper:
         connection: DuckDBPyConnection,
         system_prompt: str,
         append_system_prompt: bool = True,
+        session_id: str ,
     ):
         self._duckdb_connection = connection
         self.config = config
         self.sdk_mcp_tools = self._build_tools()
         self._tool_server_name = Path(__file__).stem + "_mcp_server"
         self.mcp_tool_names = [f"mcp__{self._tool_server_name}__{t.name}" for t in self.sdk_mcp_tools]
-
         self.options = ClaudeAgentOptions(
             max_turns=_DEFAULT_MAX_TURNS,
             cwd=".",
@@ -79,6 +79,7 @@ class ClaudeModelWrapper:
             model=self.config.name,
             mcp_servers={self._tool_server_name: self._build_tool_server()},
             permission_mode="acceptEdits",
+            resume=session_id,
             system_prompt=system_prompt
             if not append_system_prompt
             else SystemPromptPreset(
@@ -238,7 +239,7 @@ query_id: The ID of the query to submit.""",
         *,
         stream: bool = False,
         writer: TextIO | None = None,
-    ) -> ExecutionResult:
+    ) -> tuple[ExecutionResult, str]:
         """
         Iterate through the messages from claude, cast them into BaseMessage
         object so that they are compatible with the Experiment class and pack
