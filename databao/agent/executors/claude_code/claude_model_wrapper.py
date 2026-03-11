@@ -259,8 +259,10 @@ query_id: The ID of the query to submit.""",
         submitted_query_result: QueryResult | None = None
         frontend = TextStreamFrontend({"messages": message_log}, writer=writer)
         for message in self.solve(prompt):
-            if isinstance(message, ClaudeSystemMessage):
+            if isinstance(message, ClaudeSystemMessage) and session_id is None:
+                # Child subagents have their own system messages, but we want the parent one only
                 session_id = message.data.get("session_id", "default")
+
             # Skip the final text-only ResultMessage, as the previous AssistantMessage already contains the text
             # of this message.
             if isinstance(message, ResultMessage):
