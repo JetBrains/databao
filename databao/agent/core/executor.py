@@ -2,7 +2,7 @@ import base64
 import logging
 import re
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, TextIO, TypeVar
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, TextIO
 
 from pandas import DataFrame
 from pydantic import BaseModel, ConfigDict
