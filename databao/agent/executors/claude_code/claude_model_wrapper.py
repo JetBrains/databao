@@ -87,6 +87,7 @@ class ClaudeModelWrapper:
         self._query_cache: dict[int, QueryResult] = {}
         self._ready_event: threading.Event
         self._exit_event: asyncio.Event
+        self._visualization_prompt: str | None = None
 
     def __enter__(self) -> "ClaudeModelWrapper":
         self._loop = asyncio.new_event_loop()
@@ -160,11 +161,13 @@ user's question.
 
 Args:
 query_id: The ID of the query to submit.""",
-            {"query_id": int},
+            {"query_id": int, "visualization_prompt": str},
             annotations=ToolAnnotations(readOnlyHint=True),
         )
         async def submit_query_id(args: dict[str, Any]) -> dict[str, Any]:
             query_id: int | None = args.get("query_id")
+            self._visualization_prompt = args.get("visualization_prompt")
+
             if query_id not in self._query_cache:
                 return {"content": [{"type": "text", "text": json.dumps({"error": f"Query id {query_id} not found"})}]}
             return {"content": [{"type": "text", "text": json.dumps({"query_id": query_id})}]}
@@ -301,7 +304,10 @@ query_id: The ID of the query to submit.""",
 
         return ExecutionResult(
             text=message_log[-1].text if message_log else "",
-            meta={ExecutionResult.META_MESSAGES_KEY: message_log},
+            meta={
+                "visualization_prompt": self._visualization_prompt,
+                ExecutionResult.META_MESSAGES_KEY: message_log,
+            },
             code=submitted_query_result.sql if submitted_query_result else "",
             df=submitted_query_result.df if submitted_query_result else None,
         ), session_id
