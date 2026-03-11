@@ -17,7 +17,7 @@ from databao.agent.executors.prompt import build_context_text, get_today_date_st
 _LOGGER = logging.getLogger(__name__)
 
 
-class ClaudeCodeExecutor(DuckDBExecutor[SdkMcpTool[Any]]):
+class ClaudeCodeExecutor(DuckDBExecutor):
     def __init__(self, writer: Any = None) -> None:
         super().__init__(writer=writer)
         self._prompt_template = load_prompt_template("databao.agent.executors.claude_code", "system_prompt.jinja")

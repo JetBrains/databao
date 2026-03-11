@@ -13,14 +13,14 @@ from databao.agent.configs.llm import LLMConfig
 from databao.agent.core import Cache
 from databao.agent.core.data_source import DBDataSource, DBTDataSource, DFDataSource, Sources
 from databao.agent.core.domain import Domain, _Domain
-from databao.agent.core.executor import ExecutionResult, Executor, OutputModalityHints, ToolClass
+from databao.agent.core.executor import ExecutionResult, Executor, OutputModalityHints
 from databao.agent.core.opa import Opa
 from databao.agent.databases import register_db_in_duckdb
 from databao.agent.executors.frontend.text_frontend import TextStreamFrontend
 from databao.agent.executors.history_cleaning import clean_tool_history
 
 
-class DuckDBExecutor(Executor[ToolClass], Generic[ToolClass], ABC):
+class DuckDBExecutor(Executor, ABC):
     """
     Base class for executors that execute with a DuckDB connection and LLM configuration.
     Provides common functionality for message handling and OPA processing.
@@ -69,7 +69,7 @@ class DuckDBExecutor(Executor[ToolClass], Generic[ToolClass], ABC):
                 self._registered_dbts[name] = dbt_source
 
 
-class GraphExecutor(DuckDBExecutor[BaseTool], ABC):
+class GraphExecutor(DuckDBExecutor, ABC):
     """
     Base class for LangGraph executors that execute with a DuckDB connection and LLM configuration.
     Provides common functionality for graph caching, message handling, and OPA processing.

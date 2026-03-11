@@ -138,10 +138,7 @@ class ExecutionResult(BaseModel):
         return mimebundle
 
 
-ToolClass = TypeVar("ToolClass")
-
-
-class Executor(Generic[ToolClass], ABC):
+class Executor(ABC):
     """
     Defines the Executor interface as an abstract base class for execution of
     operations within a given agent.
@@ -151,7 +148,7 @@ class Executor(Generic[ToolClass], ABC):
     """
 
     @abstractmethod
-    def register_tools(self, tools: list[ToolClass]) -> None:
+    def register_tools(self, tools: list[Any]) -> None:
         """Register additional tools to be available during execution."""
 
     @abstractmethod

@@ -22,7 +22,7 @@ def agent(
     name: str | None = None,
     llm_config: LLMConfig | None = None,
     agent_config: AgentConfig | None = None,
-    data_executor: Executor[Any] | None = None,
+    data_executor: Executor | None = None,
     visualizer: Visualizer | None = None,
     cache: Cache | None = None,
     rows_limit: int = 1000,
@@ -84,7 +84,7 @@ def domain(project_dir: str | Path | None = None) -> Domain:
 def new_agent(
     name: str | None = None,
     llm_config: LLMConfig | None = None,
-    data_executor: Executor[Any] | None = None,
+    data_executor: Executor | None = None,
     visualizer: Visualizer | None = None,
     cache: Cache | None = None,
     rows_limit: int = 1000,

@@ -35,7 +35,7 @@ class Agent:
         domain: "Domain",
         llm: "LLMConfig",
         agent_config: "AgentConfig",
-        data_executor: "Executor[Any]",
+        data_executor: "Executor",
         visualizer: "Visualizer",
         cache: "Cache",
         *,
@@ -55,7 +55,7 @@ class Agent:
         self.__llm_config = llm
         self.__agent_config = agent_config
 
-        self.__executor: Executor[Any] = data_executor
+        self.__executor: Executor = data_executor
         self.__visualizer = visualizer
         self.__cache = cache
         self.__mcp: McpManager = McpManager()
@@ -222,7 +222,7 @@ class Agent:
         return self.__agent_config
 
     @property
-    def executor(self) -> "Executor[Any]":
+    def executor(self) -> "Executor":
         return self.__executor
 
     @property
