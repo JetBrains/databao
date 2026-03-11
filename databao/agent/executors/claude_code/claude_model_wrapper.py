@@ -32,7 +32,6 @@ from databao.agent.executors.lighthouse.graph import RUN_SQL_QUERY_TOOL_DESCRIPT
 from databao.agent.executors.utils import run_sql_query
 
 _LOGGER = logging.getLogger(__name__)
-_DEFAULT_MAX_TURNS = 100
 
 
 @dataclass
@@ -59,6 +58,7 @@ class ClaudeModelWrapper:
         append_system_prompt: bool = True,
         session_id: str | None = None,
         limit_max_rows: int | None = None,
+        max_turns: int | None = 100,
     ):
         self._duckdb_connection = connection
         self._limit_max_rows = limit_max_rows
@@ -68,7 +68,7 @@ class ClaudeModelWrapper:
         self.mcp_tool_names = [self._get_full_tool_name(t.name) for t in self.sdk_mcp_tools]
 
         self.options = ClaudeAgentOptions(
-            max_turns=_DEFAULT_MAX_TURNS,
+            max_turns=max_turns,
             cwd=".",
             allowed_tools=self.mcp_tool_names,
             model=self.config.name,
