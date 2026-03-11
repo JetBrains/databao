@@ -80,10 +80,8 @@ class ClaudeCodeExecutor(DuckDBExecutor[SdkMcpTool[Any]]):
         Returns:
             All messages including the new one
         """
-        messages: list[Any] = cache.get("state", {}).get("messages", [])
         query = "\n\n".join(opa.query for opa in opas)
-        messages.append(query)
-        return "\n".join(messages)
+        return query
 
     def execute(
         self,
