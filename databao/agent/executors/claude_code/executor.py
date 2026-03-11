@@ -24,6 +24,7 @@ class ClaudeCodeExecutor(DuckDBExecutor[SdkMcpTool[Any]]):
 
         self._max_columns_per_table: int | None = None
         self._max_schema_summary_length: int | None = 250_000  # 1 token ~= 4 characters
+        self._claude_session_id: str | None = None
 
     def register_tools(self, tools: list[SdkMcpTool[Any]]) -> None:
         """Register additional tools to be available during execution."""
@@ -99,9 +100,11 @@ class ClaudeCodeExecutor(DuckDBExecutor[SdkMcpTool[Any]]):
         self._init_sources_from_domain(domain)
         system_prompt = self.render_system_prompt(self._duckdb_connection, domain, agent_config.recursion_limit)
         with ClaudeModelWrapper(
-            config=llm_config, connection=self._duckdb_connection, system_prompt=system_prompt
+            config=llm_config, connection=self._duckdb_connection, system_prompt=system_prompt, session_id=self._claude_session_id
         ) as agent:
             user_messages: str = self._process_opas(opas, cache)
-            execution_result = agent.ask(user_messages, stream=stream)
+            execution_result, self._claude_session_id = agent.ask(user_messages, stream=stream)
+
+
 
         return execution_result
