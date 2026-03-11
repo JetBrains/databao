@@ -66,7 +66,13 @@ def tool_call(block: ClaudeToolUseBlock) -> ToolCall:
 
 
 def tool_call_result(contents: list[ClaudeToolResultBlock]) -> dict[str, Any]:
-    return dict(tool_call_id=contents[0].tool_use_id, content_blocks=[content.content for content in contents])
+    content: list[str | dict[str, Any]] = []
+    for block in contents:
+        if isinstance(block.content, str):
+            content.append(block.content)
+        elif isinstance(block.content, list):
+            content.extend(block.content)
+    return dict(tool_call_id=contents[0].tool_use_id, content=content)
 
 
 def claude_message(input_: Any) -> Any:
