@@ -55,7 +55,7 @@ class ClaudeModelWrapper:
         config: LLMConfig,
         connection: DuckDBPyConnection,
         system_prompt: str,
-        append_system_prompt: bool = True,
+        append_system_prompt: bool = False,
         session_id: str | None = None,
         limit_max_rows: int | None = None,
         max_turns: int | None = 100,
