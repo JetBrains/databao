@@ -48,9 +48,6 @@ class ClaudeModelWrapper:
     DISPLAY_CELL_CHAR_LIMIT = 1024
     """Max number of characters a dataframe cell can have before it is trimmed."""
 
-    SQL_ROW_LIMIT = None
-    """Max number of rows to return in SQL tool calls."""
-
     __runtime_mcp_server: McpSdkServerConfig | None = None
 
     def __init__(
@@ -61,8 +58,10 @@ class ClaudeModelWrapper:
         system_prompt: str,
         append_system_prompt: bool = True,
         session_id: str | None = None,
+        limit_max_rows: int | None = None,
     ):
         self._duckdb_connection = connection
+        self._limit_max_rows = limit_max_rows
         self.config = config
         self.sdk_mcp_tools = self._build_tools()
         self._tool_server_name = Path(__file__).stem + "_mcp_server"
@@ -131,7 +130,7 @@ class ClaudeModelWrapper:
             result = run_sql_query(
                 args.get("sql", ""),
                 con=self._duckdb_connection,
-                sql_row_limit=self.SQL_ROW_LIMIT,
+                sql_row_limit=self._limit_max_rows,
                 display_row_limit=self.DISPLAY_ROW_LIMIT,
                 display_cell_char_limit=self.DISPLAY_CELL_CHAR_LIMIT,
             )
