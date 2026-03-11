@@ -4,7 +4,7 @@ import logging
 import queue
 import threading
 from collections.abc import Generator
-from io import StringIO
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, TextIO
 
@@ -14,11 +14,10 @@ from claude_agent_sdk import (
     ClaudeAgentOptions,
     ClaudeSDKClient,
     SdkMcpTool,
-    UserMessage,
     create_sdk_mcp_server,
     tool,
 )
-from claude_agent_sdk.types import McpSdkServerConfig, ResultMessage, SystemPromptPreset, ToolResultBlock
+from claude_agent_sdk.types import McpSdkServerConfig, ResultMessage, SystemPromptPreset
 from claude_agent_sdk.types import Message as ClaudeMessage
 from claude_agent_sdk.types import SystemMessage as ClaudeSystemMessage
 from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
@@ -27,6 +26,7 @@ from mcp.types import ToolAnnotations
 from databao.agent.configs.llm import LLMConfig
 from databao.agent.core.executor import ExecutionResult
 from databao.agent.executors.claude_code.utils import cast_claude_message_to_langchain_message
+from databao.agent.executors.frontend.messages import get_tool_call
 from databao.agent.executors.frontend.text_frontend import TextStreamFrontend
 from databao.agent.executors.lighthouse.graph import RUN_SQL_QUERY_TOOL_DESCRIPTION
 from databao.agent.executors.utils import run_sql_query
@@ -44,6 +44,12 @@ ReadMcpResourceTool {{ mcp_resources_urls|join(" ") }}
 {% endif %}
 {% endfilter %}
 """
+
+
+@dataclass
+class QueryResult:
+    sql: str
+    df: pd.DataFrame
 
 
 class ClaudeModelWrapper:
@@ -71,7 +77,8 @@ class ClaudeModelWrapper:
         self.config = config
         self.sdk_mcp_tools = self._build_tools()
         self._tool_server_name = Path(__file__).stem + "_mcp_server"
-        self.mcp_tool_names = [f"mcp__{self._tool_server_name}__{t.name}" for t in self.sdk_mcp_tools]
+        self.mcp_tool_names = [self._get_full_tool_name(t.name) for t in self.sdk_mcp_tools]
+
         self.options = ClaudeAgentOptions(
             max_turns=_DEFAULT_MAX_TURNS,
             cwd=".",
@@ -89,7 +96,7 @@ class ClaudeModelWrapper:
             ),
         )
         self.client = ClaudeSDKClient(options=self.options)
-        self._query_cache: dict[int, tuple[str, str]] = {}
+        self._query_cache: dict[int, QueryResult] = {}
         self._ready_event: threading.Event
         self._exit_event: asyncio.Event
 
@@ -116,6 +123,9 @@ class ClaudeModelWrapper:
         self._loop.call_soon_threadsafe(self._loop.stop)
         self._thread.join()
 
+    def _get_full_tool_name(self, tool_name: str) -> str:
+        return f"mcp__{self._tool_server_name}__{tool_name}"
+
     def _build_tools(self) -> list[SdkMcpTool[Any]]:
         # Set read only hints to enable parallel tool execution
         # (see https://platform.claude.com/docs/en/agent-sdk/agent-loop#parallel-tool-execution)
@@ -139,12 +149,12 @@ class ClaudeModelWrapper:
             if "error" in result:
                 return {"content": [{"type": "text", "text": json.dumps(result, default=str)}]}
 
-            result_for_llm = {"sql": args.get("sql", ""), "csv": result.get("csv", "")}
+            result_for_llm: dict[str, Any] = {"csv": result.get("csv", "")}
 
             if (sql := result.get("sql")) and (df := result.get("df")) is not None:
                 query_id = len(self._query_cache) + 1
-                self._query_cache[query_id] = sql, df.to_csv(index=False)
-                result_for_llm |= {"query_id": query_id}
+                self._query_cache[query_id] = QueryResult(sql=sql, df=df)
+                result_for_llm["query_id"] = query_id
 
             return {"content": [{"type": "text", "text": json.dumps(result_for_llm, default=str)}]}
 
@@ -169,8 +179,7 @@ query_id: The ID of the query to submit.""",
             query_id: int | None = args.get("query_id")
             if query_id not in self._query_cache:
                 return {"content": [{"type": "text", "text": json.dumps({"error": f"Query id {query_id} not found"})}]}
-            sql, csv = self._query_cache[query_id]
-            return {"content": [{"type": "text", "text": json.dumps({"sql": sql, "csv": csv})}]}
+            return {"content": [{"type": "text", "text": json.dumps({"query_id": query_id})}]}
 
         tools.append(submit_query_id)
 
@@ -204,6 +213,17 @@ query_id: The ID of the query to submit.""",
                 f"The following mcp tools are not available: {missing_tools}. "
                 "Check the connection to the mcp servers by running /mcp in the claude console."
             )
+
+    def _get_tool_query_id_results(self, message: ToolMessage) -> QueryResult | None:
+        try:
+            payload = json.loads(message.text)
+        except json.JSONDecodeError as e:
+            _LOGGER.warning("Failed to parse tool call payload: %s", message.text, exc_info=e)
+            payload = {}
+        query_id = payload.get("query_id")
+        if query_id is not None:
+            return self._query_cache.get(query_id)
+        return None
 
     def solve(self, prompt: str) -> Generator[ClaudeMessage, None, None]:
         _LOGGER.info(f"Querying {prompt}")
@@ -246,9 +266,9 @@ query_id: The ID of the query to submit.""",
         them into a SolverResult object.
         """
         session_id: str | None = None
+        max_init_query_id = max(self._query_cache) if self._query_cache else 0
         message_log: list[BaseMessage] = []
-        df_history: list[pd.DataFrame] = []
-        sql_history: list[str] = []
+        submitted_query_result: QueryResult | None = None
         frontend = TextStreamFrontend({"messages": message_log}, writer=writer)
         for message in self.solve(prompt):
             if isinstance(message, ClaudeSystemMessage):
@@ -258,60 +278,39 @@ query_id: The ID of the query to submit.""",
             if isinstance(message, ResultMessage):
                 continue
 
-            langchain_message = cast_claude_message_to_langchain_message(message)
+            lc_message = cast_claude_message_to_langchain_message(message)
 
-            if isinstance(message, UserMessage):
-                sql, df = _extract_sql_and_dataframe(message)
-                if sql:
-                    sql_history.append(sql)
-                if df is not None:
-                    df_history.append(df)
-                    if isinstance(langchain_message, ToolMessage):
-                        langchain_message.artifact = {"df": df}  # To show the df when streaming
+            if isinstance(lc_message, ToolMessage):
+                tool_call = get_tool_call(message_log, lc_message)
+                if tool_call is not None:
+                    if tool_call["name"] == self._get_full_tool_name("run_sql_query"):  # noqa: SIM102
+                        if query_result := self._get_tool_query_id_results(lc_message):
+                            lc_message.artifact = {
+                                "sql": query_result.sql,
+                                "df": query_result.df,
+                            }  # To show when streaming
+                    if tool_call["name"] == self._get_full_tool_name("submit_query_id"):  # noqa: SIM102
+                        if query_result := self._get_tool_query_id_results(lc_message):
+                            submitted_query_result = query_result
 
-            message_log.append(langchain_message)
+            message_log.append(lc_message)
 
             if stream:
-                if isinstance(langchain_message, AIMessage):
-                    frontend.write_full_ai_message(langchain_message)
+                if isinstance(lc_message, AIMessage):
+                    frontend.write_full_ai_message(lc_message)
                 frontend.write_stream_chunk("values", {"messages": message_log})
 
         frontend.end()
 
+        if submitted_query_result is None:
+            # Fallback to the last executed query if no query was submitted
+            max_query_id = max(self._query_cache) if self._query_cache else 0
+            if max_query_id > max_init_query_id:
+                submitted_query_result = self._query_cache[max_query_id]
+
         return ExecutionResult(
             text=message_log[-1].text if message_log else "",
             meta={ExecutionResult.META_MESSAGES_KEY: message_log},
-            code=sql_history[-1] if df_history else "",
-            df=df_history[-1] if df_history else None,
+            code=submitted_query_result.sql if submitted_query_result else "",
+            df=submitted_query_result.df if submitted_query_result else None,
         ), session_id
-
-
-def _extract_sql_and_dataframe(message: UserMessage) -> tuple[str | None, pd.DataFrame | None]:
-    # TODO remove this!!!!! and return full df
-    for result_block in message.content:
-        if not isinstance(result_block, ToolResultBlock):
-            continue
-        if not isinstance(result_block.content, list) or not result_block.content:
-            continue
-
-        last_output = result_block.content[-1]
-        if not isinstance(last_output, dict):
-            continue
-
-        raw_text = last_output.get("text", "")
-
-        try:
-            payload = json.loads(raw_text)
-        except json.JSONDecodeError:
-            continue
-
-        sql = payload.get("sql")
-
-        df = None
-        csv_data = payload.get("csv")
-        if csv_data:
-            df = pd.read_csv(StringIO(csv_data))
-
-        return sql, df
-
-    return None, None
