@@ -34,17 +34,6 @@ from databao.agent.executors.utils import run_sql_query
 _LOGGER = logging.getLogger(__name__)
 _DEFAULT_MAX_TURNS = 100
 
-_QUESTION_TEMPLATE_STR = """{% filter replace("\n", " ") %}
-{{ question }}
-{% if mcp_prompt_name %}
-{{ mcp_prompt_name }}{% if mcp_prompt_inputs %} "{{ mcp_prompt_inputs|join(\'" "\') }}"{% endif %}
-{% endif %}
-{% if mcp_resources_urls %}
-ReadMcpResourceTool {{ mcp_resources_urls|join(" ") }}
-{% endif %}
-{% endfilter %}
-"""
-
 
 @dataclass
 class QueryResult:
