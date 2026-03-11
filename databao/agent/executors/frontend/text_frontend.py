@@ -99,7 +99,10 @@ class TextStreamFrontend:
                 tool_call = get_tool_call(messages, message)
                 tool_name = tool_call["name"] if tool_call is not None else "unknown"
                 self.write(f"\n[tool_call_output: '{tool_name}']")
-                self.write(f"\n```\n{message.text.strip()}\n```\n\n")
+                tool_output = message.text.strip()
+                if not tool_output:
+                    tool_output = str(message.content)  # Fallback to the raw content
+                self.write(f"\n```\n{tool_output}\n```\n\n")
                 if message.artifact is not None and isinstance(message.artifact, dict):
                     for art_name, art_value in message.artifact.items():
                         if isinstance(art_value, pd.DataFrame):
