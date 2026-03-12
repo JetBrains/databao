@@ -3,9 +3,14 @@ from typing import Any
 
 import pandas as pd
 from _duckdb import DuckDBPyConnection
+from databao_context_engine import ContextSearchResult
+from langchain_core.language_models import BaseChatModel
 
+from databao.agent.core.domain import _DCEProjectDomain
 from databao.agent.duckdb.react_tools import execute_duckdb_sql
 from databao.agent.executors.frontend.text_frontend import dataframe_to_markdown
+from databao.agent.executors.query_expansion import expand_queries, QueryExpansionConfig, reciprocal_rank_fusion
+from databao.agent.integrations.dce import DatabaoContextApi
 
 
 def exception_to_string(e: Exception | str) -> str:
@@ -67,3 +72,67 @@ def run_sql_query(
         return {"df": df, "sql": sql, "csv": df_csv, "markdown": df_markdown}
     except Exception as e:
         return {"error": exception_to_string(e)}
+
+
+def search_context(query: str, *, domain: _DCEProjectDomain) -> list[dict[str, Any]]:
+    """Search the context for relevant information matching the given query text.
+    Args:
+        query: Natural language query to search the context for relevant results.
+        domain: The domain object to use to search the context.
+    """
+    search_result_list = domain.search_context(query, datasource_name=None)
+    return list(map(_search_result_to_dict, search_result_list))
+
+
+def search_context_with_query_expansion(
+    retrieve_text: str,
+    *,
+    domain: _DCEProjectDomain,
+    expansion_llm: BaseChatModel,
+    expansion_config: QueryExpansionConfig,
+    datasource_name: str | None = None,
+    datasource_type: str | None = None,
+) -> list[dict[str, Any]]:
+    """Search the context for relevant information matching the given query text.
+
+    Internally expands the query into multiple retrieval-friendly variants adapted
+    to the datasource naming conventions, then merges results via rank fusion.
+
+    Args:
+        retrieve_text: Natural language query to search the context for relevant results.
+        domain: The domain object to use to search the context.
+        expansion_llm: The llm used to expand the query.
+        expansion_config: The configuration for query expansion.
+        datasource_name: Optional datasource name to restrict the search to a specific data source.
+        datasource_type: Optional datasource type hint (e.g. "dbt", "snowflake", "postgres").
+            Used to adapt query expansion to the naming conventions of the target system.
+    """
+    queries = expand_queries(
+        retrieve_text,
+        expansion_llm,
+        expansion_config,
+        datasource_type=datasource_type or "sql",
+    )
+
+    ranked_lists: list[list[dict[str, Any]]] = []
+    for q in queries:
+        results = domain.search_context(q, datasource_name=datasource_name)
+        ranked_lists.append(list(map(_search_result_to_dict, results)))
+
+    if len(ranked_lists) <= 1:
+        return ranked_lists[0] if ranked_lists else []
+
+    return reciprocal_rank_fusion(ranked_lists, k=expansion_config.rrf_k)
+
+
+def _search_result_to_dict(search_result: ContextSearchResult) -> dict[str, Any]:
+    return {
+        "data_source_name": _get_ds_name(search_result),
+        "score": search_result.score,
+        "context_result": search_result.context_result,
+    }
+
+
+def _get_ds_name(search_result: ContextSearchResult) -> str:
+    ds_id = search_result.datasource_id
+    return DatabaoContextApi.get_datasource_name(ds_id)
