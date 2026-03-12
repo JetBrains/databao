@@ -7,7 +7,7 @@ from duckdb import DuckDBPyConnection
 from databao.agent.configs import LLMConfig
 from databao.agent.configs.agent import AgentConfig
 from databao.agent.core import Cache, Domain, ExecutionResult, Opa
-from databao.agent.core.domain import _Domain
+from databao.agent.core.domain import _Domain, _DCEProjectDomain
 from databao.agent.databases.databases import db_type as get_db_type
 from databao.agent.executors import LighthouseExecutor
 from databao.agent.executors.base import DuckDBExecutor
@@ -59,7 +59,7 @@ class ClaudeCodeExecutor(DuckDBExecutor):
             df_label_fn=lambda name: f"DF {name} (fully qualified name 'temp.main.{name}')",
         )
 
-        dce_search_enabled = False
+        dce_search_enabled = domain.supports_context and isinstance(domain, _DCEProjectDomain)
 
         prompt = self._prompt_template.render(
             date=get_today_date_str(),
