@@ -9,9 +9,9 @@ from databao.agent.configs.agent import AgentConfig
 from databao.agent.core import Cache, Domain, ExecutionResult, Opa
 from databao.agent.core.domain import _DCEProjectDomain, _Domain
 from databao.agent.databases.databases import db_type as get_db_type
-from databao.agent.executors import LighthouseExecutor
 from databao.agent.executors.base import DuckDBExecutor
 from databao.agent.executors.claude_code.claude_model_wrapper import ClaudeModelWrapper
+from databao.agent.executors.lighthouse.executor import LighthouseExecutor
 from databao.agent.executors.prompt import build_context_text, get_today_date_str, load_prompt_template
 
 _LOGGER = logging.getLogger(__name__)
