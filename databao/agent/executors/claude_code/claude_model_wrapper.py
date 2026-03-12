@@ -27,7 +27,7 @@ from databao.agent.core.domain import _DCEProjectDomain
 from databao.agent.executors.utils import (
     search_context as _search_context,
 )
-from databao.agent import Domain
+from databao.agent.core import Domain
 from databao.agent.configs.llm import LLMConfig
 from databao.agent.core.executor import ExecutionResult
 from databao.agent.executors.claude_code.utils import cast_claude_message_to_langchain_message
@@ -194,6 +194,7 @@ query_id: The ID of the query to submit.""",
                     retrieve_text: str,
                 ):
                     return _search_context(retrieve_text, domain=self._domain)
+                tools.append(search_context)
             else:
                 raise ValueError(f"Search context tool is not supported for domain type: {type(self._domain)}")
 
