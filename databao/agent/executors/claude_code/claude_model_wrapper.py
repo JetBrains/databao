@@ -197,7 +197,7 @@ query_id: The ID of the query to submit.""",
                             "content": [
                                 {
                                     "type": "text",
-                                    "text": json.dumps(_search_context(retrieve_text, domain=self._domain)),
+                                    "text": json.dumps(_search_context(retrieve_text, domain=self._domain)),  # type: ignore[arg-type]
                                 }
                             ]
                         }
