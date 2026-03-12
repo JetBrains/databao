@@ -23,12 +23,9 @@ from claude_agent_sdk.types import SystemMessage as ClaudeSystemMessage
 from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
 from mcp.types import ToolAnnotations
 
-from databao.agent.core.domain import _DCEProjectDomain
-from databao.agent.executors.utils import (
-    search_context as _search_context,
-)
-from databao.agent.core import Domain
 from databao.agent.configs.llm import LLMConfig
+from databao.agent.core import Domain
+from databao.agent.core.domain import _DCEProjectDomain
 from databao.agent.core.executor import ExecutionResult
 from databao.agent.executors.claude_code.utils import cast_claude_message_to_langchain_message
 from databao.agent.executors.frontend.messages import get_tool_call
@@ -36,6 +33,9 @@ from databao.agent.executors.frontend.text_frontend import TextStreamFrontend
 from databao.agent.executors.langchain_tools import SEARCH_CONTEXT_TOOL_DESCRIPTION
 from databao.agent.executors.lighthouse.graph import RUN_SQL_QUERY_TOOL_DESCRIPTION
 from databao.agent.executors.utils import run_sql_query
+from databao.agent.executors.utils import (
+    search_context as _search_context,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -184,18 +184,25 @@ query_id: The ID of the query to submit.""",
 
         if self._domain.supports_context:
             if isinstance(self._domain, _DCEProjectDomain):
+
                 @tool(
                     "search_context",
                     SEARCH_CONTEXT_TOOL_DESCRIPTION,
                     {"retrieve_text": str},
                     annotations=ToolAnnotations(readOnlyHint=True),
                 )
-                async def search_context(
-                        args: dict[str, Any]
-                ):
+                async def search_context(args: dict[str, Any]) -> dict[str, Any]:
                     if retrieve_text := args.get("retrieve_text", ""):
-                        return {"content": [{"type": "text", "text": json.dumps(_search_context(retrieve_text, domain=self._domain))}]}
+                        return {
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": json.dumps(_search_context(retrieve_text, domain=self._domain)),
+                                }
+                            ]
+                        }
                     return {"content": [{"type": "text", "text": json.dumps({"error": "No retrieve text provided"})}]}
+
                 tools.append(search_context)
             else:
                 raise ValueError(f"Search context tool is not supported for domain type: {type(self._domain)}")

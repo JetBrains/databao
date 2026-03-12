@@ -9,8 +9,10 @@ from databao.agent.executors.query_expansion import (
     QueryExpansionConfig,
 )
 from databao.agent.executors.utils import (
-    search_context_with_query_expansion as _search_context_with_query_expansion,
     search_context as _search_context,
+)
+from databao.agent.executors.utils import (
+    search_context_with_query_expansion as _search_context_with_query_expansion,
 )
 
 
@@ -61,7 +63,7 @@ def _make_dce_plain_search_tool(domain: _DCEProjectDomain) -> BaseTool:
     @tool(description=SEARCH_CONTEXT_TOOL_DESCRIPTION, parse_docstring=False)
     def search_context(
         retrieve_text: str,
-    ):
+    ) -> list[dict[str, Any]]:
         return _search_context(retrieve_text, domain=domain)
 
     return search_context
