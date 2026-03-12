@@ -29,6 +29,7 @@ from databao.agent.executors.claude_code.utils import cast_claude_message_to_lan
 from databao.agent.executors.frontend.messages import get_tool_call
 from databao.agent.executors.frontend.text_frontend import TextStreamFrontend
 from databao.agent.executors.lighthouse.graph import RUN_SQL_QUERY_TOOL_DESCRIPTION
+from databao.agent.executors.observer import Observer
 from databao.agent.executors.utils import run_sql_query
 
 _LOGGER = logging.getLogger(__name__)
@@ -59,7 +60,9 @@ class ClaudeModelWrapper:
         session_id: str | None = None,
         limit_max_rows: int | None = None,
         max_turns: int | None = 100,
+        observer: Observer | None = None,
     ):
+        self.observer = observer
         self._duckdb_connection = connection
         self._limit_max_rows = limit_max_rows
         self.config = config
@@ -173,6 +176,30 @@ query_id: The ID of the query to submit.""",
             return {"content": [{"type": "text", "text": json.dumps({"query_id": query_id})}]}
 
         tools.append(submit_query_id)
+
+        @tool("get_data_schema",
+              """Context has a dict-like structure. Use a path to get a node.
+                          Some nodes have children, others don't.
+                          Content of children nodes can be hidden to save space. You will see it as `{ (n) }` with n - number of items in the node.
+                          Open a specific node to see its content. Show children nodes if depth > 1.
+                          For example, there can be a path `["catalogs", "<catalog_name>", "schemas", "<schema_name>", "tables", "<table_name>", "columns", "<column_name>"]`.
+                          Use this tool to get a table schema instead of a direct SQL query.
+
+                          Args:
+                              path: List of strings representing path to the node in the context tree.
+                              depth: Depth of the subtree to retrieve. Default is 0, which determines depth automatically based on message length.
+                          """,
+              {"path": list[str], "depth": int},
+              annotations=ToolAnnotations(readOnlyHint=True),
+              )
+        async def get_context(path: list[str], depth: int = 0) -> str:
+
+            if self.observer is None:
+                return "Data is not available."
+            return self.observer.get_node(path, depth)
+
+        if self.observer is not None:
+            tools.append(get_context)
 
         return tools
 

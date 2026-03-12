@@ -12,6 +12,7 @@ from databao.agent.databases.databases import db_type as get_db_type
 from databao.agent.executors.base import DuckDBExecutor
 from databao.agent.executors.claude_code.claude_model_wrapper import ClaudeModelWrapper
 from databao.agent.executors.lighthouse.executor import LighthouseExecutor
+from databao.agent.executors.observer import Observer
 from databao.agent.executors.prompt import build_context_text, get_today_date_str, load_prompt_template
 
 _LOGGER = logging.getLogger(__name__)
@@ -98,7 +99,9 @@ class ClaudeCodeExecutor(DuckDBExecutor):
         system_prompt = self.render_system_prompt(self._duckdb_connection, domain, agent_config.recursion_limit)
 
         claude_session_id = cache.get("state").get("claude_session_id")
-
+        observer = None
+        if agent_config.schema_yaml_path is not None:
+            observer = Observer(agent_config.schema_yaml_path)
         with ClaudeModelWrapper(
             config=llm_config,
             connection=self._duckdb_connection,
@@ -106,6 +109,7 @@ class ClaudeCodeExecutor(DuckDBExecutor):
             session_id=claude_session_id,
             limit_max_rows=rows_limit,
             max_turns=agent_config.recursion_limit,
+            observer=observer,
         ) as agent:
             user_messages: str = self._process_opas(opas)
             execution_result, claude_session_id = agent.ask(user_messages, stream=stream, writer=writer)

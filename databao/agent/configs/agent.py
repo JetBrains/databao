@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from pydantic import BaseModel, ConfigDict
 
 
@@ -10,6 +12,9 @@ class AgentConfig(BaseModel):
     parallel_tool_calls: bool = True
     """Whether agent is allowed to call several tools in one response.
     Supported by OpenAI models only."""
+
+    schema_yaml_path: Path | None = None
+    """Path to a YAML file containing the schema of the datasource."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
