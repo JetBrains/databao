@@ -40,7 +40,9 @@ def _make_dce_search_context_tool(
     return _make_dce_plain_search_tool(domain)
 
 
-SEARCH_CONTEXT_TOOL_DESCRIPTION = """Search the context for relevant information matching the given query text.
+# fmt: off
+SEARCH_CONTEXT_TOOL_DESCRIPTION = \
+"""Search the context for relevant information matching the given query text.
 
 Use this tool to find additional information about the database (e.g., table and column descriptions) and
 any attached data sources (e.g., dbt projects).
@@ -54,7 +56,8 @@ to get the best results.
 
 Args:
     query: Natural language query to search the context for relevant results.
-        """
+"""
+# fmt: on
 
 
 def _make_dce_plain_search_tool(domain: _DCEProjectDomain) -> BaseTool:
@@ -69,7 +72,9 @@ def _make_dce_plain_search_tool(domain: _DCEProjectDomain) -> BaseTool:
     return search_context
 
 
-SEARCH_CONTEXT_WITH_EXPANSION_TOOL_DESCRIPTION = """Search the context for relevant information matching the given query text.
+# fmt: off
+SEARCH_CONTEXT_WITH_EXPANSION_TOOL_DESCRIPTION = \
+"""Search the context for relevant information matching the given query text.
 Internally expands the query into multiple retrieval-friendly variants adapted
 to the datasource naming conventions, then merges results via rank fusion.
 
@@ -79,6 +84,7 @@ Args:
     datasource_type: Optional datasource type hint (e.g. "dbt", "snowflake", "postgres").
         Used to adapt query expansion to the naming conventions of the target system.
         """
+# fmt: on
 
 
 def _make_dce_expanded_search_tool(
