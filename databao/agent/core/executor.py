@@ -190,4 +190,4 @@ class Executor(ABC):
                 "Context has not been built yet. Building it now — this may take a while. "
                 "To avoid this delay, call domain.build_context() before starting execution."
             )
-            domain.build_context()
+        #     domain.build_context()
