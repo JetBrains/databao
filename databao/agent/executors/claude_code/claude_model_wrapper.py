@@ -190,10 +190,12 @@ query_id: The ID of the query to submit.""",
                     {"retrieve_text": str},
                     annotations=ToolAnnotations(readOnlyHint=True),
                 )
-                def search_context(
-                    retrieve_text: str,
+                async def search_context(
+                        args: dict[str, Any]
                 ):
-                    return _search_context(retrieve_text, domain=self._domain)
+                    if retrieve_text := args.get("retrieve_text", ""):
+                        return {"content": [{"type": "text", "text": json.dumps(_search_context(retrieve_text, domain=self._domain))}]}
+                    return {"content": [{"type": "text", "text": json.dumps({"error": "No retrieve text provided"})}]}
                 tools.append(search_context)
             else:
                 raise ValueError(f"Search context tool is not supported for domain type: {type(self._domain)}")
