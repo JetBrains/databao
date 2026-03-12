@@ -13,35 +13,42 @@ class Observer:
         self.context: dict[str, Any] = {}
         self._exclude = exclude or []
         if file_path:
-            if file_path.suffix == ".yaml":
-                self.context = self.convert_from_yaml(file_path)
+            with open(file_path) as f:
+                data = json.load(f)
+            if "nodes" in data:
+                self.context = self.convert_from_manifest(data)
             else:
-                with open(file_path) as f:
-                    self.context = json.load(f)
-                    self._apply_exclude()
+                self.context = data
+                self._apply_exclude()
 
-    def convert_from_yaml(self, file_path: Path) -> dict[str, Any]:
-        with open(file_path) as f:
-            d = yaml.safe_load(f)
-        result = {"catalogs": {}}
-        for catalog in d["context"]["catalogs"]:
-            catalog_name = catalog["name"]
-            result["catalogs"][catalog_name] = {"schemas": {}}
-            for schema in catalog["schemas"]:
-                schema_name = schema["name"]
-                result["catalogs"][catalog_name]["schemas"][schema_name] = {"tables": {}}
-                if "description" in schema and schema["description"]:
-                    result["catalogs"][catalog_name]["schemas"][schema_name]["description"] = schema["description"]
-                for table in schema["tables"]:
-                    table_name = table["name"]
-                    res_tables = result["catalogs"][catalog_name]["schemas"][schema_name]["tables"]
-                    res_tables[table_name] = {"columns": {}}
-                    if "description" in table and table["description"]:
-                        res_tables[table_name]["description"] = table["description"]
-                    for column in table["columns"]:
-                        column_name = column["name"]
-                        data = {k: v for k, v in column.items() if k != "name" and v}
-                        res_tables[table_name]["columns"][column_name] = data
+    def convert_from_manifest(self, data: dict[str, Any]) -> dict[str, Any]:
+        result: dict[str, Any] = {"catalogs": {}}
+        for node in data.get("nodes", {}).values():
+            if node.get("resource_type") not in ("model", "seed", "snapshot"):
+                continue
+            database = node.get("database", "")
+            schema = node.get("schema", "")
+            table = node.get("name", "")
+            if not (database and schema and table):
+                continue
+
+            catalogs = result["catalogs"]
+            if database not in catalogs:
+                catalogs[database] = {"schemas": {}}
+            schemas = catalogs[database]["schemas"]
+            if schema not in schemas:
+                schemas[schema] = {"tables": {}}
+            tables = schemas[schema]["tables"]
+
+            table_entry: dict[str, Any] = {"columns": {}}
+            description = node.get("description", "")
+            if description:
+                table_entry["description"] = description
+            for col_name, col in node.get("columns", {}).items():
+                col_data = {k: v for k, v in col.items() if k != "name" and v}
+                table_entry["columns"][col_name] = col_data
+
+            tables[table] = table_entry
 
         return result
 
