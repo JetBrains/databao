@@ -106,6 +106,7 @@ class ClaudeCodeExecutor(DuckDBExecutor):
             session_id=claude_session_id,
             limit_max_rows=rows_limit,
             max_turns=agent_config.recursion_limit,
+            domain=domain,
         ) as agent:
             user_messages: str = self._process_opas(opas)
             execution_result, claude_session_id = agent.ask(user_messages, stream=stream, writer=writer)

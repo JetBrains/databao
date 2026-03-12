@@ -23,11 +23,17 @@ from claude_agent_sdk.types import SystemMessage as ClaudeSystemMessage
 from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
 from mcp.types import ToolAnnotations
 
+from databao.agent.core.domain import _DCEProjectDomain
+from databao.agent.executors.utils import (
+    search_context as _search_context,
+)
+from databao.agent import Domain
 from databao.agent.configs.llm import LLMConfig
 from databao.agent.core.executor import ExecutionResult
 from databao.agent.executors.claude_code.utils import cast_claude_message_to_langchain_message
 from databao.agent.executors.frontend.messages import get_tool_call
 from databao.agent.executors.frontend.text_frontend import TextStreamFrontend
+from databao.agent.executors.langchain_tools import SEARCH_CONTEXT_TOOL_DESCRIPTION
 from databao.agent.executors.lighthouse.graph import RUN_SQL_QUERY_TOOL_DESCRIPTION
 from databao.agent.executors.utils import run_sql_query
 
@@ -55,12 +61,14 @@ class ClaudeModelWrapper:
         config: LLMConfig,
         connection: DuckDBPyConnection,
         system_prompt: str,
+        domain: Domain,
         append_system_prompt: bool = False,
         session_id: str | None = None,
         limit_max_rows: int | None = None,
         max_turns: int | None = 100,
     ):
         self._duckdb_connection = connection
+        self._domain = domain
         self._limit_max_rows = limit_max_rows
         self.config = config
         self.sdk_mcp_tools = self._build_tools()
@@ -173,6 +181,21 @@ query_id: The ID of the query to submit.""",
             return {"content": [{"type": "text", "text": json.dumps({"query_id": query_id})}]}
 
         tools.append(submit_query_id)
+
+        if self._domain.supports_context:
+            if isinstance(self._domain, _DCEProjectDomain):
+                @tool(
+                    "search_context",
+                    SEARCH_CONTEXT_TOOL_DESCRIPTION,
+                    {"retrieve_text": str},
+                    annotations=ToolAnnotations(readOnlyHint=True),
+                )
+                def search_context(
+                    retrieve_text: str,
+                ):
+                    return _search_context(retrieve_text, domain=self._domain)
+            else:
+                raise ValueError(f"Search context tool is not supported for domain type: {type(self._domain)}")
 
         return tools
 
