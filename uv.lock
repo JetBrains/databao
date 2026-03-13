@@ -688,6 +688,7 @@ name = "databao-agent"
 source = { editable = "." }
 dependencies = [
     { name = "claude-agent-sdk" },
+    { name = "databao-context-engine" },
     { name = "dbt-core" },
     { name = "dbt-duckdb" },
     { name = "diskcache" },
@@ -742,6 +743,7 @@ requires-dist = [
     { name = "anywidget", marker = "extra == 'examples'", specifier = ">=0.9.0" },
     { name = "anywidget", marker = "extra == 'jupyter'", specifier = ">=0.9.0" },
     { name = "claude-agent-sdk", specifier = ">=0.1.48" },
+    { name = "databao-context-engine", git = "https://github.com/JetBrains/databao-context-engine?rev=c5f84e73" },
     { name = "dbt-core", specifier = "~=1.9.0" },
     { name = "dbt-duckdb", specifier = ">=1.10.0" },
     { name = "diskcache", specifier = ">=5.6.3" },
@@ -782,6 +784,22 @@ dev = [
     { name = "types-pyyaml", specifier = ">=6.0.12.20250915" },
     { name = "typing-extensions", specifier = ">=4.15.0" },
     { name = "vega-datasets", specifier = ">=0.9.0" },
+]
+
+[[package]]
+name = "databao-context-engine"
+version = "0.6.2"
+source = { git = "https://github.com/JetBrains/databao-context-engine?rev=c5f84e73#c5f84e73322dd332575fed1c2995afa3970838e3" }
+dependencies = [
+    { name = "click" },
+    { name = "duckdb" },
+    { name = "jinja2" },
+    { name = "mcp" },
+    { name = "pyarrow" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+    { name = "requests" },
+    { name = "sqlparse" },
 ]
 
 [[package]]
