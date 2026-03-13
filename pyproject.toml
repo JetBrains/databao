@@ -44,7 +44,7 @@ Homepage = "https://databao.app/"
 Source = "https://github.com/JetBrains/databao-agent"
 
 [tool.uv.sources]
-databao-context-engine = { git = "https://github.com/JetBrains/databao-context-engine", rev = "2b1c350a"}
+databao-context-engine = { git = "https://github.com/JetBrains/databao-context-engine", rev = "87f7c728"}
 
 
 [project.optional-dependencies]
