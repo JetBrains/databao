@@ -10,7 +10,11 @@ from databao.agent.executors.query_expansion import (
     QueryExpansionConfig,
 )
 from databao.agent.executors.utils import (
-    search_context as _search_context, _get_ds_name, _search_result_to_dict,
+    _get_ds_name,
+    _search_result_to_dict,
+)
+from databao.agent.executors.utils import (
+    search_context as _search_context,
 )
 from databao.agent.executors.utils import (
     search_context_with_query_expansion as _search_context_with_query_expansion,
@@ -27,7 +31,9 @@ def make_search_context_tool(
     if not domain.supports_context:
         return None
     if isinstance(domain, _DCEProjectDomain):
-        return _make_dce_search_context_tool(domain, expansion_llm=expansion_llm, expansion_config=expansion_config, make_structured=make_structured)
+        return _make_dce_search_context_tool(
+            domain, expansion_llm=expansion_llm, expansion_config=expansion_config, make_structured=make_structured
+        )
     raise ValueError(f"Search context tool is not supported for domain type: {type(domain)}")
 
 
@@ -44,6 +50,7 @@ def _make_dce_search_context_tool(
         return _make_dce_structured_search_tool(domain)
     return _make_dce_plain_search_tool(domain)
 
+
 def extract_content(result_list, object_type, content_types):
     final_result = []
     for result in result_list:
@@ -51,22 +58,28 @@ def extract_content(result_list, object_type, content_types):
         parsed_result = {}
         for content_type in content_types:
             if content_type not in result_dict:
-                 parsed_result[content_type]=result_dict[object_type][content_type]
+                parsed_result[content_type] = result_dict[object_type][content_type]
             else:
                 parsed_result[content_type] = result_dict[content_type]
-        final_result.append({
-        "data_source_name": _get_ds_name(result),
-        "score": result.score,
-        "context_result": parsed_result,
-    }
-)
+        final_result.append(
+            {
+                "data_source_name": _get_ds_name(result),
+                "score": result.score,
+                "context_result": parsed_result,
+            }
+        )
     return final_result
+
 
 def _make_dce_structured_search_tool(domain: _DCEProjectDomain) -> BaseTool:
     """Build the search_context tool without query expansion."""
 
     @tool(parse_docstring=True)
-    def search_context(query: str, object_type: Literal["table", "column"] | None, content_types: list[Literal["description", "samples", "stats", "name", "type"]] | None) -> list[dict[str, Any]]:
+    def search_context(
+        query: str,
+        object_type: Literal["table", "column"] | None,
+        content_types: list[Literal["description", "samples", "stats", "name", "type"]] | None,
+    ) -> list[dict[str, Any]]:
         """Search the context for relevant information matching the given query text.
 
         Use this tool to find additional information about the database (e.g., table and column descriptions and
@@ -99,11 +112,10 @@ def _make_dce_structured_search_tool(domain: _DCEProjectDomain) -> BaseTool:
             return list(map(_search_result_to_dict, search_result_list))
         if object_type == "table":
             content_types = [content_type for content_type in content_types if content_type in {"stats", "name"}]
-        parsed_result = extract_content(search_result_list, object_type, list(set(content_types+["name"])))
+        parsed_result = extract_content(search_result_list, object_type, list(set(content_types + ["name"])))
         return parsed_result
 
     return search_context
-
 
 
 # fmt: off
