@@ -743,7 +743,7 @@ requires-dist = [
     { name = "anywidget", marker = "extra == 'examples'", specifier = ">=0.9.0" },
     { name = "anywidget", marker = "extra == 'jupyter'", specifier = ">=0.9.0" },
     { name = "claude-agent-sdk", specifier = ">=0.1.48" },
-    { name = "databao-context-engine", git = "https://github.com/JetBrains/databao-context-engine?rev=87f7c728" },
+    { name = "databao-context-engine", git = "https://github.com/JetBrains/databao-context-engine?rev=c5f84e73" },
     { name = "dbt-core", specifier = "~=1.9.0" },
     { name = "dbt-duckdb", specifier = ">=1.10.0" },
     { name = "diskcache", specifier = ">=5.6.3" },
@@ -789,7 +789,7 @@ dev = [
 [[package]]
 name = "databao-context-engine"
 version = "0.6.2"
-source = { git = "https://github.com/JetBrains/databao-context-engine?rev=87f7c728#87f7c728676c3fa4d6227e3d525b96d5532a502c" }
+source = { git = "https://github.com/JetBrains/databao-context-engine?rev=c5f84e73#c5f84e73322dd332575fed1c2995afa3970838e3" }
 dependencies = [
     { name = "click" },
     { name = "duckdb" },
