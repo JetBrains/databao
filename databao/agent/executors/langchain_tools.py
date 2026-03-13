@@ -51,11 +51,15 @@ def _make_dce_search_context_tool(
     return _make_dce_plain_search_tool(domain)
 
 
-def extract_content(result_list, object_type, content_types):
+def extract_content(
+    result_list: list[Any],
+    object_type: str | None,
+    content_types: list[str],
+) -> list[dict[str, Any]]:
     final_result = []
     for result in result_list:
         result_dict = yaml.safe_load(result.context_result)
-        parsed_result = {}
+        parsed_result: dict[str, Any] = {}
         for content_type in content_types:
             if content_type not in result_dict:
                 parsed_result[content_type] = result_dict[object_type][content_type]
@@ -105,14 +109,15 @@ def _make_dce_structured_search_tool(domain: _DCEProjectDomain) -> BaseTool:
         Args:
             query: Natural language query to search the context for relevant results.
             object_type (Literal["table", "column"] | None): The type of chunk to retrieve (e.g., table or column).)
-            content_types (list[Literal["description", "samples", "stats", "name"]] | None): The types of content to retrieve.
+            content_types (list[Literal["description", "samples", "stats", "name"]] | None): The types of content
+                to retrieve.
         """
         search_result_list = domain.search_context(query, datasource_name=None, chunk_type=object_type)
         if content_types is None:
             return list(map(_search_result_to_dict, search_result_list))
         if object_type == "table":
             content_types = [content_type for content_type in content_types if content_type in {"stats", "name"}]
-        parsed_result = extract_content(search_result_list, object_type, list(set(content_types + ["name"])))
+        parsed_result = extract_content(search_result_list, object_type, list(set([*content_types, "name"])))
         return parsed_result
 
     return search_context
