@@ -177,26 +177,32 @@ query_id: The ID of the query to submit.""",
 
         tools.append(submit_query_id)
 
-        @tool("get_data_schema",
-              """Context has a dict-like structure. Use a path to get a node.
-                          Some nodes have children, others don't.
-                          Content of children nodes can be hidden to save space. You will see it as `{ (n) }` with n - number of items in the node.
-                          Open a specific node to see its content. Show children nodes if depth > 1.
-                          For example, there can be a path `["catalogs", "<catalog_name>", "schemas", "<schema_name>", "tables", "<table_name>", "columns", "<column_name>"]`.
-                          Use this tool to get a table schema instead of a direct SQL query.
+        @tool(
+            "get_data_schema",
+            """\
+Schema has a dict-like structure. Use a path to get a node.
+Some nodes have children, others don't.
+Content of children nodes can be hidden to save space.
+You will see it as `{ (n) }` with n - number of items in the node.
+Open a specific node to see its content. Show children nodes if depth > 1.
+For example, there can be a path
+`["catalogs", "<catalog_name>", "schemas", "<schema_name>", "tables", "<table_name>", "columns", "<column_name>"]`.
+Use this tool to get a table schema instead of a direct SQL query.
 
-                          Args:
-                              path: List of strings representing path to the node in the context tree.
-                              depth: Depth of the subtree to retrieve. Default is 0, which determines depth automatically based on message length.
-                          """,
-              {"path": list[str], "depth": int},
-              annotations=ToolAnnotations(readOnlyHint=True),
-              )
-        async def get_context(path: list[str], depth: int = 0) -> str:
-
+Args:
+    path: List of strings representing path to the node in the schema tree.
+    depth: Depth of the subtree to retrieve. Default is 0, which determines depth automatically based on message length.
+""",
+            {"path": list[str], "depth": int},
+            annotations=ToolAnnotations(readOnlyHint=True),
+        )
+        async def get_context(args: dict[str, Any]) -> dict[str, Any]:
             if self.observer is None:
-                return "Data is not available."
-            return self.observer.get_node(path, depth)
+                return {"content": [{"type": "text", "text": json.dumps({"error": "Data is not available."})}]}
+            path = args.get("path", [])
+            depth = args.get("depth", 0)
+            r = self.observer.get_node(path, depth)
+            return {"content": [{"type": "text", "text": json.dumps({"schema": r})}]}
 
         if self.observer is not None:
             tools.append(get_context)

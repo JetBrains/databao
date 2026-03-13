@@ -1,7 +1,8 @@
 import json
-import yaml
 from pathlib import Path
-from typing import Any
+from typing import Any, Union, cast
+
+Node = dict[str, Union["Node", str, int]]
 
 
 class Observer:
@@ -10,7 +11,7 @@ class Observer:
         file_path: Path | None = None,
         exclude: list[str] | None = None,
     ):
-        self.context: dict[str, Any] = {}
+        self.context: Node = {}
         self._exclude = exclude or []
         if file_path:
             with open(file_path) as f:
@@ -21,8 +22,8 @@ class Observer:
                 self.context = data
                 self._apply_exclude()
 
-    def convert_from_manifest(self, data: dict[str, Any]) -> dict[str, Any]:
-        result: dict[str, Any] = {"catalogs": {}}
+    def convert_from_manifest(self, data: dict[str, Any]) -> Node:
+        result: Node = {"catalogs": {}}
         for node in data.get("nodes", {}).values():
             if node.get("resource_type") not in ("model", "seed", "snapshot"):
                 continue
@@ -32,13 +33,14 @@ class Observer:
             if not (database and schema and table):
                 continue
 
-            catalogs = result["catalogs"]
+            catalogs: Node = cast(Node, result["catalogs"])
             if database not in catalogs:
                 catalogs[database] = {"schemas": {}}
-            schemas = catalogs[database]["schemas"]
+            db_node: Node = cast(Node, catalogs[database])
+            schemas: Node = cast(Node, db_node["schemas"])
             if schema not in schemas:
                 schemas[schema] = {"tables": {}}
-            tables = schemas[schema]["tables"]
+            tables: Node = cast(Node, schemas[schema])
 
             table_entry: dict[str, Any] = {"columns": {}}
             description = node.get("description", "")
@@ -48,7 +50,7 @@ class Observer:
                 col_data = {k: v for k, v in col.items() if k != "name" and v}
                 table_entry["columns"][col_name] = col_data
 
-            tables[table] = table_entry
+            tables[table] = cast(Node, table_entry)
 
         return result
 
@@ -56,19 +58,22 @@ class Observer:
         if not self._exclude:
             return
 
-        for t in self.context.get("tables", {}).values():
-            for c in t.get("columns", {}).values():
-                if "common_sqls" in c:
-                    to_del = [k for k, v in c["common_sqls"].items() if v in self._exclude]
+        for t in cast(Node, self.context.get("tables", {})).values():
+            t_node = cast(Node, t)
+            for c in cast(Node, t_node.get("columns", {})).values():
+                c_node = cast(Node, c)
+                if "common_sqls" in c_node:
+                    common_sqls = cast(Node, c_node["common_sqls"])
+                    to_del = [k for k, v in common_sqls.items() if v in self._exclude]
                     for k in to_del:
-                        del c["common_sqls"][k]
+                        del common_sqls[k]
 
     def get_node(self, path: list[str], depth: int = 0) -> str:
         if self.context is None:
             return "Data is not available."
         if not path:
             answer = "Result for empty path - root:\n"
-            res: str | dict[str, Any] = self.context
+            res: str | Node | int = self.context
         else:
             res = self.get_value(path, self.context)
             answer = f"Result for path: {'/'.join(path)}, depth {depth}\n"
@@ -81,14 +86,17 @@ class Observer:
                 return answer + str(res)
         return "Path not found."
 
-    def get_value(self, path: list[str], current_node: dict) -> str | dict:
+    def get_value(self, path: list[str], current_node: Node) -> str | Node | int:
         if path[0] not in current_node:
             return f"Node {path[0]} not found."
+        value = current_node[path[0]]
         if len(path) == 1:
-            return current_node[path[0]]
-        return self.get_value(path[1:], current_node[path[0]])
+            return value
+        if not isinstance(value, dict):
+            return f"Node {path[0]} is not a dict."
+        return self.get_value(path[1:], value)
 
-    def get_depth_1(self, node: dict) -> str:
+    def get_depth_1(self, node: Node) -> str:
         res = ""
         for k, v in node.items():
             if isinstance(v, dict):
@@ -97,14 +105,14 @@ class Observer:
                 res += f"{k}: {v!s}\n"
         return res.strip()
 
-    def get_auto_depth(self, node: dict) -> str:
+    def get_auto_depth(self, node: Node) -> str:
         depth_1 = self.get_depth_1(node)
         depth_2 = self.get_with_depth(node, 2)
         if len(depth_2) < 1000:
             return depth_2.strip()
         return depth_1.strip()
 
-    def get_with_depth(self, node: dict, depth: int) -> str:
+    def get_with_depth(self, node: Node, depth: int) -> str:
         if depth == 1:
             return self.get_depth_1(node)
         result = ""
