@@ -118,7 +118,7 @@ def _make_dce_structured_search_tool(domain: _DCEProjectDomain) -> BaseTool:
         if object_type == "table":
             final_content_types = [content_type for content_type in content_types if content_type in {"stats", "name"}]
         if object_type == "column":
-            final_content_types = content_types+["schema_name", "table_name"]
+            final_content_types = [*content_types, "schema_name", "table_name"]
         parsed_result = extract_content(search_result_list, object_type, list(set([*final_content_types, "name"])))
         return parsed_result
 
