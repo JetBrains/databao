@@ -16,9 +16,9 @@ class DatabaoContextEngineApi:
         return len(introspected_data_sources) > 0
 
     def search_context(
-        self, retrieve_text: str, datasource_ids: list[DatasourceId] | None
+        self, retrieve_text: str, datasource_ids: list[DatasourceId] | None, chunk_type: str | None = None
     ) -> list[ContextSearchResult]:
-        return self._delegate.search_context(search_text=retrieve_text, datasource_ids=datasource_ids)
+        return self._delegate.search_context(search_text=retrieve_text, datasource_ids=datasource_ids, chunk_type=chunk_type)
 
     @property
     def project_dir(self) -> Path:
