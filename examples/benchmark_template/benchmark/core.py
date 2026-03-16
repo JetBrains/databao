@@ -143,7 +143,7 @@ def run_benchmark(
 
         exec_score = await execution_accuracy.ascore(
             gold_success=gold_ok,
-            gold_result=gold_result if gold_ok else None,
+            gold_result=gold_result,
             pred_success=pred_ok,
             pred_result=pred_result if pred_ok else str(pred_result),
         )

@@ -40,9 +40,13 @@ class DuckDBRunner:
 
         try:
             conn = duckdb.connect(self.db_path)
-            df = conn.execute(sql).fetchdf()
-            conn.close()
-            return True, df
+            try:
+                df = conn.execute(sql).fetchdf()
+                return True, df
+            except Exception as e:
+                return False, str(e)
+            finally:
+                conn.close()
         except Exception as e:
             return False, str(e)
 
@@ -172,6 +176,7 @@ def create_databao_domain(runner=None):
                 user=config.SNOWFLAKE_USER,
                 account=config.SNOWFLAKE_ACCOUNT,
                 database=config.SNOWFLAKE_DATABASE,
+                warehouse=getattr(config, "SNOWFLAKE_WAREHOUSE", None) or None,
                 auth=auth,
             ),
             name="db1",
