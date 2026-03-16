@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from pathlib import Path
 import pandas as pd
 from sqlalchemy import create_engine, text
+from pathlib import Path
 
 
 class SQLAlchemyRunner:
@@ -74,7 +76,8 @@ class SnowflakeRunner:
             from cryptography.hazmat.backends import default_backend
             from cryptography.hazmat.primitives import serialization
 
-            with open(private_key_path, "rb") as f:
+            private_key_resolved_path = Path(private_key_path).expanduser()
+            with private_key_resolved_path.open("rb") as f:
                 private_key = serialization.load_pem_private_key(f.read(), password=None, backend=default_backend())
             connect_args["private_key"] = private_key.private_bytes(
                 encoding=serialization.Encoding.DER,
@@ -151,7 +154,8 @@ def create_databao_domain(runner=None):
         if auth_method == "key_pair":
             from databao_context_engine import SnowflakeKeyPairAuth
 
-            auth = SnowflakeKeyPairAuth(private_key_file=config.SNOWFLAKE_PRIVATE_KEY_PATH)
+            private_key_path = str(Path(config.SNOWFLAKE_PRIVATE_KEY_PATH).expanduser())
+            auth = SnowflakeKeyPairAuth(private_key_file=private_key_path)
         elif auth_method == "password":
             from databao_context_engine import SnowflakePasswordAuth
 

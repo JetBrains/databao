@@ -120,6 +120,8 @@ def run_benchmark(
     timestamped_csv = output_csv.with_stem(f"{output_csv.stem}__{timestamp}")
     output_csv.parent.mkdir(parents=True, exist_ok=True)
 
+    csv_lock = asyncio.Lock()
+
     @experiment()
     async def benchmark(row):
         async with semaphore:
@@ -170,7 +172,8 @@ def run_benchmark(
             result["domain"] = row["domain"]
 
         row_df = pd.DataFrame([result])
-        row_df.to_csv(timestamped_csv, index=False, mode="a", header=not timestamped_csv.exists())
+        async with csv_lock:
+            row_df.to_csv(timestamped_csv, index=False, mode="a", header=not timestamped_csv.exists())
 
         return result
 
@@ -194,6 +197,12 @@ def make_benchmark_cli(
     parser.add_argument("--limit", type=int, default=None, help="Optional row limit for quick tests.")
     parser.add_argument("--sql-model", default=default_sql_model, help="Model for SQL generation.")
     parser.add_argument("--judge-model", default=config.JUDGE_MODEL, help="OpenAI model for LLM judge.")
+    parser.add_argument(
+        "--max-concurrent",
+        type=int,
+        default=getattr(config, "MAX_CONCURRENT", 8),
+        help="Maximum number of concurrent benchmark tasks.",
+    )
     return parser
 
 
@@ -205,6 +214,7 @@ def run_benchmark_cli(args: argparse.Namespace, run_benchmark_fn: Callable[..., 
         limit=args.limit,
         sql_model=args.sql_model,
         judge_model=args.judge_model,
+        max_concurrent=args.max_concurrent,
     )
     print_summary(results, model_name=args.sql_model)
     print(f"\nSaved: {args.output}")
