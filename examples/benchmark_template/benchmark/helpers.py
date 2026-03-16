@@ -13,10 +13,18 @@ def must_env(name: str) -> str:
     return value
 
 
+def _safe_to_markdown(df: pd.DataFrame, **kwargs: object) -> str:
+    """Convert a DataFrame to markdown, falling back to to_string() on failure."""
+    try:
+        return df.to_markdown(**kwargs)
+    except Exception:
+        return df.to_string(**kwargs)
+
+
 def df_to_markdown(df: pd.DataFrame | None, max_rows: int = 20) -> str:
     """Convert a DataFrame to a truncated markdown table."""
     if df is None:
         return "(None)"
     if len(df) > max_rows:
-        return df.head(max_rows).to_markdown() + f"\n... ({len(df) - max_rows} more rows)"
-    return df.to_markdown()
+        return _safe_to_markdown(df.head(max_rows)) + f"\n... ({len(df) - max_rows} more rows)"
+    return _safe_to_markdown(df)
