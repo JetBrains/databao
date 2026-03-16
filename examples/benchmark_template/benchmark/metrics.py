@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from typing import Literal
-
+from collections.abc import Callable
+from typing import Any, Literal
 import pandas as pd
 from openai import AsyncOpenAI
 from pydantic import BaseModel
@@ -10,10 +10,13 @@ from ragas.metrics.result import MetricResult
 
 from benchmark.helpers import df_to_markdown
 
+wrap_openai: Callable[..., Any] | None = None
 try:
-    from langsmith.wrappers import wrap_openai
+    from langsmith.wrappers import wrap_openai as _wrap_openai_fn
+
+    wrap_openai = _wrap_openai_fn
 except ImportError:
-    wrap_openai = None
+    pass
 
 
 class JudgeVerdict(BaseModel):
@@ -45,7 +48,7 @@ First explain your reasoning, then assign a verdict.
 """
 
 
-def make_metrics(judge_model: str) -> tuple:
+def make_metrics(judge_model: str) -> tuple[Any, Any]:
     """Create and return (llm_judge, execution_accuracy) metric functions."""
     from datacompy.core import Compare
 
@@ -83,12 +86,17 @@ def make_metrics(judge_model: str) -> tuple:
 
     @discrete_metric(name="execution_accuracy", allowed_values=["correct", "incorrect"])
     def execution_accuracy(
-        gold_success: bool, gold_result: pd.DataFrame | str, pred_success: bool, pred_result: pd.DataFrame | str
+        gold_success: bool,
+        gold_result: pd.DataFrame | str,
+        pred_success: bool,
+        pred_result: pd.DataFrame | str,
     ) -> MetricResult:
         if not gold_success:
             return MetricResult(value="incorrect", reason=f"Gold SQL failed: {gold_result}")
         if not pred_success:
             return MetricResult(value="incorrect", reason=f"Predicted SQL failed: {pred_result}")
+        assert isinstance(gold_result, pd.DataFrame)
+        assert isinstance(pred_result, pd.DataFrame)
         if gold_result.empty and pred_result.empty:
             return MetricResult(value="correct", reason="Both empty")
         if gold_result.empty != pred_result.empty:

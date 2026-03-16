@@ -12,13 +12,14 @@ from typing import Any
 import pandas as pd
 from ragas import Dataset, experiment
 
+from benchmark.db import DBRunner
 from benchmark.helpers import must_env
 from benchmark.metrics import make_metrics
 
 
 def load_benchmark_dataset(
     input_csv: Path, limit: int | None = None, rows: list[int] | None = None
-) -> tuple[pd.DataFrame, Dataset]:
+) -> tuple[pd.DataFrame, Any]:
     """Load the gold SQL CSV into a Ragas Dataset.
 
     Expected CSV columns: user_input, gold_sql, difficulty
@@ -30,7 +31,7 @@ def load_benchmark_dataset(
     elif limit is not None:
         df_gold = df_gold.head(limit).reset_index(drop=True)
 
-    dataset = Dataset(name=os.environ.get("DATASET_NAME", "my_benchmark"), backend="local/csv", root_dir=".")
+    dataset: Any = Dataset(name=os.environ.get("DATASET_NAME", "my_benchmark"), backend="local/csv", root_dir=".")
     for _, row in df_gold.iterrows():
         entry = {
             "user_input": row["user_input"],
@@ -98,7 +99,7 @@ def run_benchmark(
     limit: int | None,
     sql_model: str,
     judge_model: str,
-    db_runner,
+    db_runner: DBRunner,
     predict_fn: Callable[[str], Awaitable[tuple[bool, str | None, Any]]],
     max_concurrent: int = 8,
     rows: list[int] | None = None,
@@ -128,10 +129,10 @@ def run_benchmark(
     csv_lock = asyncio.Lock()
 
     @experiment()
-    async def benchmark(row):
+    async def benchmark(row: Any) -> Any:
         async with semaphore:
 
-            async def timed_predict(question: str):
+            async def timed_predict(question: str) -> tuple[tuple[bool, str | None, Any], float]:
                 t0 = time.perf_counter()
                 try:
                     result = await predict_fn(question)

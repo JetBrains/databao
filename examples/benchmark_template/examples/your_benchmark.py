@@ -7,6 +7,7 @@ Setup:
 """
 
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 from benchmark.core import make_benchmark_cli, run_benchmark, run_benchmark_cli
@@ -15,7 +16,7 @@ from benchmark.db import create_runner
 DEFAULT_SQL_MODEL = "gpt-5.4"
 
 
-async def predict_fn(question: str) -> tuple[bool, str | None, pd.DataFrame | str]:
+async def predict_fn(question: str) -> tuple[bool, str | None, Any]:
     """TODO: Implement your agent's predict function.
 
     Given a natural-language question, return:

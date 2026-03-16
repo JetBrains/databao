@@ -2,10 +2,14 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 import pandas as pd
 from sqlalchemy import create_engine, text
+
+
+class DBRunner(Protocol):
+    def execute_sql(self, sql: str) -> tuple[bool, pd.DataFrame | str]: ...
 
 
 class SQLAlchemyRunner:
@@ -73,7 +77,7 @@ class SnowflakeRunner:
         password: str = "",
         private_key_path: str = "",
     ) -> None:
-        connect_args: dict = {}
+        connect_args: dict[str, object] = {}
         base_url = f"snowflake://{user}@{account}/{database}/{schema}"
 
         if auth == "password":
@@ -182,6 +186,7 @@ def create_databao_domain(runner: SQLAlchemyRunner | DuckDBRunner | SnowflakeRun
 
         domain.add_db(duckdb.connect(os.environ.get("DUCKDB_PATH", "")))
     else:
+        assert isinstance(runner, SQLAlchemyRunner)
         domain.add_db(runner.engine, name="db1")
 
     return domain
