@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import os
 import time
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-import config
 import pandas as pd
 from ragas import Dataset, experiment
 
@@ -26,7 +26,7 @@ def load_benchmark_dataset(input_csv: Path, limit: int | None = None):
     if limit is not None:
         df_gold = df_gold.head(limit).reset_index(drop=True)
 
-    dataset = Dataset(name=config.DATASET_NAME, backend="local/csv", root_dir=".")
+    dataset = Dataset(name=os.environ.get("DATASET_NAME", "my_benchmark"), backend="local/csv", root_dir=".")
     for _, row in df_gold.iterrows():
         entry = {
             "user_input": row["user_input"],
@@ -192,15 +192,21 @@ def make_benchmark_cli(
         description=description,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("--input", default=config.INPUT_CSV, help="Path to benchmark CSV.")
-    parser.add_argument("--output", default=config.OUTPUT_CSV, help="Path to output CSV.")
+    parser.add_argument(
+        "--input", default=os.environ.get("INPUT_CSV", "benchmark_questions.csv"), help="Path to benchmark CSV."
+    )
+    parser.add_argument(
+        "--output", default=os.environ.get("OUTPUT_CSV", "results/output.csv"), help="Path to output CSV."
+    )
     parser.add_argument("--limit", type=int, default=None, help="Optional row limit for quick tests.")
     parser.add_argument("--sql-model", default=default_sql_model, help="Model for SQL generation.")
-    parser.add_argument("--judge-model", default=config.JUDGE_MODEL, help="OpenAI model for LLM judge.")
+    parser.add_argument(
+        "--judge-model", default=os.environ.get("JUDGE_MODEL", "gpt-5.4"), help="OpenAI model for LLM judge."
+    )
     parser.add_argument(
         "--max-concurrent",
         type=int,
-        default=getattr(config, "MAX_CONCURRENT", 8),
+        default=int(os.environ.get("MAX_CONCURRENT", "8")),
         help="Maximum number of concurrent benchmark tasks.",
     )
     return parser
@@ -208,6 +214,10 @@ def make_benchmark_cli(
 
 def run_benchmark_cli(args: argparse.Namespace, run_benchmark_fn: Callable[..., pd.DataFrame]) -> None:
     """Run a benchmark from parsed CLI arguments and print summary."""
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
     results = run_benchmark_fn(
         input_csv=Path(args.input),
         output_csv=Path(args.output),

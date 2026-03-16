@@ -1,9 +1,9 @@
 """Template: plug in your own agent.
 
 Setup:
-1. Configure your database in config.py (set DATABASE_TYPE and fill in the relevant fields).
+1. Copy .env.template to .env and configure your database connection.
 2. Implement predict_fn below.
-3. Run: python examples/your_benchmark.py
+3. Run: cd examples/benchmark_template && uv run examples/your_benchmark.py
 """
 
 from pathlib import Path

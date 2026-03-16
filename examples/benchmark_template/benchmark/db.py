@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pandas as pd
@@ -108,30 +109,28 @@ class SnowflakeRunner:
 
 
 def create_runner():
-    """Create a database runner based on config.DATABASE_TYPE."""
-    import config
-
-    db_type = config.DATABASE_TYPE.lower()
+    """Create a database runner based on DATABASE_TYPE env var."""
+    db_type = os.environ.get("DATABASE_TYPE", "sqlalchemy")
 
     if db_type == "snowflake":
         return SnowflakeRunner(
-            user=config.SNOWFLAKE_USER,
-            account=config.SNOWFLAKE_ACCOUNT,
-            database=config.SNOWFLAKE_DATABASE,
-            schema=config.SNOWFLAKE_SCHEMA,
-            auth=config.SNOWFLAKE_AUTH,
-            warehouse=getattr(config, "SNOWFLAKE_WAREHOUSE", ""),
-            password=getattr(config, "SNOWFLAKE_PASSWORD", ""),
-            private_key_path=getattr(config, "SNOWFLAKE_PRIVATE_KEY_PATH", ""),
+            user=os.environ.get("SNOWFLAKE_USER", ""),
+            account=os.environ.get("SNOWFLAKE_ACCOUNT", ""),
+            database=os.environ.get("SNOWFLAKE_DATABASE", ""),
+            schema=os.environ.get("SNOWFLAKE_SCHEMA", ""),
+            auth=os.environ.get("SNOWFLAKE_AUTH", "password"),
+            warehouse=os.environ.get("SNOWFLAKE_WAREHOUSE", ""),
+            password=os.environ.get("SNOWFLAKE_PASSWORD", ""),
+            private_key_path=os.environ.get("SNOWFLAKE_PRIVATE_KEY_PATH", ""),
         )
     elif db_type == "duckdb":
-        return DuckDBRunner(config.DUCKDB_PATH)
+        return DuckDBRunner(os.environ.get("DUCKDB_PATH", ""))
     else:
-        return SQLAlchemyRunner(config.DATABASE_URL)
+        return SQLAlchemyRunner(os.environ.get("DATABASE_URL", "sqlite:///:memory:"))
 
 
 def create_databao_domain(runner=None):
-    """Create a databao domain pre-configured with the database from config.
+    """Create a databao domain pre-configured with the database from env vars.
 
     Uses the same database connection as the benchmark runner, so gold SQLs
     and databao agent queries run against the same database.
@@ -139,31 +138,27 @@ def create_databao_domain(runner=None):
     Args:
         runner: An existing runner (from create_runner()). If None, creates one.
     """
-    import config
-
     import databao.agent as bao
 
     if runner is None:
         runner = create_runner()
 
+    db_type = os.environ.get("DATABASE_TYPE", "sqlalchemy")
     domain = bao.domain()
-    db_type = config.DATABASE_TYPE.lower()
 
     if db_type == "snowflake":
-        # Snowflake needs explicit connection properties (engine doesn't
-        # round-trip key-pair auth), so we build them from config.
         from databao_context_engine import SnowflakeConnectionProperties
 
-        auth_method = config.SNOWFLAKE_AUTH.lower()
+        auth_method = os.environ.get("SNOWFLAKE_AUTH", "password").lower()
         if auth_method == "key_pair":
             from databao_context_engine import SnowflakeKeyPairAuth
 
-            private_key_path = str(Path(config.SNOWFLAKE_PRIVATE_KEY_PATH).expanduser())
+            private_key_path = str(Path(os.environ.get("SNOWFLAKE_PRIVATE_KEY_PATH", "")).expanduser())
             auth = SnowflakeKeyPairAuth(private_key_file=private_key_path)
         elif auth_method == "password":
             from databao_context_engine import SnowflakePasswordAuth
 
-            auth = SnowflakePasswordAuth(password=config.SNOWFLAKE_PASSWORD)
+            auth = SnowflakePasswordAuth(password=os.environ.get("SNOWFLAKE_PASSWORD", ""))
         elif auth_method == "sso":
             from databao_context_engine import SnowflakeSSOAuth
 
@@ -173,22 +168,19 @@ def create_databao_domain(runner=None):
 
         domain.add_db(
             SnowflakeConnectionProperties(
-                user=config.SNOWFLAKE_USER,
-                account=config.SNOWFLAKE_ACCOUNT,
-                database=config.SNOWFLAKE_DATABASE,
-                warehouse=getattr(config, "SNOWFLAKE_WAREHOUSE", None) or None,
+                user=os.environ.get("SNOWFLAKE_USER", ""),
+                account=os.environ.get("SNOWFLAKE_ACCOUNT", ""),
+                database=os.environ.get("SNOWFLAKE_DATABASE", ""),
+                warehouse=os.environ.get("SNOWFLAKE_WAREHOUSE", "") or None,
                 auth=auth,
             ),
             name="db1",
         )
     elif db_type == "duckdb":
-        # Create a fresh DuckDB connection for databao. Don't specify name=
-        # because DuckDB auto-names the database from the file path.
         import duckdb
 
-        domain.add_db(duckdb.connect(config.DUCKDB_PATH))
+        domain.add_db(duckdb.connect(os.environ.get("DUCKDB_PATH", "")))
     else:
-        # For Postgres, MySQL, SQLite, BigQuery, etc. -- pass the SQLAlchemy engine.
         domain.add_db(runner.engine, name="db1")
 
     return domain

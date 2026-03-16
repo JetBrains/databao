@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import json
-import os
 
-import config
 from openai import AsyncOpenAI
 from ragas.metrics.discrete import discrete_metric
 from ragas.metrics.result import MetricResult
@@ -14,14 +12,6 @@ try:
     from langsmith.wrappers import wrap_openai
 except ImportError:
     wrap_openai = None
-
-
-def _apply_langsmith_config() -> None:
-    """Set LangSmith env vars from config.py if defined there."""
-    for key in ("LANGSMITH_API_KEY", "LANGSMITH_PROJECT"):
-        value = getattr(config, key, None)
-        if value and key not in os.environ:
-            os.environ[key] = value
 
 
 LLM_JUDGE_PROMPT = """Compare `Generated Dataframe` to `Gold Dataframe` to check if the Question was answered correctly.
@@ -51,8 +41,6 @@ Respond with JSON: {{"verdict": "correct"|"partially"|"wrong", "reason": "..."}}
 def make_metrics(judge_model: str):
     """Create and return (llm_judge, execution_accuracy) metric functions."""
     from datacompy.core import Compare
-
-    _apply_langsmith_config()
 
     client = AsyncOpenAI()
     if wrap_openai is not None:

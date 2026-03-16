@@ -11,43 +11,47 @@ Tested with PostgreSQL, Snowflake, and DuckDB.
 # curl -LsSf https://astral.sh/uv/install.sh | sh
 
 uv sync --extra databao
-export OPENAI_API_KEY="sk-..."
+cp .env.template .env
+# Edit .env — set at least OPENAI_API_KEY and your database credentials
 ```
 
-### 1. Configure your database in `config.py`
+### 1. Configure your database
 
-**PostgreSQL / MySQL / BigQuery** -- set `DATABASE_TYPE = "sqlalchemy"`:
+Edit `.env` and fill in your values:
 
-```python
-DATABASE_TYPE = "sqlalchemy"
-DATABASE_URL = "postgresql://user:pass@host:5432/dbname"
+**PostgreSQL / MySQL / BigQuery** -- set `DATABASE_TYPE=sqlalchemy`:
+
+```dotenv
+DATABASE_TYPE=sqlalchemy
+DATABASE_URL=postgresql://user:pass@host:5432/dbname
 ```
 
 Install your driver: `uv add psycopg2-binary` (Postgres), `uv add pymysql` (MySQL), etc.
 
-**DuckDB** -- set `DATABASE_TYPE = "duckdb"`:
+**DuckDB** -- set `DATABASE_TYPE=duckdb`:
 
-```python
-DATABASE_TYPE = "duckdb"
-DUCKDB_PATH = "/path/to/your/database.duckdb"
+```dotenv
+DATABASE_TYPE=duckdb
+DUCKDB_PATH=/path/to/your/database.duckdb
 ```
 
-**Snowflake** -- set `DATABASE_TYPE = "snowflake"`:
+**Snowflake** -- set `DATABASE_TYPE=snowflake`:
 
 ```bash
 uv sync --extra databao --extra snowflake
 ```
 
-```python
-DATABASE_TYPE = "snowflake"
-SNOWFLAKE_AUTH = "key_pair"          # or "password" or "sso"
-SNOWFLAKE_USER = "my_user"
-SNOWFLAKE_ACCOUNT = "xy12345.us-east-1"
-SNOWFLAKE_DATABASE = "MY_DB"
-SNOWFLAKE_SCHEMA = "PUBLIC"
-SNOWFLAKE_WAREHOUSE = "MY_WH"       # optional
-SNOWFLAKE_PRIVATE_KEY_PATH = "~/.ssh/my_key.pem"  # for key_pair auth
-SNOWFLAKE_PASSWORD = ""              # for password auth
+For the Snowflake ADBC driver setup, see [duckdb-snowflake ADBC driver instructions](https://github.com/iqea-ai/duckdb-snowflake?tab=readme-ov-file#adbc-driver-setup).
+
+```dotenv
+DATABASE_TYPE=snowflake
+SNOWFLAKE_AUTH=key_pair
+SNOWFLAKE_USER=my_user
+SNOWFLAKE_ACCOUNT=xy12345.us-east-1
+SNOWFLAKE_DATABASE=MY_DB
+SNOWFLAKE_SCHEMA=PUBLIC
+SNOWFLAKE_WAREHOUSE=MY_WH
+SNOWFLAKE_PRIVATE_KEY_PATH=~/.ssh/my_key.pem
 ```
 
 ### 2. Add your gold SQL questions to `benchmark_questions.csv`
@@ -92,9 +96,9 @@ uv run examples/your_benchmark.py
 
 ## Configuration
 
-All settings live in `config.py`:
+All settings are read from environment variables (`.env` file). See `.env.template` for the full list.
 
-| Constant | Default | Description |
+| Variable | Default | Description |
 |----------|---------|-------------|
 | `DATABASE_TYPE` | `sqlalchemy` | `"sqlalchemy"`, `"duckdb"`, or `"snowflake"` |
 | `DATABASE_URL` | `sqlite:///:memory:` | Connection string (for `sqlalchemy`) |
@@ -114,7 +118,7 @@ All settings live in `config.py`:
 
 ## Enabling LangSmith Traces
 
-Uncomment the `LANGSMITH_*` lines in `config.py` and install:
+Set the `LANGSMITH_*` variables in your `.env` file and install:
 
 ```bash
 uv sync --extra databao --extra langsmith
@@ -125,7 +129,7 @@ LLM judge calls are automatically traced when LangSmith is configured.
 ## Project Structure
 
 ```
-config.py                    # All configuration in one place
+.env.template                # All env vars with comments
 benchmark_questions.csv      # Your gold SQL questions
 pyproject.toml
 benchmark/

@@ -1,8 +1,8 @@
 """Example: benchmarking a databao agent.
 
 Setup:
-1. Configure your database in config.py (set DATABASE_TYPE and fill in the relevant fields).
-2. Run: python examples/databao_benchmark.py
+1. Copy .env.template to .env and configure your database connection.
+2. Run: cd examples/benchmark_template && uv run examples/databao_benchmark.py
 """
 
 import asyncio
