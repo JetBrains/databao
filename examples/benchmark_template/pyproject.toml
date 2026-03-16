@@ -32,3 +32,20 @@ langsmith = [
 
 [tool.setuptools]
 packages = ["benchmark"]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.0.0",
+    "pandas-stubs>=2.0.0",
+]
+
+[tool.mypy]
+strict = true
+show_error_codes = true
+check_untyped_defs = true
+disallow_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_configs = true
+warn_unused_ignores = false  # third-party stubs are inconsistent, avoid false positives
+ignore_missing_imports = true  # ragas/datacompy/langsmith don't ship type stubs
+files = ["benchmark", "config.py", "examples"]
