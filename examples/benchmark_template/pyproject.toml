@@ -48,4 +48,4 @@ warn_redundant_casts = true
 warn_unused_configs = true
 warn_unused_ignores = false  # third-party stubs are inconsistent, avoid false positives
 ignore_missing_imports = true  # ragas/datacompy/langsmith don't ship type stubs
-files = ["benchmark", "config.py", "examples"]
+files = ["benchmark", "examples"]

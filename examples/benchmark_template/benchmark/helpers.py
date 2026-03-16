@@ -13,12 +13,12 @@ def must_env(name: str) -> str:
     return value
 
 
-def _safe_to_markdown(df: pd.DataFrame, **kwargs: object) -> str:
+def _safe_to_markdown(df: pd.DataFrame) -> str:
     """Convert a DataFrame to markdown, falling back to to_string() on failure."""
     try:
-        return df.to_markdown(**kwargs) or ""
+        return df.to_markdown() or ""
     except Exception:
-        return df.to_string(**kwargs)
+        return df.to_string()
 
 
 def df_to_markdown(df: pd.DataFrame | None, max_rows: int = 20) -> str:
