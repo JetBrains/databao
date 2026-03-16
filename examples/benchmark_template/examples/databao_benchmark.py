@@ -9,7 +9,6 @@ import asyncio
 from pathlib import Path
 
 import pandas as pd
-
 from benchmark.core import make_benchmark_cli, run_benchmark, run_benchmark_cli
 from benchmark.db import create_databao_domain, create_runner
 
