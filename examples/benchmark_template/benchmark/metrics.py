@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import json
 from typing import Literal
 
+import pandas as pd
 from openai import AsyncOpenAI
 from pydantic import BaseModel
 from ragas.metrics.discrete import discrete_metric
@@ -45,7 +45,7 @@ First explain your reasoning, then assign a verdict.
 """
 
 
-def make_metrics(judge_model: str):
+def make_metrics(judge_model: str) -> tuple:
     """Create and return (llm_judge, execution_accuracy) metric functions."""
     from datacompy.core import Compare
 
@@ -54,7 +54,7 @@ def make_metrics(judge_model: str):
         client = wrap_openai(client, chat_name="LLM Judge")
 
     @discrete_metric(name="llm_judge", allowed_values=["correct", "partially", "wrong"])
-    async def llm_judge(question: str, gold_df, generated_df):
+    async def llm_judge(question: str, gold_df: pd.DataFrame | None, generated_df: pd.DataFrame | None) -> MetricResult:
         if gold_df is None:
             return MetricResult(value="wrong", reason="Gold DF is None")
         if generated_df is None:
@@ -82,7 +82,9 @@ def make_metrics(judge_model: str):
             return MetricResult(value="wrong", reason=f"Judge error: {e}")
 
     @discrete_metric(name="execution_accuracy", allowed_values=["correct", "incorrect"])
-    def execution_accuracy(gold_success, gold_result, pred_success, pred_result):
+    def execution_accuracy(
+        gold_success: bool, gold_result: pd.DataFrame | str, pred_success: bool, pred_result: pd.DataFrame | str
+    ) -> MetricResult:
         if not gold_success:
             return MetricResult(value="incorrect", reason=f"Gold SQL failed: {gold_result}")
         if not pred_success:

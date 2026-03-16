@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 from sqlalchemy import create_engine, text
@@ -108,8 +109,8 @@ class SnowflakeRunner:
             return False, str(e)
 
 
-def create_runner():
-    """Create a database runner based on DATABASE_TYPE env var."""
+def create_runner() -> SQLAlchemyRunner | DuckDBRunner | SnowflakeRunner:
+    """Create a sql query runner based on DATABASE_TYPE env var."""
     db_type = os.environ.get("DATABASE_TYPE", "sqlalchemy")
 
     if db_type == "snowflake":
@@ -129,7 +130,7 @@ def create_runner():
         return SQLAlchemyRunner(os.environ.get("DATABASE_URL", "sqlite:///:memory:"))
 
 
-def create_databao_domain(runner=None):
+def create_databao_domain(runner: SQLAlchemyRunner | DuckDBRunner | SnowflakeRunner | None = None) -> Any:
     """Create a databao domain pre-configured with the database from env vars.
 
     Uses the same database connection as the benchmark runner, so gold SQLs

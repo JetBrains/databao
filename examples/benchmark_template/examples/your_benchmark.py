@@ -8,13 +8,15 @@ Setup:
 
 from pathlib import Path
 
+import pandas as pd
+
 from benchmark.core import make_benchmark_cli, run_benchmark, run_benchmark_cli
 from benchmark.db import create_runner
 
 DEFAULT_SQL_MODEL = "gpt-5.4"
 
 
-async def predict_fn(question: str):
+async def predict_fn(question: str) -> tuple[bool, str | None, pd.DataFrame | str]:
     """TODO: Implement your agent's predict function.
 
     Given a natural-language question, return:
@@ -34,7 +36,7 @@ def run(
     sql_model: str,
     judge_model: str,
     max_concurrent: int = 8,
-):
+) -> pd.DataFrame:
     db_runner = create_runner()
 
     return run_benchmark(

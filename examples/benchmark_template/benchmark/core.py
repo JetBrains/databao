@@ -16,7 +16,7 @@ from benchmark.helpers import must_env
 from benchmark.metrics import make_metrics
 
 
-def load_benchmark_dataset(input_csv: Path, limit: int | None = None):
+def load_benchmark_dataset(input_csv: Path, limit: int | None = None) -> tuple[pd.DataFrame, Dataset]:
     """Load the gold SQL CSV into a Ragas Dataset.
 
     Expected CSV columns: user_input, gold_sql, difficulty

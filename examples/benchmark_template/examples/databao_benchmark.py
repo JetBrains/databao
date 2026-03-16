@@ -8,6 +8,8 @@ Setup:
 import asyncio
 from pathlib import Path
 
+import pandas as pd
+
 from benchmark.core import make_benchmark_cli, run_benchmark, run_benchmark_cli
 from benchmark.db import create_databao_domain, create_runner
 
@@ -24,7 +26,7 @@ def run(
     sql_model: str,
     judge_model: str,
     max_concurrent: int = 8,
-):
+) -> pd.DataFrame:
     db_runner = create_runner()
     llm_config = LLMConfig(name=sql_model, temperature=0)
 

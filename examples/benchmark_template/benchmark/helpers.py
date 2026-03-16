@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 
+import pandas as pd
+
 
 def must_env(name: str) -> str:
     """Return the value of an environment variable or raise if missing."""
@@ -11,7 +13,7 @@ def must_env(name: str) -> str:
     return value
 
 
-def df_to_markdown(df, max_rows: int = 20) -> str:
+def df_to_markdown(df: pd.DataFrame | None, max_rows: int = 20) -> str:
     """Convert a DataFrame to a truncated markdown table."""
     if df is None:
         return "(None)"
