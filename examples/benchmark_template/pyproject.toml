@@ -9,6 +9,7 @@ description = "Template for building text-to-SQL benchmarks with databao"
 requires-python = ">=3.11"
 dependencies = [
     "openai",
+    "pydantic",
     "python-dotenv",
     "ragas",
     "datacompy",

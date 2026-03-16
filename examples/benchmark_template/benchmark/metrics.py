@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+from typing import Literal
 
 from openai import AsyncOpenAI
+from pydantic import BaseModel
 from ragas.metrics.discrete import discrete_metric
 from ragas.metrics.result import MetricResult
 
@@ -12,6 +14,11 @@ try:
     from langsmith.wrappers import wrap_openai
 except ImportError:
     wrap_openai = None
+
+
+class JudgeVerdict(BaseModel):
+    reason: str
+    verdict: Literal["correct", "partially", "wrong"]
 
 
 LLM_JUDGE_PROMPT = """Compare `Generated Dataframe` to `Gold Dataframe` to check if the Question was answered correctly.
@@ -34,7 +41,7 @@ Gold Dataframe:
 Generated Dataframe:
 {generated_df}
 
-Respond with JSON: {{"verdict": "correct"|"partially"|"wrong", "reason": "..."}}
+First explain your reasoning, then assign a verdict.
 """
 
 
@@ -53,7 +60,7 @@ def make_metrics(judge_model: str):
         if generated_df is None:
             return MetricResult(value="wrong", reason="Generated DF is None")
         try:
-            resp = await client.chat.completions.create(
+            resp = await client.beta.chat.completions.parse(
                 model=judge_model,
                 messages=[
                     {
@@ -65,13 +72,12 @@ def make_metrics(judge_model: str):
                         ),
                     }
                 ],
-                response_format={"type": "json_object"},
+                response_format=JudgeVerdict,
             )
-            result = json.loads(resp.choices[0].message.content)
-            verdict = result.get("verdict", "wrong").lower()
-            if verdict not in ("correct", "partially", "wrong"):
-                verdict = "wrong"
-            return MetricResult(value=verdict, reason=result.get("reason", ""))
+            result = resp.choices[0].message.parsed
+            if result is None:
+                return MetricResult(value="wrong", reason="Failed to parse judge response")
+            return MetricResult(value=result.verdict, reason=result.reason)
         except Exception as e:
             return MetricResult(value="wrong", reason=f"Judge error: {e}")
 
