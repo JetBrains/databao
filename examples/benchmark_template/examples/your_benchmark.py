@@ -36,6 +36,7 @@ def run(
     sql_model: str,
     judge_model: str,
     max_concurrent: int = 8,
+    rows: list[int] | None = None,
 ) -> pd.DataFrame:
     db_runner = create_runner()
 
@@ -48,6 +49,7 @@ def run(
         db_runner=db_runner,
         predict_fn=predict_fn,
         max_concurrent=max_concurrent,
+        rows=rows,
     )
 
 

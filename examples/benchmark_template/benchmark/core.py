@@ -16,14 +16,18 @@ from benchmark.helpers import must_env
 from benchmark.metrics import make_metrics
 
 
-def load_benchmark_dataset(input_csv: Path, limit: int | None = None) -> tuple[pd.DataFrame, Dataset]:
+def load_benchmark_dataset(
+    input_csv: Path, limit: int | None = None, rows: list[int] | None = None
+) -> tuple[pd.DataFrame, Dataset]:
     """Load the gold SQL CSV into a Ragas Dataset.
 
     Expected CSV columns: user_input, gold_sql, difficulty
     Optional columns: domain
     """
     df_gold = pd.read_csv(input_csv)
-    if limit is not None:
+    if rows is not None:
+        df_gold = df_gold.iloc[rows].reset_index(drop=True)
+    elif limit is not None:
         df_gold = df_gold.head(limit).reset_index(drop=True)
 
     dataset = Dataset(name=os.environ.get("DATASET_NAME", "my_benchmark"), backend="local/csv", root_dir=".")
@@ -97,6 +101,7 @@ def run_benchmark(
     db_runner,
     predict_fn: Callable[[str], Awaitable[tuple[bool, str | None, Any]]],
     max_concurrent: int = 8,
+    rows: list[int] | None = None,
 ) -> pd.DataFrame:
     """Run the full benchmark: generate SQL, execute gold + predicted, evaluate.
 
@@ -112,7 +117,7 @@ def run_benchmark(
     """
     must_env("OPENAI_API_KEY")
 
-    _df_gold, dataset = load_benchmark_dataset(input_csv=input_csv, limit=limit)
+    _df_gold, dataset = load_benchmark_dataset(input_csv=input_csv, limit=limit, rows=rows)
     llm_judge, execution_accuracy = make_metrics(judge_model=judge_model)
 
     semaphore = asyncio.Semaphore(max_concurrent)
@@ -198,7 +203,14 @@ def make_benchmark_cli(
     parser.add_argument(
         "--output", default=os.environ.get("OUTPUT_CSV", "results/output.csv"), help="Path to output CSV."
     )
-    parser.add_argument("--limit", type=int, default=None, help="Optional row limit for quick tests.")
+    selection = parser.add_mutually_exclusive_group()
+    selection.add_argument("--limit", type=int, default=None, help="Run only the first N questions.")
+    selection.add_argument(
+        "--rows",
+        type=lambda s: [int(x) for x in s.split(",")],
+        default=None,
+        help="Comma-separated row indices to run (0-based). E.g. --rows 0,3,7",
+    )
     parser.add_argument("--sql-model", default=default_sql_model, help="Model for SQL generation.")
     parser.add_argument(
         "--judge-model", default=os.environ.get("JUDGE_MODEL", "gpt-5.4"), help="OpenAI model for LLM judge."
@@ -222,6 +234,7 @@ def run_benchmark_cli(args: argparse.Namespace, run_benchmark_fn: Callable[..., 
         input_csv=Path(args.input),
         output_csv=Path(args.output),
         limit=args.limit,
+        rows=args.rows,
         sql_model=args.sql_model,
         judge_model=args.judge_model,
         max_concurrent=args.max_concurrent,
