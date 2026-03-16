@@ -6,3 +6,4 @@ results/
 dist/
 build/
 .venv/
+.env
