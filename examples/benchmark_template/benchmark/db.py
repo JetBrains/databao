@@ -8,6 +8,8 @@ import pandas as pd
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL
 
+from benchmark.helpers import must_env
+
 
 class DBRunner(Protocol):
     def execute_sql(self, sql: str) -> tuple[bool, pd.DataFrame | str]: ...
@@ -127,15 +129,16 @@ def create_runner() -> SQLAlchemyRunner | DuckDBRunner | SnowflakeRunner:
     db_type = os.environ.get("DATABASE_TYPE", "sqlalchemy")
 
     if db_type == "snowflake":
+        auth = os.environ.get("SNOWFLAKE_AUTH", "password")
         return SnowflakeRunner(
-            user=os.environ.get("SNOWFLAKE_USER", ""),
-            account=os.environ.get("SNOWFLAKE_ACCOUNT", ""),
-            database=os.environ.get("SNOWFLAKE_DATABASE", ""),
-            schema=os.environ.get("SNOWFLAKE_SCHEMA", ""),
-            auth=os.environ.get("SNOWFLAKE_AUTH", "password"),
+            user=must_env("SNOWFLAKE_USER"),
+            account=must_env("SNOWFLAKE_ACCOUNT"),
+            database=must_env("SNOWFLAKE_DATABASE"),
+            schema=must_env("SNOWFLAKE_SCHEMA"),
+            auth=auth,
             warehouse=os.environ.get("SNOWFLAKE_WAREHOUSE", ""),
-            password=os.environ.get("SNOWFLAKE_PASSWORD", ""),
-            private_key_path=os.environ.get("SNOWFLAKE_PRIVATE_KEY_PATH", ""),
+            password=must_env("SNOWFLAKE_PASSWORD") if auth == "password" else "",
+            private_key_path=must_env("SNOWFLAKE_PRIVATE_KEY_PATH") if auth == "key_pair" else "",
         )
     elif db_type == "duckdb":
         return DuckDBRunner(os.environ.get("DUCKDB_PATH", ""))
