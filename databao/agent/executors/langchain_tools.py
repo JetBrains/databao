@@ -11,7 +11,6 @@ from databao.agent.executors.query_expansion import (
 )
 from databao.agent.executors.utils import (
     _get_ds_name,
-    _search_result_to_dict,
 )
 from databao.agent.executors.utils import (
     search_context as _search_context,
@@ -24,7 +23,6 @@ from databao.agent.executors.utils import (
 def make_search_context_tool(
     domain: Domain,
     *,
-    make_structured: bool = False,
     expansion_llm: BaseChatModel | None = None,
     expansion_config: QueryExpansionConfig | None = None,
 ) -> BaseTool | None:
@@ -32,7 +30,7 @@ def make_search_context_tool(
         return None
     if isinstance(domain, _DCEProjectDomain):
         return _make_dce_search_context_tool(
-            domain, expansion_llm=expansion_llm, expansion_config=expansion_config, make_structured=make_structured
+            domain, expansion_llm=expansion_llm, expansion_config=expansion_config
         )
     raise ValueError(f"Search context tool is not supported for domain type: {type(domain)}")
 
@@ -40,89 +38,12 @@ def make_search_context_tool(
 def _make_dce_search_context_tool(
     domain: _DCEProjectDomain,
     *,
-    make_structured: bool = False,
     expansion_llm: BaseChatModel | None = None,
     expansion_config: QueryExpansionConfig | None = None,
 ) -> BaseTool | None:
     if expansion_llm is not None and expansion_config is not None:
         return _make_dce_expanded_search_tool(domain, expansion_llm, expansion_config)
-    elif make_structured:
-        return _make_dce_structured_search_tool(domain)
     return _make_dce_plain_search_tool(domain)
-
-
-def extract_content(
-    result_list: list[Any],
-    object_type: str | None,
-    content_types: list[str],
-) -> list[dict[str, Any]]:
-    final_result = []
-    for result in result_list:
-        result_dict = yaml.safe_load(result.context_result)
-        parsed_result: dict[str, Any] = {}
-        for content_type in content_types:
-            if content_type not in result_dict:
-                parsed_result[content_type] = result_dict[object_type][content_type]
-            else:
-                parsed_result[content_type] = result_dict[content_type]
-        final_result.append(
-            {
-                "data_source_name": _get_ds_name(result),
-                "score": result.score,
-                "context_result": parsed_result,
-            }
-        )
-    return final_result
-
-
-def _make_dce_structured_search_tool(domain: _DCEProjectDomain) -> BaseTool:
-    """Build the search_context tool without query expansion."""
-
-    @tool(parse_docstring=True)
-    def search_context(
-        query: str,
-        object_type: Literal["table", "column"] | None,
-        content_types: list[Literal["description", "samples", "stats", "name", "type"]] | None,
-    ) -> list[dict[str, Any]]:
-        """Search the context for relevant information matching the given query text.
-
-        Use this tool to find additional information about the database (e.g., table and column descriptions and
-        sample rows, column statistics (stats) or only the names of the objects) and any attached
-        data sources (e.g., dbt projects).
-
-        Prefer using this tool to get detailed database schema insights as opposed to running
-        your own database inspection SQL queries.
-
-        Your natural language query will be matched against a semantic and keyword based search index
-        to find relevant results. Include specific information in the query (e.g., table names, column names)
-        to get the best results.
-
-        As returning all matching contents may include duplicated information - e.g. you asked for column names, but
-        also tables are returned, you should preferably also specify the type of object you are looking for - e.g.
-        table or column and also the type of content - e.g. you may alrady know the name of the columns you are
-        interested in, but want to know their contents.
-
-        If you specify `object_type` "table" you can only choose `content_types` "name" as for bigger tables returning
-        the full information for possibly multiple table matches will easily bloat the context.
-        To get fine-grained information you need to choose `object_type` "column".
-
-        Args:
-            query: Natural language query to search the context for relevant results.
-            object_type (Literal["table", "column"] | None): The type of chunk to retrieve (e.g., table or column).)
-            content_types (list[Literal["description", "samples", "stats", "name"]] | None): The types of content
-                to retrieve.
-        """
-        search_result_list = domain.search_context(query, datasource_name=None, chunk_type=object_type)
-        if content_types is None:
-            return list(map(_search_result_to_dict, search_result_list))
-        if object_type == "table":
-            final_content_types = [content_type for content_type in content_types if content_type in {"stats", "name"}]
-        if object_type == "column":
-            final_content_types = [*content_types, "schema_name", "table_name"]
-        parsed_result = extract_content(search_result_list, object_type, list(set([*final_content_types, "name"])))
-        return parsed_result
-
-    return search_context
 
 
 # fmt: off
