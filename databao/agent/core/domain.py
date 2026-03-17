@@ -222,13 +222,11 @@ class _DCEProjectDomain(_Domain):
             messages = "\n".join(f"  - {r.datasource_id}: {r.error}" for r in failed)
             raise RuntimeError(f"{len(failed)} datasource(s) failed to build context:\n{messages}")
 
-    def search_context(
-        self, retrieve_text: str, datasource_name: str | None = None, chunk_type: str | None = None
-    ) -> list[ContextSearchResult]:
+    def search_context(self, retrieve_text: str, datasource_name: str | None = None) -> list[ContextSearchResult]:
         if not self.is_context_built():
             raise ValueError("Context is not built. Call build_context() before searching.")
         datasource_ids = self._create_datasource_id_list(datasource_name)
-        return self._dce.search_context(retrieve_text, datasource_ids=datasource_ids, chunk_type=chunk_type)
+        return self._dce.search_context(retrieve_text, datasource_ids=datasource_ids)
 
     def is_context_built(self) -> bool:
         return self._dce.is_context_built()

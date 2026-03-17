@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from databao.agent.core import Domain
 from databao.agent.duckdb.schema_inspection import inspect_duckdb_schema, summarize_duckdb_schema
+from databao.agent.executors.langchain_tools import make_search_context_tool
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -134,10 +135,6 @@ def make_react_duckdb_agent(
     Available schema:
     {schema_text}
     """
-
-    from databao.agent.executors.langchain_tools import (
-        make_search_context_tool,  # local import to avoid circular dependency
-    )
 
     execute_sql_tool = make_duckdb_tool(con)
     tools = [execute_sql_tool]
