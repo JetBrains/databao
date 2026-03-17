@@ -7,6 +7,7 @@ Setup:
 
 import asyncio
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 from benchmark.core import make_benchmark_cli, run_benchmark, run_benchmark_cli
@@ -30,14 +31,14 @@ def run(
     db_runner = create_runner()
     llm_config = LLMConfig(name=sql_model, temperature=0)
 
-    def run_databao_query_sync(question: str):
+    def run_databao_query_sync(question: str) -> tuple[bool, str | None, Any]:
         domain = create_databao_domain(db_runner)
         agent = bao.agent(domain=domain, llm_config=llm_config, stream_ask=False)
         thread = agent.thread()
         thread.ask(question)
         return True, thread.code(), thread.df()
 
-    async def predict_fn(question: str):
+    async def predict_fn(question: str) -> tuple[bool, str | None, Any]:
         return await asyncio.to_thread(run_databao_query_sync, question)
 
     return run_benchmark(
