@@ -6,6 +6,7 @@ from typing import Any, Protocol
 
 import pandas as pd
 from sqlalchemy import create_engine, text
+from sqlalchemy.engine import URL
 
 
 class DBRunner(Protocol):
@@ -78,10 +79,10 @@ class SnowflakeRunner:
         private_key_path: str = "",
     ) -> None:
         connect_args: dict[str, object] = {}
-        base_url = f"snowflake://{user}@{account}/{database}/{schema}"
+        query_params: dict[str, str] = {}
 
         if auth == "password":
-            base_url = f"snowflake://{user}:{password}@{account}/{database}/{schema}"
+            pass  # password is passed via URL.create() below
         elif auth == "key_pair":
             from cryptography.hazmat.backends import default_backend
             from cryptography.hazmat.primitives import serialization
@@ -100,9 +101,17 @@ class SnowflakeRunner:
             raise ValueError(f"Unknown auth method: {auth!r}. Use 'password', 'key_pair', or 'sso'.")
 
         if warehouse:
-            base_url += f"?warehouse={warehouse}"
+            query_params["warehouse"] = warehouse
 
-        self.engine = create_engine(base_url, connect_args=connect_args)
+        url = URL.create(
+            "snowflake",
+            username=user,
+            password=password if auth == "password" else None,
+            host=account,
+            database=f"{database}/{schema}",
+            query=query_params,
+        )
+        self.engine = create_engine(url, connect_args=connect_args)
 
     def execute_sql(self, sql: str) -> tuple[bool, pd.DataFrame | str]:
         try:
