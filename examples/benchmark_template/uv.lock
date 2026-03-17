@@ -861,7 +861,7 @@ requires-dist = [
     { name = "databao-agent", marker = "extra == 'databao'" },
     { name = "datacompy" },
     { name = "langsmith", marker = "extra == 'langsmith'" },
-    { name = "openai" },
+    { name = "openai", specifier = ">=1.50.0" },
     { name = "pandas" },
     { name = "pydantic" },
     { name = "python-dotenv" },
