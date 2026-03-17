@@ -41,7 +41,14 @@ DUCKDB_PATH=/path/to/your/database.duckdb
 uv sync --extra databao --extra snowflake
 ```
 
-For the Snowflake ADBC driver setup, see [duckdb-snowflake ADBC driver instructions](https://github.com/iqea-ai/duckdb-snowflake?tab=readme-ov-file#adbc-driver-setup).
+***Required for databao:*** install the Snowflake ADBC driver so databao can query Snowflake. 
+
+```bash
+# Linux/macOS/WSL:
+curl -sSL https://raw.githubusercontent.com/iqea-ai/duckdb-snowflake/main/scripts/install-adbc-driver.sh | sh
+```
+
+See [duckdb-snowflake ADBC driver instructions](https://github.com/iqea-ai/duckdb-snowflake?tab=readme-ov-file#adbc-driver-setup) for Windows or manual installation.
 
 ```dotenv
 DATABASE_TYPE=snowflake
