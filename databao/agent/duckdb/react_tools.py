@@ -104,6 +104,7 @@ def make_react_duckdb_agent(
         A compiled LangGraph ReAct agent.
     """
     from databao.agent.executors.langchain_tools import make_search_context_tool
+
     schema_text = describe_duckdb_schema(con)
     # TODO move to .jinja (and fix indendation)
     SYSTEM_PROMPT = f"""You are a careful data analyst using the ReAct pattern with tools.
