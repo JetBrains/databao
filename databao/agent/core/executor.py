@@ -187,7 +187,7 @@ class Executor(ABC):
     def prepare_for_execution(domain: "Domain") -> None:
         if domain.supports_context and not domain.is_context_built():
             logger.warning(
-                "Context has not been built yet. Building it now — this may take a while. "
-                "To avoid this delay, call domain.build_context() before starting execution."
+                "Context has not been built! "
+                "Some executors may benefit from it — call domain.build_context() if needed."
             )
-            domain.build_context()
+            # domain.build_context()

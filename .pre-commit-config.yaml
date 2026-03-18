@@ -32,3 +32,11 @@ repos:
         entry: uv run mypy
         language: system
         pass_filenames: false
+
+      - id: mypy-benchmark
+        name: mypy-benchmark
+        description: Verify types statically in the benchmark template (uses its own uv env)
+        entry: uv run --directory examples/benchmark_template mypy
+        language: system
+        pass_filenames: false
+        files: ^examples/benchmark_template/
