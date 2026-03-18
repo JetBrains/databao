@@ -1,6 +1,5 @@
-from typing import Any, Literal
+from typing import Any
 
-import yaml
 from langchain_core.language_models import BaseChatModel
 from langchain_core.tools import BaseTool, tool
 
@@ -8,9 +7,6 @@ from databao.agent.core import Domain
 from databao.agent.core.domain import _DCEProjectDomain
 from databao.agent.executors.query_expansion import (
     QueryExpansionConfig,
-)
-from databao.agent.executors.utils import (
-    _get_ds_name,
 )
 from databao.agent.executors.utils import (
     search_context as _search_context,
@@ -29,9 +25,7 @@ def make_search_context_tool(
     if not domain.supports_context:
         return None
     if isinstance(domain, _DCEProjectDomain):
-        return _make_dce_search_context_tool(
-            domain, expansion_llm=expansion_llm, expansion_config=expansion_config
-        )
+        return _make_dce_search_context_tool(domain, expansion_llm=expansion_llm, expansion_config=expansion_config)
     raise ValueError(f"Search context tool is not supported for domain type: {type(domain)}")
 
 
