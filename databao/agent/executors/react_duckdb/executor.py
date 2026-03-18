@@ -9,7 +9,8 @@ from databao.agent.configs.agent import AgentConfig
 from databao.agent.configs.llm import LLMConfig
 from databao.agent.core import Cache, Domain, ExecutionResult, Opa
 from databao.agent.core.executor import OutputModalityHints
-from databao.agent.duckdb.react_tools import AgentResponse, execute_duckdb_sql, make_react_duckdb_agent
+from databao.agent.duckdb.react_tools import AgentResponse, make_react_duckdb_agent
+from databao.agent.duckdb.utils import execute_duckdb_sql
 from databao.agent.executors.base import GraphExecutor
 
 logger = logging.getLogger(__name__)

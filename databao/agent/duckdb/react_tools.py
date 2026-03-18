@@ -2,7 +2,6 @@ import json
 import logging
 from typing import Any
 
-import pandas as pd
 from duckdb import DuckDBPyConnection
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.tools import tool
@@ -12,7 +11,7 @@ from pydantic import BaseModel
 
 from databao.agent.core import Domain
 from databao.agent.duckdb.schema_inspection import inspect_duckdb_schema, summarize_duckdb_schema
-from databao.agent.executors.langchain_tools import make_search_context_tool
+from databao.agent.duckdb.utils import execute_duckdb_sql
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -22,20 +21,6 @@ class AgentResponse(BaseModel):
 
     sql: str
     explanation: str
-
-
-def execute_duckdb_sql(sql: str, con: DuckDBPyConnection, *, limit: int | None = None) -> pd.DataFrame:
-    # Use duckdb's Relation API to inject a LIMIT clause
-    rel = con.sql(sql)  # A lazy Relation
-
-    # TODO Do we want to forbid non-SELECT statements?
-    # Non-Select queries (CREATE TABLE, etc.) are executed immediately and return None
-    if rel is None:
-        return pd.DataFrame()
-
-    if limit is not None:
-        rel = rel.limit(limit)
-    return rel.df()  # Execute and return DataFrame
 
 
 def describe_duckdb_schema(con: DuckDBPyConnection, max_cols_per_table: int | None = None) -> str:
@@ -118,6 +103,7 @@ def make_react_duckdb_agent(
     Returns:
         A compiled LangGraph ReAct agent.
     """
+    from databao.agent.executors.langchain_tools import make_search_context_tool
     schema_text = describe_duckdb_schema(con)
     # TODO move to .jinja (and fix indendation)
     SYSTEM_PROMPT = f"""You are a careful data analyst using the ReAct pattern with tools.

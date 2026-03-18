@@ -7,7 +7,7 @@ from databao_context_engine import ContextSearchResult
 from langchain_core.language_models import BaseChatModel
 
 from databao.agent.core.domain import _DCEProjectDomain
-from databao.agent.duckdb.react_tools import execute_duckdb_sql
+from databao.agent.duckdb.utils import execute_duckdb_sql
 from databao.agent.executors.frontend.text_frontend import dataframe_to_markdown
 from databao.agent.executors.query_expansion import QueryExpansionConfig, expand_queries, reciprocal_rank_fusion
 from databao.agent.integrations.dce import DatabaoContextApi
