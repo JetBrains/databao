@@ -53,8 +53,6 @@ class ClaudeModelWrapper:
     DISPLAY_CELL_CHAR_LIMIT = 1024
     """Max number of characters a dataframe cell can have before it is trimmed."""
 
-    __runtime_mcp_server: McpSdkServerConfig | None = None
-
     def __init__(
         self,
         *,
@@ -210,14 +208,11 @@ query_id: The ID of the query to submit.""",
         return tools
 
     def _build_tool_server(self) -> McpSdkServerConfig:
-        tools = self._build_tools()
-        if self.__runtime_mcp_server is None:
-            self.__runtime_mcp_server = create_sdk_mcp_server(
-                name=self._tool_server_name,
-                version="1.0.0",
-                tools=tools,
-            )
-        return self.__runtime_mcp_server
+        return create_sdk_mcp_server(
+            name=self._tool_server_name,
+            version="1.0.0",
+            tools=self.sdk_mcp_tools,
+        )
 
     def _check_mcp_tool_availability(self, first_message: ClaudeMessage) -> None:
         """
