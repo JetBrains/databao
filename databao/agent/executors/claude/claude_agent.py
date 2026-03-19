@@ -1,3 +1,5 @@
+import asyncio
+import concurrent.futures
 from pathlib import Path
 from typing import Any, TextIO
 
@@ -286,4 +288,19 @@ class ClaudeAgent(DuckDBExecutor):
             raise ValueError("dbt_path is required for ClaudeAgent")
         memory = MemoryManager(dbt_path, max_memories=self._max_memories)
         query = "\n\n".join(opa.query for opa in opas)
-        return anyio.run(self._ask_async, query, memory, dbt_path, agent_config.recursion_limit, rows_limit)
+        try:
+            asyncio.get_running_loop()
+            # Running inside an existing event loop (e.g. Jupyter notebook) — run in a
+            # fresh thread that has no event loop, so anyio can create one cleanly.
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                return pool.submit(
+                    anyio.run,
+                    self._ask_async,
+                    query,
+                    memory,
+                    dbt_path,
+                    agent_config.recursion_limit,
+                    rows_limit,
+                ).result()
+        except RuntimeError:
+            return anyio.run(self._ask_async, query, memory, dbt_path, agent_config.recursion_limit, rows_limit)
