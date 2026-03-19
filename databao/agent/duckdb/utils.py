@@ -1,5 +1,5 @@
 import pandas as pd
-from _duckdb import DuckDBPyConnection
+from duckdb import DuckDBPyConnection
 
 
 def execute_duckdb_sql(sql: str, con: DuckDBPyConnection, *, limit: int | None = None) -> pd.DataFrame:
