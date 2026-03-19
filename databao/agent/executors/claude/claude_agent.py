@@ -25,7 +25,7 @@ from databao.agent.core import Cache
 from databao.agent.duckdb.react_tools import execute_duckdb_sql
 from databao.agent.executors.base import DuckDBExecutor
 from databao.agent.executors.claude.memory_manager import MEMORY_FOLDERS, MemoryManager
-from databao.agent.executors.prompt import load_prompt_template
+from databao.agent.executors.prompt import load_prompt_template, get_today_date_str
 from databao.agent.executors.utils import exception_to_string, trim_dataframe_values
 
 
@@ -39,6 +39,7 @@ class ClaudeAgent(DuckDBExecutor):
     def __init__(self, writer: Any = None):
         super().__init__(writer=writer)
         self._prompt_template = load_prompt_template("databao.agent.executors.claude", "system_prompt.jinja")
+        self._retriever_template = load_prompt_template("databao.agent.executors.claude", "retriever_prompt.jinja")
         self._max_memories = 100
 
     def register_tools(self, tools: list[Any]) -> None:
@@ -56,6 +57,7 @@ class ClaudeAgent(DuckDBExecutor):
         """Render system prompt."""
         memories_index = memory.read_index()
         prompt = self._prompt_template.render(
+            date=get_today_date_str(),
             memory_count=memory.count(),
             memory_limit=memory.max_memories,
             dmemories_index=memories_index,
@@ -152,7 +154,7 @@ class ClaudeAgent(DuckDBExecutor):
 
         @tool(
             "delete_memory",
-            "Delete a memory by name. Removes the file and its entry from memories/MEMORIES.md.",
+            "Delete a memory by name.",
             {"name": str},
         )
         async def delete_memory(args: dict[str, Any]) -> dict[str, Any]:
@@ -161,7 +163,7 @@ class ClaudeAgent(DuckDBExecutor):
 
         @tool(
             "update_memory",
-            "Update the content of an existing memory by name. Description and path remain unchanged.",
+            "Update the content of an existing memory by name. Path remain unchanged.",
             {"name": str, "content": str},
         )
         async def update_memory(args: dict[str, Any]) -> dict[str, Any]:
@@ -169,7 +171,7 @@ class ClaudeAgent(DuckDBExecutor):
             return {"content": [{"type": "text", "text": result}]}
 
         server = create_sdk_mcp_server(
-            "duckdb",
+            "tools",
             tools=[
                 execute_sql,
                 submit_result,
@@ -187,22 +189,7 @@ class ClaudeAgent(DuckDBExecutor):
                 "Explores dbt models, column definitions, metric definitions, docs, and project memories "
                 "to return a focused summary of tables, columns, and hints relevant to a given question."
             ),
-            prompt=(
-                "You are a schema context retriever for a dbt project. "
-                "Given a question, collect everything needed to write correct SQL:\n"
-                "1. Find relevant models in models/ (SQL files + YML definitions)\n"
-                "2. Read column names, types, and descriptions from YML files\n"
-                "3. Read memories from the index below that are relevant to the question\n"
-                "4. Check docs (*.md) for company-specific metric definitions\n\n"
-                "Return a concise structured summary covering:\n"
-                "- Relevant tables with grain and key columns\n"
-                "- Canonical metric formulas and any caveats\n"
-                "- Reusable SQL patterns from memory\n"
-                "- Data quality notes or known quirks\n\n"
-                "Do not write or execute SQL — only retrieve and summarise context.\n\n"
-                "## Memory Index\n"
-                f"{memories_index}"
-            ),
+            prompt=self._retriever_template.render(memories_index=memories_index),
             tools=["Read", "Glob", "Grep"],
         )
 
@@ -210,23 +197,38 @@ class ClaudeAgent(DuckDBExecutor):
 
         options = ClaudeAgentOptions(
             cwd=str(dbt_path),
+            permission_mode="bypassPermissions",
             allowed_tools=[
                 "Read",
                 "Glob",
                 "Grep",
                 "Agent",
-                "mcp__duckdb__execute_sql",
-                "mcp__duckdb__submit_result",
-                "mcp__duckdb__add_memory",
-                "mcp__duckdb__delete_memory",
-                "mcp__duckdb__update_memory",
+                "TodoWrite",
+                "mcp__tools__execute_sql",
+                "mcp__tools__submit_result",
+                "mcp__tools__add_memory",
+                "mcp__tools__delete_memory",
+                "mcp__tools__update_memory",
+            ],
+            disallowed_tools=[
+                "Bash",
+                "Write",
+                "Edit",
+                "NotebookEdit",
+                "WebFetch",
+                "WebSearch",
+                "AskUserQuestion",
+                "EnterWorktree",
+                "EnterPlanMode",
+                "ExitPlanMode",
+                "TaskCreate", "TaskUpdate", "TaskGet", "TaskList", "TaskStop", "TaskOutput",
             ],
             agents={"schema-and-context-retriever": schema_and_context_retriever},
-            mcp_servers={"duckdb": server},
+            mcp_servers={"tools": server},
             setting_sources=["project"],
             hooks={
                 "PostToolUse": [
-                    HookMatcher(matcher="mcp__duckdb__submit_result", hooks=[stop_after_submit]),
+                    HookMatcher(matcher="mcp__tools__submit_result", hooks=[stop_after_submit]),
                 ]
             },
             system_prompt=system_prompt,
