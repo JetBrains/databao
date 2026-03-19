@@ -74,13 +74,13 @@ def run_sql_query(
         return {"error": exception_to_string(e)}
 
 
-def search_context(query: str, *, domain: _DCEProjectDomain) -> list[dict[str, Any]]:
+def search_context(retrieve_text: str, *, domain: _DCEProjectDomain) -> list[dict[str, Any]]:
     """Search the context for relevant information matching the given query text.
     Args:
-        query: Natural language query to search the context for relevant results.
+        retrieve_text: Natural language query to search the context for relevant results.
         domain: The domain object to use to search the context.
     """
-    search_result_list = domain.search_context(query, datasource_name=None)
+    search_result_list = domain.search_context(retrieve_text, datasource_name=None)
     return list(map(_search_result_to_dict, search_result_list))
 
 
