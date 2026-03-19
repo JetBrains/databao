@@ -25,7 +25,7 @@ from databao.agent.core import Cache
 from databao.agent.duckdb.react_tools import execute_duckdb_sql
 from databao.agent.executors.base import DuckDBExecutor
 from databao.agent.executors.claude.memory_manager import MEMORY_FOLDERS, MemoryManager
-from databao.agent.executors.prompt import load_prompt_template, get_today_date_str
+from databao.agent.executors.prompt import get_today_date_str, load_prompt_template
 from databao.agent.executors.utils import exception_to_string, trim_dataframe_values
 
 
@@ -221,7 +221,12 @@ class ClaudeAgent(DuckDBExecutor):
                 "EnterWorktree",
                 "EnterPlanMode",
                 "ExitPlanMode",
-                "TaskCreate", "TaskUpdate", "TaskGet", "TaskList", "TaskStop", "TaskOutput",
+                "TaskCreate",
+                "TaskUpdate",
+                "TaskGet",
+                "TaskList",
+                "TaskStop",
+                "TaskOutput",
             ],
             agents={"schema-and-context-retriever": schema_and_context_retriever},
             mcp_servers={"tools": server},
