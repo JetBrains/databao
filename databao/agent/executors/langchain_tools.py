@@ -55,7 +55,7 @@ to find relevant results. Include specific information in the query (e.g., table
 to get the best results.
 
 Args:
-    query: Natural language query to search the context for relevant results.
+    retrieve_text: Natural language query to search the context for relevant results.
 """
 # fmt: on
 
