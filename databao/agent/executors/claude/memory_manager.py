@@ -48,7 +48,10 @@ class MemoryManager:
                 "Delete irrelevant memories with delete_memory before adding new ones. "
                 "Only the most important facts should be kept."
             )
-        path = self.project_path / "memories" / folder / filename
+        try:
+            path = self._safe_resolve(f"memories/{folder}/{filename}")
+        except ValueError as exc:
+            return f"Error: {exc}"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content)
         entries.append({"name": name, "path": f"memories/{folder}/{filename}"})
