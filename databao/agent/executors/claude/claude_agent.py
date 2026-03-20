@@ -251,7 +251,8 @@ class ClaudeAgent(DuckDBExecutor):
                 sql = None
                 df = None
             else:
-                sql, df = results_cache[max(list(results_cache.keys()))]
+                latest_key = max(results_cache.keys(), key=int)
+                sql, df = results_cache[latest_key]
             return ExecutionResult(
                 text=(messages[-1].result if isinstance(messages[-1], ResultMessage) else "") if messages else "",
                 code=sql,
