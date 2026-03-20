@@ -163,7 +163,7 @@ class ClaudeAgent(DuckDBExecutor):
 
         @tool(
             "update_memory",
-            "Update the content of an existing memory by name. Path remain unchanged.",
+            "Update the content of an existing memory by name. Path remains unchanged.",
             {"name": str, "content": str},
         )
         async def update_memory(args: dict[str, Any]) -> dict[str, Any]:
