@@ -1,7 +1,7 @@
 import asyncio
 import concurrent.futures
 from pathlib import Path
-from typing import Any, TextIO
+from typing import Any, TextIO, cast
 
 import anyio
 import pandas as pd
@@ -19,9 +19,10 @@ from claude_agent_sdk import (
 )
 from claude_agent_sdk.types import SyncHookJSONOutput
 
-from databao.agent import Domain, ExecutionResult, LLMConfig, Opa
+from databao.agent.configs import LLMConfig
 from databao.agent.configs.agent import AgentConfig
-from databao.agent.core import Cache
+from databao.agent.core import Cache, Domain, ExecutionResult, Opa
+from databao.agent.core.domain import _Domain
 from databao.agent.duckdb.react_tools import execute_duckdb_sql
 from databao.agent.executors.base import DuckDBExecutor
 from databao.agent.executors.claude.memory_manager import MEMORY_FOLDERS, MemoryManager
@@ -29,7 +30,7 @@ from databao.agent.executors.prompt import get_today_date_str, load_prompt_templ
 from databao.agent.executors.utils import exception_to_string, trim_dataframe_values
 
 
-class ClaudeAgent(DuckDBExecutor):
+class ClaudeAgentExecutor(DuckDBExecutor):
     DISPLAY_ROW_LIMIT = 12
     """Max number of rows to return in SQL tool calls."""
 
@@ -292,7 +293,16 @@ class ClaudeAgent(DuckDBExecutor):
         self._init_sources_from_domain(domain)
         dbt_path = agent_config.dbt_path
         if dbt_path is None:
-            raise ValueError("dbt_path is required for ClaudeAgent")
+            domain_obj = cast(_Domain, domain)
+            dbts = domain_obj.sources.dbts
+            if dbts:
+                # Use the first registered dbt source's directory
+                dbt_path = next(iter(dbts.values())).dir
+            else:
+                raise ValueError(
+                    "dbt_path is required for ClaudeAgentExecutor. "
+                    "Either set it in AgentConfig or register a dbt source in the domain."
+                )
         memory = MemoryManager(dbt_path, max_memories=self._max_memories)
         query = "\n\n".join(opa.query for opa in opas)
         try:
