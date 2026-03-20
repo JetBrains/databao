@@ -60,7 +60,7 @@ class ClaudeAgent(DuckDBExecutor):
             date=get_today_date_str(),
             memory_count=memory.count(),
             memory_limit=memory.max_memories,
-            dmemories_index=memories_index,
+            memories_index=memories_index,
         )
         return prompt.strip()
 
