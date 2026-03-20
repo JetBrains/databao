@@ -17,7 +17,8 @@ from claude_agent_sdk import (
     tool,
 )
 from claude_agent_sdk.types import AssistantMessage as ClaudeAssistantMessage
-from claude_agent_sdk.types import SyncHookJSONOutput, TextBlock
+from claude_agent_sdk.types import SyncHookJSONOutput, TextBlock, ToolResultBlock, ToolUseBlock
+from claude_agent_sdk.types import UserMessage as ClaudeUserMessage
 
 from databao.agent.configs import LLMConfig
 from databao.agent.configs.agent import AgentConfig
@@ -291,6 +292,31 @@ class ClaudeAgentExecutor(DuckDBExecutor):
             system_prompt=self.render_system_prompt(memory),
         )
 
+    @staticmethod
+    def _stream_message(message: Any, out: TextIO, tool_use_names: dict[str, str]) -> None:
+        """Write a single SDK message to the output stream, matching TextStreamFrontend style."""
+        if isinstance(message, ClaudeAssistantMessage):
+            for block in message.content:
+                if isinstance(block, TextBlock):
+                    out.write(block.text)
+                elif isinstance(block, ToolUseBlock):
+                    tool_use_names[block.id] = block.name
+                    out.write(f"\n\n[tool_call: '{block.name}']\n")
+                    out.write(f"```\n{block.input}\n```\n\n")
+            out.flush()
+        elif isinstance(message, ClaudeUserMessage):
+            content = message.content
+            if isinstance(content, list):
+                for block in content:
+                    if isinstance(block, ToolResultBlock) and block.content:
+                        name = tool_use_names.get(block.tool_use_id, "unknown")
+                        text = block.content if isinstance(block.content, str) else str(block.content)
+                        out.write(f"[tool_call_output: '{name}']\n```\n{text}\n```\n\n")
+            out.flush()
+        elif isinstance(message, ResultMessage) and message.result:
+            out.write(message.result)
+            out.flush()
+
     def execute(
         self,
         opas: list[Opa],
@@ -319,16 +345,22 @@ class ClaudeAgentExecutor(DuckDBExecutor):
         query = "\n\n".join(opa.query for opa in opas)
         messages: list[Any] = []
         out = writer or sys.stdout
+        tool_use_names: dict[str, str] = {}
+
+        if stream:
+            out.write("=" * 8 + " <THINKING> " + "=" * 8 + "\n\n")
+            out.flush()
 
         with ClaudeSDKBridge(client) as bridge:
             for message in bridge.query_sync(query):
                 messages.append(message)
-                if stream and isinstance(message, ClaudeAssistantMessage):
-                    for block in message.content:
-                        if isinstance(block, TextBlock):
-                            out.write(block.text)
-                            out.flush()
+                if stream:
+                    self._stream_message(message, out, tool_use_names)
                 if submit_event.is_set():
                     break
+
+        if stream:
+            out.write("\n" + "=" * 8 + " </THINKING> " + "=" * 8 + "\n\n")
+            out.flush()
 
         return self._build_result(messages, results_cache, submitted)

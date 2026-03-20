@@ -68,7 +68,10 @@ class ClaudeSDKBridge:
                 q.put(message)
             q.put(_sentinel)
 
-        asyncio.run_coroutine_threadsafe(_produce(), self._loop)
+        future = asyncio.run_coroutine_threadsafe(_produce(), self._loop)
 
-        while (message := q.get()) is not _sentinel:
-            yield message
+        try:
+            while (message := q.get()) is not _sentinel:
+                yield message
+        finally:
+            future.cancel()
