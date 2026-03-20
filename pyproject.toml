@@ -37,6 +37,7 @@ dependencies = [
     "dbt-core~=1.9.0", # Don't use 1.10 because it outputs a lot of deprecation warnings
     "dbt-duckdb>=1.10.0",
     "claude-agent-sdk>=0.1.48",
+    "anyio>=4.11.0",
 ]
 
 [project.urls]
