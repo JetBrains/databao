@@ -87,7 +87,7 @@ class ClaudeAgent(DuckDBExecutor):
         )
         async def execute_sql(args: dict[str, Any]) -> dict[str, Any]:
             nonlocal sql_count
-            if sql_count > recursion_limit:
+            if sql_count >= recursion_limit:
                 return {
                     "content": [
                         {"type": "text", "text": f"Error: Maximum number of {recursion_limit} sql calls reached."}
