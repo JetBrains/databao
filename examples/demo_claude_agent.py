@@ -21,7 +21,7 @@ EXAMPLES_DIR = Path(__file__).resolve().parent
 DBT_PROJ_PATH = EXAMPLES_DIR / "shopify002"
 DB_PATH = DBT_PROJ_PATH / "shopify.duckdb"
 
-llm_config = bao.LLMConfig(name="gpt-5", temperature=0)
+llm_config = bao.LLMConfig(name="claude-sonnet-4.6", temperature=0)
 agent_config = AgentConfig(recursion_limit=100, parallel_tool_calls=True)
 
 # Use a pre-built domain if DOMAIN_PATH is set, otherwise create a temporary one
