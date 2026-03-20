@@ -48,18 +48,32 @@ class MemoryManager:
                 "Delete irrelevant memories with delete_memory before adding new ones. "
                 "Only the most important facts should be kept."
             )
-        path = self.project_path / "memories" / folder / filename
+        try:
+            path = self._safe_resolve(f"memories/{folder}/{filename}")
+        except ValueError as exc:
+            return f"Error: {exc}"
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content)
         entries.append({"name": name, "path": f"memories/{folder}/{filename}"})
         self._write_entries(entries)
         return f"Memory '{name}' saved to memories/{folder}/{filename}."
+
+    def _safe_resolve(self, raw_path: str) -> Path:
+        memories_root = (self.project_path / "memories").resolve()
+        resolved = (self.project_path / raw_path).resolve()
+        if not str(resolved).startswith(str(memories_root) + "/"):
+            raise ValueError(f"Path '{raw_path}' escapes the memories directory.")
+        return resolved
 
     def delete(self, name: str) -> str:
         entries = self._read_entries()
         entry = next((e for e in entries if e["name"] == name), None)
         if not entry:
             return f"Error: memory '{name}' not found."
-        (self.project_path / entry["path"]).unlink(missing_ok=True)
+        try:
+            self._safe_resolve(entry["path"]).unlink(missing_ok=True)
+        except ValueError as exc:
+            return f"Error: {exc}"
         self._write_entries([e for e in entries if e["name"] != name])
         return f"Memory '{name}' deleted."
 
@@ -68,5 +82,8 @@ class MemoryManager:
         entry = next((e for e in entries if e["name"] == name), None)
         if not entry:
             return f"Error: memory '{name}' not found. Use add_memory to create it."
-        (self.project_path / entry["path"]).write_text(content)
+        try:
+            self._safe_resolve(entry["path"]).write_text(content)
+        except ValueError as exc:
+            return f"Error: {exc}"
         return f"Memory '{name}' updated."

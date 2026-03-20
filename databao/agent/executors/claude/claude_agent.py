@@ -86,7 +86,7 @@ class ClaudeAgentExecutor(DuckDBExecutor):
         )
         async def execute_sql(args: dict[str, Any]) -> dict[str, Any]:
             nonlocal sql_count
-            if sql_count > recursion_limit:
+            if sql_count >= recursion_limit:
                 return {
                     "content": [
                         {"type": "text", "text": f"Error: Maximum number of {recursion_limit} sql calls reached."}
@@ -162,7 +162,7 @@ class ClaudeAgentExecutor(DuckDBExecutor):
 
         @tool(
             "update_memory",
-            "Update the content of an existing memory by name. Path remain unchanged.",
+            "Update the content of an existing memory by name. Path remains unchanged.",
             {"name": str, "content": str},
         )
         async def update_memory(args: dict[str, Any]) -> dict[str, Any]:
