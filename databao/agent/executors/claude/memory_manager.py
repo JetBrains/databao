@@ -49,6 +49,7 @@ class MemoryManager:
                 "Only the most important facts should be kept."
             )
         path = self.project_path / "memories" / folder / filename
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content)
         entries.append({"name": name, "path": f"memories/{folder}/{filename}"})
         self._write_entries(entries)
