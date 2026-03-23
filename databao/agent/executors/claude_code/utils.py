@@ -18,11 +18,11 @@ def _separate_content_and_tool_calls(message: ClaudeAssistantMessage) -> tuple[l
         if isinstance(block, ClaudeToolUseBlock):
             tool_calls.append(tool_call(block))
         elif isinstance(block, ThinkingBlock):
-            contents.append(text_message(block.thinking))
+            contents.append(block.thinking)
         elif isinstance(block, ClaudeToolResultBlock):
-            contents.append(text_message(str(block.content)))
+            contents.append(str(block.content))
         else:
-            contents.append(text_message(block.text))
+            contents.append(block.text)
     return tool_calls, contents
 
 
@@ -50,17 +50,12 @@ def cast_claude_message_to_langchain_message(message: ClaudeMessage) -> BaseMess
         return ChatMessage(role="claude-user", content=str(message.content))
 
     if isinstance(message, ClaudeSystemMessage):
-        return SystemMessage(content=[], **claude_message(message.data))
+        return SystemMessage(content=[], **message.data)
 
     if isinstance(message, ClaudeResultMessage):
-        return AIMessage(content=text_message(message.result or ""))
+        return AIMessage(content=message.result or "")
 
     raise TypeError(f"Unknown message type: {type(message)}")
-
-
-# define wrappers for more legible weave logs
-def text_message(content: str) -> str:
-    return content
 
 
 def tool_call(block: ClaudeToolUseBlock) -> ToolCall:
@@ -76,6 +71,3 @@ def tool_call_result(contents: list[ClaudeToolResultBlock]) -> dict[str, Any]:
             content.extend(block.content)
     return dict(tool_call_id=contents[0].tool_use_id, content=content)
 
-
-def claude_message(input_: Any) -> Any:
-    return input_
