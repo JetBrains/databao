@@ -70,4 +70,3 @@ def tool_call_result(contents: list[ClaudeToolResultBlock]) -> dict[str, Any]:
         elif isinstance(block.content, list):
             content.extend(block.content)
     return dict(tool_call_id=contents[0].tool_use_id, content=content)
-
