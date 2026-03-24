@@ -1,7 +1,8 @@
 import asyncio
-import concurrent.futures
+import threading
+from concurrent.futures import Future
 from pathlib import Path
-from typing import Any, TextIO
+from typing import Any, TextIO, cast
 
 import anyio
 import pandas as pd
@@ -17,19 +18,24 @@ from claude_agent_sdk import (
     create_sdk_mcp_server,
     tool,
 )
-from claude_agent_sdk.types import SyncHookJSONOutput
+from claude_agent_sdk.types import McpSdkServerConfig, SyncHookJSONOutput
+from claude_agent_sdk.types import SystemMessage as ClaudeSystemMessage
+from langchain_core.messages import AIMessage, BaseMessage
 
 from databao.agent import Domain, ExecutionResult, LLMConfig, Opa
 from databao.agent.configs.agent import AgentConfig
 from databao.agent.core import Cache
+from databao.agent.core.domain import _Domain
 from databao.agent.duckdb.react_tools import execute_duckdb_sql
 from databao.agent.executors.base import DuckDBExecutor
 from databao.agent.executors.claude.memory_manager import MEMORY_FOLDERS, MemoryManager
+from databao.agent.executors.claude_code.utils import cast_claude_message_to_langchain_message
+from databao.agent.executors.frontend.text_frontend import TextStreamFrontend
 from databao.agent.executors.prompt import get_today_date_str, load_prompt_template
 from databao.agent.executors.utils import exception_to_string, trim_dataframe_values
 
 
-class ClaudeAgent(DuckDBExecutor):
+class ClaudeAgentExecutor(DuckDBExecutor):
     DISPLAY_ROW_LIMIT = 12
     """Max number of rows to return in SQL tool calls."""
 
@@ -64,25 +70,21 @@ class ClaudeAgent(DuckDBExecutor):
         )
         return prompt.strip()
 
-    async def _ask_async(
-        self, question: str, memory: MemoryManager, dbt_path: Path, recursion_limit: int = 25, rows_limit: int = 100
-    ) -> ExecutionResult:
-        results_cache: dict[str, tuple[str, pd.DataFrame]] = {}
-        submitted: dict[str, str] = {}  # keys: "result_id", "result_description", "visualization_prompt"
+    def _build_tools(
+        self,
+        memory: MemoryManager,
+        results_cache: dict[str, tuple[str, pd.DataFrame]],
+        submitted: dict[str, str],
+        recursion_limit: int,
+        rows_limit: int,
+    ) -> McpSdkServerConfig:
         sql_count = 0
-        submit_event = anyio.Event()
-
-        async def stop_after_submit(
-            input_data: HookInput, tool_use_id: str | None, context: HookContext
-        ) -> HookJSONOutput:
-            submit_event.set()
-            return SyncHookJSONOutput()
 
         @tool(
             "execute_sql",
             f"""Execute a SQL query on the DuckDB database.
-             Returns a result_id you can use to submit the result.
-             Can be used only {recursion_limit} times.""",
+                     Returns a result_id you can use to submit the result.
+                     Can be used only {recursion_limit} times.""",
             {"sql": str},
         )
         async def execute_sql(args: dict[str, Any]) -> dict[str, Any]:
@@ -144,8 +146,8 @@ class ClaudeAgent(DuckDBExecutor):
         @tool(
             "add_memory",
             f"""Save a new memory as a file. Folder must be one of: {", ".join(MEMORY_FOLDERS)}.
-             Use 'general' for broad facts, 'metrics' for metrics with SQLs, 'vocabulary' for business terms,
-             'common_sql' for reusable SQL snippets.""",
+                     Use 'general' for broad facts, 'metrics' for metrics with SQLs, 'vocabulary' for business terms,
+                     'common_sql' for reusable SQL snippets.""",
             {"name": str, "folder": str, "filename": str, "content": str},
         )
         async def add_memory(args: dict[str, Any]) -> dict[str, Any]:
@@ -180,10 +182,25 @@ class ClaudeAgent(DuckDBExecutor):
                 update_memory,
             ],
         )
+        return server
 
+    @staticmethod
+    def _resolve_dbt_path(agent_config: AgentConfig, domain: Domain) -> Path:
+        dbt_path = agent_config.dbt_path
+        if dbt_path is not None:
+            return dbt_path
+        domain_obj = cast(_Domain, domain)
+        dbts = domain_obj.sources.dbts
+        if dbts:
+            return next(iter(dbts.values())).dir
+        raise ValueError(
+            "dbt_path is required for ClaudeAgentExecutor. "
+            "Either set it in AgentConfig or register a dbt source in the domain."
+        )
+
+    def _build_retriever_agent(self, memory: MemoryManager) -> AgentDefinition:
         memories_index = memory.read_index()
-
-        schema_and_context_retriever = AgentDefinition(
+        return AgentDefinition(
             description=(
                 "Retrieves relevant schema context before writing SQL. "
                 "Explores dbt models, column definitions, metric definitions, docs, and project memories "
@@ -193,10 +210,75 @@ class ClaudeAgent(DuckDBExecutor):
             tools=["Read", "Glob", "Grep"],
         )
 
-        system_prompt = self.render_system_prompt(memory)
+    @staticmethod
+    def _build_result(
+        messages: list[Any],
+        results_cache: dict[str, tuple[str, pd.DataFrame]],
+        submitted: dict[str, str],
+    ) -> ExecutionResult:
+        if not submitted:
+            if not results_cache:
+                sql = None
+                df = None
+            else:
+                sql, df = results_cache[max(list(results_cache.keys()))]
+            return ExecutionResult(
+                text=(messages[-1].result if isinstance(messages[-1], ResultMessage) else "") if messages else "",
+                code=sql,
+                df=df,
+                meta={
+                    ExecutionResult.META_MESSAGES_KEY: messages,
+                    "submit_called": False,
+                },
+            )
 
-        options = ClaudeAgentOptions(
+        result_id = submitted["result_id"]
+        visualization_prompt = submitted.get("visualization_prompt", "")
+        sql, df = results_cache[result_id]
+
+        return ExecutionResult(
+            text=submitted["result_description"],
+            code=sql,
+            df=df,
+            meta={
+                "visualization_prompt": visualization_prompt,
+                ExecutionResult.META_MESSAGES_KEY: messages,
+                "submit_called": True,
+            },
+        )
+
+    def _process_opas(self, opas: list[Opa], cache: Cache) -> tuple[str, str | None, list[BaseMessage]]:
+        """Build the query and read prior session_id and messages from cache."""
+        query = "\n\n".join(opa.query for opa in opas)
+        state = cache.get("state", {})
+        session_id: str | None = state.get("session_id")
+        prior_messages: list[BaseMessage] = state.get("messages", [])
+        return query, session_id, prior_messages
+
+    def _update_cache(
+        self, cache: Cache, prior_messages: list[BaseMessage], new_messages: list[BaseMessage], session_id: str | None
+    ) -> None:
+        """Persist accumulated messages and session_id to cache."""
+        cache.put("state", {"messages": prior_messages + new_messages, "session_id": session_id})
+
+    def _build_options(
+        self,
+        *,
+        dbt_path: Path,
+        memory: MemoryManager,
+        server: Any,
+        submit_event: anyio.Event,
+        session_id: str | None = None,
+    ) -> ClaudeAgentOptions:
+        async def stop_after_submit(
+            input_data: HookInput, tool_use_id: str | None, context: HookContext
+        ) -> HookJSONOutput:
+            submit_event.set()
+            return SyncHookJSONOutput()
+
+        return ClaudeAgentOptions(
             cwd=str(dbt_path),
+            resume=session_id,
             permission_mode="bypassPermissions",
             allowed_tools=[
                 "Read",
@@ -228,7 +310,7 @@ class ClaudeAgent(DuckDBExecutor):
                 "TaskStop",
                 "TaskOutput",
             ],
-            agents={"schema-and-context-retriever": schema_and_context_retriever},
+            agents={"schema-and-context-retriever": self._build_retriever_agent(memory)},
             mcp_servers={"tools": server},
             setting_sources=["project"],
             hooks={
@@ -236,47 +318,51 @@ class ClaudeAgent(DuckDBExecutor):
                     HookMatcher(matcher="mcp__tools__submit_result", hooks=[stop_after_submit]),
                 ]
             },
-            system_prompt=system_prompt,
+            system_prompt=self.render_system_prompt(memory),
         )
+
+    async def _ask_async(
+        self,
+        question: str,
+        dbt_path: Path,
+        recursion_limit: int = 25,
+        rows_limit: int = 100,
+        writer: TextIO | None = None,
+        stream: bool = True,
+        session_id: str | None = None,
+    ) -> tuple[ExecutionResult, str | None, list[BaseMessage]]:
+        memory = MemoryManager(dbt_path, max_memories=self._max_memories)
+        results_cache: dict[str, tuple[str, pd.DataFrame]] = {}
+        submitted: dict[str, str] = {}
+        submit_event = anyio.Event()
+
+        server = self._build_tools(memory, results_cache, submitted, recursion_limit, rows_limit)
+        options = self._build_options(
+            dbt_path=dbt_path, memory=memory, server=server, submit_event=submit_event, session_id=session_id
+        )
+        new_session_id: str | None = None
+        message_log: list[BaseMessage] = []
+        frontend = TextStreamFrontend({"messages": message_log}, writer=writer)
         messages = []
         async with ClaudeSDKClient(options=options) as client:
             await client.query(question)
             async for message in client.receive_response():
                 messages.append(message)
+                if isinstance(message, ClaudeSystemMessage) and new_session_id is None:
+                    new_session_id = message.data.get("session_id")
+                if not isinstance(message, ResultMessage):
+                    lc_message = cast_claude_message_to_langchain_message(message)
+                    message_log.append(lc_message)
+                    if stream:
+                        if isinstance(lc_message, AIMessage):
+                            frontend.write_full_ai_message(lc_message)
+                        frontend.write_stream_chunk("values", {"messages": message_log})
                 if submit_event.is_set():
                     break
+        if stream:
+            frontend.end()
 
-        if not submitted:
-            if not results_cache:
-                sql = None
-                df = None
-            else:
-                latest_key = max(results_cache.keys(), key=int)
-                sql, df = results_cache[latest_key]
-            return ExecutionResult(
-                text=(messages[-1].result if isinstance(messages[-1], ResultMessage) else "") if messages else "",
-                code=sql,
-                df=df,
-                meta={
-                    ExecutionResult.META_MESSAGES_KEY: messages,
-                    "submit_called": False,
-                },
-            )
-
-        result_id = submitted["result_id"]
-        visualization_prompt = submitted.get("visualization_prompt", "")
-        sql, df = results_cache[result_id]
-
-        return ExecutionResult(
-            text=submitted["result_description"],
-            code=sql,
-            df=df,
-            meta={
-                "visualization_prompt": visualization_prompt,
-                ExecutionResult.META_MESSAGES_KEY: messages,
-                "submit_called": True,
-            },
-        )
+        return self._build_result(messages, results_cache, submitted), new_session_id, message_log
 
     def execute(
         self,
@@ -291,24 +377,45 @@ class ClaudeAgent(DuckDBExecutor):
         writer: TextIO | None = None,
     ) -> ExecutionResult:
         self._init_sources_from_domain(domain)
-        dbt_path = agent_config.dbt_path
-        if dbt_path is None:
-            raise ValueError("dbt_path is required for ClaudeAgent")
-        memory = MemoryManager(dbt_path, max_memories=self._max_memories)
-        query = "\n\n".join(opa.query for opa in opas)
+        dbt_path = self._resolve_dbt_path(agent_config, domain)
+        query, prior_session_id, prior_messages = self._process_opas(opas, cache)
+
         try:
             asyncio.get_running_loop()
             # Running inside an existing event loop (e.g. Jupyter notebook) — run in a
             # fresh thread that has no event loop, so anyio can create one cleanly.
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                return pool.submit(
-                    anyio.run,
-                    self._ask_async,
-                    query,
-                    memory,
-                    dbt_path,
-                    agent_config.recursion_limit,
-                    rows_limit,
-                ).result()
+            future: Future[tuple[ExecutionResult, str | None, list[BaseMessage]]] = Future()
+
+            def _run() -> None:
+                try:
+                    future.set_result(
+                        anyio.run(
+                            self._ask_async,
+                            query,
+                            dbt_path,
+                            agent_config.recursion_limit,
+                            rows_limit,
+                            writer,
+                            stream,
+                            prior_session_id,
+                        )
+                    )
+                except Exception as exc:
+                    future.set_exception(exc)
+
+            threading.Thread(target=_run, daemon=True).start()
+            result, new_session_id, new_messages = future.result()
         except RuntimeError:
-            return anyio.run(self._ask_async, query, memory, dbt_path, agent_config.recursion_limit, rows_limit)
+            result, new_session_id, new_messages = anyio.run(
+                self._ask_async,
+                query,
+                dbt_path,
+                agent_config.recursion_limit,
+                rows_limit,
+                writer,
+                stream,
+                prior_session_id,
+            )
+
+        self._update_cache(cache, prior_messages, new_messages, new_session_id)
+        return result
