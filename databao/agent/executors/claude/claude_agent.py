@@ -185,10 +185,7 @@ class ClaudeAgentExecutor(DuckDBExecutor):
         return server
 
     @staticmethod
-    def _resolve_dbt_path(agent_config: AgentConfig, domain: Domain) -> Path:
-        dbt_path = agent_config.dbt_path
-        if dbt_path is not None:
-            return dbt_path
+    def _resolve_dbt_path(domain: Domain) -> Path:
         domain_obj = cast(_Domain, domain)
         dbts = domain_obj.sources.dbts
         if dbts:
@@ -366,6 +363,14 @@ class ClaudeAgentExecutor(DuckDBExecutor):
 
         return self._build_result(messages, results_cache, submitted), new_session_id, message_log
 
+    @staticmethod
+    def _has_running_loop() -> bool:
+        try:
+            asyncio.get_running_loop()
+            return True
+        except RuntimeError:
+            return False
+
     def execute(
         self,
         opas: list[Opa],
@@ -379,13 +384,12 @@ class ClaudeAgentExecutor(DuckDBExecutor):
         writer: TextIO | None = None,
     ) -> ExecutionResult:
         self._init_sources_from_domain(domain)
-        dbt_path = self._resolve_dbt_path(agent_config, domain)
+        dbt_path = self._resolve_dbt_path(domain)
         query, prior_session_id, prior_messages = self._load_state(opas, cache)
         memory = MemoryManager(dbt_path, max_memories=self._max_memories)
         args = (query, dbt_path, memory, agent_config.recursion_limit, rows_limit, writer, stream, prior_session_id)
 
-        try:
-            asyncio.get_running_loop()
+        if self._has_running_loop():
             # Running inside an existing event loop (e.g. Jupyter notebook) — run in a
             # fresh thread that has no event loop, so anyio can create one cleanly.
             future: Future[tuple[ExecutionResult, str | None, list[BaseMessage]]] = Future()
@@ -398,7 +402,7 @@ class ClaudeAgentExecutor(DuckDBExecutor):
 
             threading.Thread(target=_run, daemon=True).start()
             result, new_session_id, new_messages = future.result()
-        except RuntimeError:
+        else:
             result, new_session_id, new_messages = anyio.run(self._ask_async, *args)
 
         self._save_state(cache, prior_messages, new_messages, new_session_id)
