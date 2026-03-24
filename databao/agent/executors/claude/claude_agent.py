@@ -36,7 +36,7 @@ from databao.agent.executors.utils import exception_to_string, trim_dataframe_va
 
 
 class ClaudeAgentExecutor(DuckDBExecutor):
-    """ Executor which uses Claude to answer questions.
+    """Executor which uses Claude to answer questions.
     Depends on DBT project and uses DuckDB as a merged database.
     """
 
