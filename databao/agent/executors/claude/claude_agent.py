@@ -36,6 +36,10 @@ from databao.agent.executors.utils import exception_to_string, trim_dataframe_va
 
 
 class ClaudeAgentExecutor(DuckDBExecutor):
+    """ Executor which uses Claude to answer questions.
+    Depends on DBT project and uses DuckDB as a merged database.
+    """
+
     DISPLAY_ROW_LIMIT = 12
     """Max number of rows to return in SQL tool calls."""
 
