@@ -56,7 +56,7 @@ class ClaudeAgentExecutor(DuckDBExecutor):
         """Drop last n groups of operations from the message history."""
         # TODO: implement
 
-    def render_system_prompt(
+    def _render_system_prompt(
         self,
         memory: MemoryManager,
     ) -> str:
@@ -70,7 +70,7 @@ class ClaudeAgentExecutor(DuckDBExecutor):
         )
         return prompt.strip()
 
-    def _build_tools(
+    def _build_mcp_server(
         self,
         memory: MemoryManager,
         results_cache: dict[str, tuple[str, pd.DataFrame]],
@@ -247,7 +247,8 @@ class ClaudeAgentExecutor(DuckDBExecutor):
             },
         )
 
-    def _process_opas(self, opas: list[Opa], cache: Cache) -> tuple[str, str | None, list[BaseMessage]]:
+    @staticmethod
+    def _load_state(opas: list[Opa], cache: Cache) -> tuple[str, str | None, list[BaseMessage]]:
         """Build the query and read prior session_id and messages from cache."""
         query = "\n\n".join(opa.query for opa in opas)
         state = cache.get("state", {})
@@ -255,8 +256,9 @@ class ClaudeAgentExecutor(DuckDBExecutor):
         prior_messages: list[BaseMessage] = state.get("messages", [])
         return query, session_id, prior_messages
 
-    def _update_cache(
-        self, cache: Cache, prior_messages: list[BaseMessage], new_messages: list[BaseMessage], session_id: str | None
+    @staticmethod
+    def _save_state(
+        cache: Cache, prior_messages: list[BaseMessage], new_messages: list[BaseMessage], session_id: str | None
     ) -> None:
         """Persist accumulated messages and session_id to cache."""
         cache.put("state", {"messages": prior_messages + new_messages, "session_id": session_id})
@@ -318,25 +320,25 @@ class ClaudeAgentExecutor(DuckDBExecutor):
                     HookMatcher(matcher="mcp__tools__submit_result", hooks=[stop_after_submit]),
                 ]
             },
-            system_prompt=self.render_system_prompt(memory),
+            system_prompt=self._render_system_prompt(memory),
         )
 
     async def _ask_async(
         self,
         question: str,
         dbt_path: Path,
+        memory: MemoryManager,
         recursion_limit: int = 25,
         rows_limit: int = 100,
         writer: TextIO | None = None,
         stream: bool = True,
         session_id: str | None = None,
     ) -> tuple[ExecutionResult, str | None, list[BaseMessage]]:
-        memory = MemoryManager(dbt_path, max_memories=self._max_memories)
         results_cache: dict[str, tuple[str, pd.DataFrame]] = {}
         submitted: dict[str, str] = {}
         submit_event = anyio.Event()
 
-        server = self._build_tools(memory, results_cache, submitted, recursion_limit, rows_limit)
+        server = self._build_mcp_server(memory, results_cache, submitted, recursion_limit, rows_limit)
         options = self._build_options(
             dbt_path=dbt_path, memory=memory, server=server, submit_event=submit_event, session_id=session_id
         )
@@ -378,7 +380,9 @@ class ClaudeAgentExecutor(DuckDBExecutor):
     ) -> ExecutionResult:
         self._init_sources_from_domain(domain)
         dbt_path = self._resolve_dbt_path(agent_config, domain)
-        query, prior_session_id, prior_messages = self._process_opas(opas, cache)
+        query, prior_session_id, prior_messages = self._load_state(opas, cache)
+        memory = MemoryManager(dbt_path, max_memories=self._max_memories)
+        args = (query, dbt_path, memory, agent_config.recursion_limit, rows_limit, writer, stream, prior_session_id)
 
         try:
             asyncio.get_running_loop()
@@ -388,34 +392,14 @@ class ClaudeAgentExecutor(DuckDBExecutor):
 
             def _run() -> None:
                 try:
-                    future.set_result(
-                        anyio.run(
-                            self._ask_async,
-                            query,
-                            dbt_path,
-                            agent_config.recursion_limit,
-                            rows_limit,
-                            writer,
-                            stream,
-                            prior_session_id,
-                        )
-                    )
+                    future.set_result(anyio.run(self._ask_async, *args))
                 except Exception as exc:
                     future.set_exception(exc)
 
             threading.Thread(target=_run, daemon=True).start()
             result, new_session_id, new_messages = future.result()
         except RuntimeError:
-            result, new_session_id, new_messages = anyio.run(
-                self._ask_async,
-                query,
-                dbt_path,
-                agent_config.recursion_limit,
-                rows_limit,
-                writer,
-                stream,
-                prior_session_id,
-            )
+            result, new_session_id, new_messages = anyio.run(self._ask_async, *args)
 
-        self._update_cache(cache, prior_messages, new_messages, new_session_id)
+        self._save_state(cache, prior_messages, new_messages, new_session_id)
         return result
