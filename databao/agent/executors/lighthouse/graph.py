@@ -1,5 +1,4 @@
 import json
-import math
 from typing import Annotated, Any, Literal
 
 import pandas as pd
@@ -16,16 +15,17 @@ from databao.agent.configs import llm
 from databao.agent.configs.agent import AgentConfig
 from databao.agent.configs.llm import LLMConfig
 from databao.agent.core import Domain, ExecutionResult
-from databao.agent.duckdb.react_tools import execute_duckdb_sql
-from databao.agent.executors.frontend.text_frontend import dataframe_to_markdown
+from databao.agent.executors.langchain_tools import make_search_context_tool
 from databao.agent.executors.llm import chat, model_bind_tools
-from databao.agent.executors.tools import make_search_context_tool
+from databao.agent.executors.utils import exception_to_string
+from databao.agent.executors.utils import run_sql_query as _run_sql_query
 
+RUN_SQL_QUERY_TOOL_DESCRIPTION = """\
+Run a SELECT SQL query in the database. Returns the first 12 rows in csv format.
 
-def exception_to_string(e: Exception | str) -> str:
-    if isinstance(e, str):
-        return e
-    return f"Exception Name: {type(e).__name__}. Exception Desc: {e}"
+Args:
+    sql: SQL query
+"""
 
 
 class AgentState(TypedDict):
@@ -46,39 +46,14 @@ def get_query_ids_mapping(messages: list[BaseMessage]) -> dict[str, ToolMessage]
     return query_ids
 
 
-def trim_string_middle(
-    content: str, max_length: int | None, sep: str = "[...trimmed...]", front_percentage: float = 0.7
-) -> str:
-    if max_length is None or len(content) <= max_length:
-        return content
-    take_front = max(0, math.ceil(max_length * front_percentage) - len(sep) // 2)
-    take_end = max(0, max_length - take_front - len(sep))
-    return content[:take_front] + sep + content[len(content) - take_end :]
-
-
-def trim_dataframe_values(df: pd.DataFrame, max_cell_chars: int | None) -> pd.DataFrame:
-    df_sanitized = df.copy()
-    if max_cell_chars is None:
-        return df_sanitized
-
-    def trim_cell(val: Any) -> str:
-        return trim_string_middle(str(val), max_cell_chars)
-
-    for col, dtype in zip(df_sanitized.columns, df_sanitized.dtypes, strict=True):
-        if not pd.api.types.is_object_dtype(dtype) and not pd.api.types.is_string_dtype(dtype):
-            continue
-        df_sanitized[col] = df_sanitized[col].apply(trim_cell)
-    return df_sanitized
-
-
 class ExecuteSubmit:
     """Simple graph with two tools: run_sql_query and submit_result.
     All context must be in the SystemMessage."""
 
-    MAX_TOOL_ROWS = 12
+    DISPLAY_ROW_LIMIT = 12
     """Max number of rows to return in SQL tool calls."""
 
-    MAX_DF_CELL_CHARS = 1024
+    DISPLAY_CELL_CHAR_LIMIT = 1024
     """Max number of characters a dataframe cell can have before it is trimmed."""
 
     def __init__(self, connection: DuckDBPyConnection):
@@ -146,30 +121,15 @@ class ExecuteSubmit:
         return make_search_context_tool(domain) is not None
 
     def make_tools(self, domain: Domain, extra_tools: list[BaseTool] | None = None) -> list[BaseTool]:
-        @tool(parse_docstring=True)
+        @tool(description=RUN_SQL_QUERY_TOOL_DESCRIPTION)
         def run_sql_query(sql: str, graph_state: Annotated[AgentState, InjectedState]) -> dict[str, Any]:
-            """
-            Run a SELECT SQL query in the database. Returns the first 12 rows in csv format.
-
-            Args:
-                sql: SQL query
-            """
-            try:
-                limit = graph_state["limit_max_rows"]
-                df = execute_duckdb_sql(sql, self._connection, limit=limit)
-
-                # Limit the size of sampled values to show to avoid context size explosions (e.g., json/binary blobs)
-                df_display = df.head(self.MAX_TOOL_ROWS)
-                df_display = trim_dataframe_values(df_display, max_cell_chars=self.MAX_DF_CELL_CHARS)
-
-                df_csv = df_display.to_csv(index=False)
-                df_markdown = dataframe_to_markdown(df_display, index=False)
-                if len(df) > self.MAX_TOOL_ROWS:
-                    df_csv += f"\nResult is truncated from {len(df)} to {self.MAX_TOOL_ROWS} rows."
-                    df_markdown += f"\nResult is truncated from {len(df)} to {self.MAX_TOOL_ROWS} rows."
-                return {"df": df, "sql": sql, "csv": df_csv, "markdown": df_markdown}
-            except Exception as e:
-                return {"error": exception_to_string(e)}
+            return _run_sql_query(
+                sql,
+                con=self._connection,
+                sql_row_limit=graph_state["limit_max_rows"],
+                display_row_limit=self.DISPLAY_ROW_LIMIT,
+                display_cell_char_limit=self.DISPLAY_CELL_CHAR_LIMIT,
+            )
 
         @tool(parse_docstring=True)
         def submit_result(

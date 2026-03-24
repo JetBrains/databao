@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "databao-benchmark-template"
+version = "0.1.0"
+description = "Template for building text-to-SQL benchmarks with databao"
+requires-python = ">=3.11"
+dependencies = [
+    "openai>=1.50.0",
+    "pydantic",
+    "python-dotenv",
+    "ragas",
+    "datacompy",
+    "pandas",
+    "tabulate",
+    "sqlalchemy",
+]
+
+[project.optional-dependencies]
+databao = [
+    "databao-agent",
+]
+snowflake = [
+    "snowflake-sqlalchemy",
+    "cryptography",
+]
+langsmith = [
+    "langsmith",
+]
+
+[tool.setuptools]
+packages = ["benchmark"]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.0.0",
+    "pandas-stubs>=2.0.0",
+]
+
+[tool.mypy]
+strict = true
+show_error_codes = true
+check_untyped_defs = true
+disallow_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_configs = true
+warn_unused_ignores = false  # third-party stubs are inconsistent, avoid false positives
+ignore_missing_imports = true  # ragas/datacompy/langsmith don't ship type stubs
+files = ["benchmark", "examples"]

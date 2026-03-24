@@ -1,17 +1,21 @@
 import collections.abc
+import logging
 import shutil
 import uuid
 from pathlib import Path
+from unittest.mock import patch
 
 import duckdb
 import pandas as pd
 import pytest
 from _duckdb import DuckDBPyConnection
+from databao_context_engine import DuckDBConnectionConfig
 
 import databao.agent as bao
 from databao.agent.configs import LLMConfigDirectory
 from databao.agent.core.agent import Agent
 from databao.agent.core.domain import Domain
+from databao.agent.executors.lighthouse.executor import LighthouseExecutor
 
 
 @pytest.fixture
@@ -175,3 +179,26 @@ def test_add_additional_context_multiple_calls_mixed_sources(domain: Domain, tem
     assert first in agent.additional_description
     assert second in agent.additional_description
     assert third in agent.additional_description
+
+
+def test_unavailable_db_is_skipped_with_warning(domain: Domain, caplog: pytest.LogCaptureFixture) -> None:
+    """When one DB fails to register, a warning is emitted and remaining sources continue."""
+    domain.add_db(DuckDBConnectionConfig(database_path="/any/db1.duckdb"), name="working_db")
+    domain.add_db(DuckDBConnectionConfig(database_path="/any/db2.duckdb"), name="failing_db")
+
+    executor = LighthouseExecutor()
+
+    def _register(conn: object, config: object, name: str) -> None:
+        if name == "failing_db":
+            raise duckdb.IOException("IO Error: Unable to connect to failing_db")
+
+    with (
+        patch("databao.agent.executors.base.register_db_in_duckdb", side_effect=_register),
+        caplog.at_level(logging.WARNING, logger="databao.agent.executors.base"),
+    ):
+        executor._init_sources_from_domain(domain)
+
+    assert "working_db" in executor._registered_dbs
+    assert "failing_db" not in executor._registered_dbs
+    assert "failing_db" in caplog.text
+    assert "not available" in caplog.text

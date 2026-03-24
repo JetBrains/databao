@@ -4,7 +4,6 @@ import re
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, TextIO
 
-from langchain_core.tools import BaseTool
 from pandas import DataFrame
 from pydantic import BaseModel, ConfigDict
 
@@ -149,8 +148,8 @@ class Executor(ABC):
     """
 
     @abstractmethod
-    def register_tools(self, tools: list[BaseTool]) -> None:
-        """Register additional LangChain tools to be available during execution."""
+    def register_tools(self, tools: list[Any]) -> None:
+        """Register additional tools to be available during execution."""
 
     @abstractmethod
     def drop_last_opa_group(self, cache: "Cache", n: int = 1) -> None:
@@ -188,7 +187,7 @@ class Executor(ABC):
     def prepare_for_execution(domain: "Domain") -> None:
         if domain.supports_context and not domain.is_context_built():
             logger.warning(
-                "Context has not been built yet. Building it now — this may take a while. "
-                "To avoid this delay, call domain.build_context() before starting execution."
+                "Context has not been built! "
+                "Some executors may benefit from it — call domain.build_context() if needed."
             )
-            domain.build_context()
+            # domain.build_context()

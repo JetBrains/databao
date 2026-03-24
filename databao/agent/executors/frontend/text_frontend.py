@@ -38,9 +38,26 @@ class TextStreamFrontend:
         df_str = dataframe_to_markdown(df.head(rows_to_show))
         self.write(f"{df_str}\n\n")
 
+    def write_full_ai_message(self, message: AIMessage) -> None:
+        reasoning_text = get_reasoning_content(message)
+        text = reasoning_text + message.text
+        if self._escape_markdown:
+            text = escape_markdown_text(text)
+        self.write(text)
+
+        if tool_calls := message.tool_calls:
+            self.write("\n\n")
+            for tool_call in tool_calls:
+                self.write(f"[tool_call: '{tool_call['name']}']\n")
+            self.write("```\n")  # Open code block
+            for tool_call in tool_calls:
+                if tool_call["args"] is not None:
+                    self.write(str(tool_call["args"]))
+            self.write("\n```\n\n")  # Close code block
+
     def write_message_chunk(self, chunk: BaseMessageChunk) -> None:
         if not isinstance(chunk, AIMessageChunk):
-            return  # Handle ToolMessage results in add_state_chunk
+            return  # Handle ToolMessage results in write_state_chunk
 
         reasoning_text = get_reasoning_content(chunk)
         text = reasoning_text + chunk.text
@@ -82,7 +99,10 @@ class TextStreamFrontend:
                 tool_call = get_tool_call(messages, message)
                 tool_name = tool_call["name"] if tool_call is not None else "unknown"
                 self.write(f"\n[tool_call_output: '{tool_name}']")
-                self.write(f"\n```\n{message.text.strip()}\n```\n\n")
+                tool_output = message.text.strip()
+                if not tool_output:
+                    tool_output = str(message.content)  # Fallback to the raw content
+                self.write(f"\n```\n{tool_output}\n```\n\n")
                 if message.artifact is not None and isinstance(message.artifact, dict):
                     for art_name, art_value in message.artifact.items():
                         if isinstance(art_value, pd.DataFrame):

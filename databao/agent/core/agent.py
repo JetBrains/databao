@@ -55,7 +55,7 @@ class Agent:
         self.__llm_config = llm
         self.__agent_config = agent_config
 
-        self.__executor = data_executor
+        self.__executor: Executor = data_executor
         self.__visualizer = visualizer
         self.__cache = cache
         self.__mcp: McpManager = McpManager()

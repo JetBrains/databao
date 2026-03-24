@@ -29,13 +29,14 @@ dependencies = [
     "sqlalchemy>=2.0.45",
     "snowflake-sqlalchemy>=1.8.2",
     "sqlalchemy-bigquery>=1.11.0",
-    "databao-context-engine[postgresql,mysql,snowflake]~=0.6.0",
+    "databao-context-engine[postgresql,mysql,snowflake]~=0.7.0",
     "mcp>=1.0.0,<2",
     "watchdog>=6.0.0",
     "pandas-stubs~=2.3.3",
     # dbt agent-related deps
     "dbt-core~=1.9.0", # Don't use 1.10 because it outputs a lot of deprecation warnings
     "dbt-duckdb>=1.10.0",
+    "claude-agent-sdk>=0.1.48",
 ]
 
 [project.urls]
@@ -111,6 +112,9 @@ allow_redefinition_new = true
 local_partial_types = true
 explicit_package_bases = true
 files = ["databao", "tests", "examples"]
+# Standalone sub-project with its own pyproject.toml and dependencies (ragas, datacompy);
+# its internal imports (benchmark.*, config) only resolve when run from within that directory.
+exclude = ["examples/benchmark_template/"]
 plugins = ["pydantic.mypy", "sqlalchemy.ext.mypy.plugin"]
 
 [tool.ruff]

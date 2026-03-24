@@ -32,9 +32,8 @@ class LighthouseExecutor(GraphExecutor):
         self._max_columns_per_table: int | None = None
         self._max_schema_summary_length: int | None = 250_000  # 1 token ~= 4 characters
 
-    def _summarize_db_schema(
-        self, tables: list[TableInfo], db_types: dict[str, str], max_cols_per_table: int | None
-    ) -> str:
+    @staticmethod
+    def _summarize_db_schema(tables: list[TableInfo], db_types: dict[str, str], max_cols_per_table: int | None) -> str:
         # As a workaround for snowflake where we execute queries directly using `snowflake_query`
         # we need the original catalog name for the agent to write correct queries.
         # For normal duckdb based execution, we instead need the "new" catalog name
@@ -64,7 +63,8 @@ class LighthouseExecutor(GraphExecutor):
             return "(no tables found)"
         return "\n".join(schemas)
 
-    def _summarize_db_schema_overview(self, tables: list[TableInfo], db_types: dict[str, str]) -> str:
+    @staticmethod
+    def _summarize_db_schema_overview(tables: list[TableInfo], db_types: dict[str, str]) -> str:
         sf_db_names = {name for name, db_type in db_types.items() if db_type == "snowflake"}
         sf_tables = [table for table in tables if table.table_catalog in sf_db_names]
         duckdb_tables = [table for table in tables if table.table_catalog not in sf_db_names]
@@ -85,24 +85,30 @@ class LighthouseExecutor(GraphExecutor):
             return "(no tables found)"
         return "\n".join(schemas)
 
-    def _inspect_database_schema(self, connection: DuckDBPyConnection, db_types: dict[str, str]) -> str:
+    @staticmethod
+    def inspect_database_schema(
+        connection: DuckDBPyConnection,
+        db_types: dict[str, str],
+        max_schema_summary_length: int | None,
+        max_columns_per_table: int | None,
+    ) -> str:
         try:
             tables = inspect_duckdb_schema(connection)
         except Exception as e:
             _LOGGER.warning(f"Failed to inspect duckdb schema: {e}")
             return "(failed to fetch schema)"
 
-        db_schema = self._summarize_db_schema(tables, db_types, self._max_columns_per_table)
-        if self._max_schema_summary_length is None:
+        db_schema = LighthouseExecutor._summarize_db_schema(tables, db_types, max_columns_per_table)
+        if max_schema_summary_length is None:
             return db_schema
 
-        if len(db_schema) > self._max_schema_summary_length:
+        if len(db_schema) > max_schema_summary_length:
             # Retry by listing only table names without any column information.
-            db_schema = self._summarize_db_schema(tables, db_types, 0)
+            db_schema = LighthouseExecutor._summarize_db_schema(tables, db_types, 0)
 
-        if len(db_schema) > self._max_schema_summary_length:
+        if len(db_schema) > max_schema_summary_length:
             # Fallback to showing only schemas without tables names.
-            db_schema = self._summarize_db_schema_overview(tables, db_types)
+            db_schema = LighthouseExecutor._summarize_db_schema_overview(tables, db_types)
 
         return db_schema
 
@@ -120,7 +126,12 @@ class LighthouseExecutor(GraphExecutor):
             db_type = get_db_type(source.config).full_type
             db_types[name] = db_type
 
-        db_schema = self._inspect_database_schema(data_connection, db_types)
+        db_schema = self.inspect_database_schema(
+            data_connection,
+            db_types,
+            max_schema_summary_length=self._max_schema_summary_length,
+            max_columns_per_table=self._max_columns_per_table,
+        )
 
         sources = domain.sources
         context_text = build_context_text(
