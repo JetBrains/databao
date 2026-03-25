@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@databao/multimodal-tabs": "workspace:*",
+    "@jetbrains/drt": "catalog:",
     "@radix-ui/themes": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:"

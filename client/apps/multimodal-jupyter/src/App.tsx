@@ -1,12 +1,17 @@
 import { useModel, useModelState } from "@anywidget/react";
-import { DataframeTable, Tabs, VegaChart } from "@databao/multimodal-tabs";
+import {
+  DataframeTable,
+  Tabs,
+  VegaChart,
+  StatusRenderer,
+} from "@databao/multimodal-tabs";
 import { Text, Theme } from "@radix-ui/themes";
+import { Sprite } from "@jetbrains/drt";
 import { useCallback, useEffect, useRef } from "react";
 
 import styles from "./app.module.css";
 import { SelectModalityAction } from "./communication/actions";
 import { initCommunication } from "./communication/communication";
-import { StatusRenderer } from "./components/StatusRenderer";
 import {
   isMultimodalTabType,
   MULTIMODAL_TABS,
@@ -22,17 +27,16 @@ function App() {
     "available_modalities",
   );
 
-  const [spec] = useModelState<Record<string, unknown> | null>("spec");
-  const [specStatus] = useModelState<Status>("spec_status");
+  const [specConfig] = useModelState<Record<string, unknown> | null>("spec");
+  const [specGenerationStatus] = useModelState<Status>("spec_status");
+  const [specCsvData] = useModelState<string>("spec_csv_data");
 
   const [text] = useModelState<string>("text");
   const [textStatus] = useModelState<Status>("text_status");
 
-  const [dataframeHtmlContent] = useModelState<string>(
-    "dataframe_html_content",
-  );
-  const [dataframeHtmlContentStatus] = useModelState<Status>(
-    "dataframe_html_content_status",
+  const [dataframeCsvContent] = useModelState<string>("dataframe_csv_content");
+  const [dataframeCsvContentStatus] = useModelState<Status>(
+    "dataframe_csv_content_status",
   );
 
   useEffect(() => {
@@ -57,33 +61,17 @@ function App() {
     );
   }, []);
 
-  const renderChart = (spec: Record<string, unknown> | null) => (
-    <StatusRenderer
-      status={specStatus}
-      value={spec}
-      renderValue={(value) => <VegaChart spec={value} />}
-      failed={<Text color="gray">Failed to get data</Text>}
-      empty={<Text color="gray">No chart available</Text>}
-    />
-  );
-
   const renderDescription = (text: string | null) => (
     <StatusRenderer
-      status={textStatus}
+      getStatus={() => textStatus}
       value={text}
-      renderValue={(value) => <Text color="gray">{value}</Text>}
+      renderValue={(value) => (
+        <div className={styles.heightWrapper}>
+          <Text color="gray">{value}</Text>
+        </div>
+      )}
       failed={<Text color="gray">Failed to get data</Text>}
       empty={<Text color="gray">No description available</Text>}
-    />
-  );
-
-  const renderTable = (dataframeHtmlContent: string | null) => (
-    <StatusRenderer
-      status={dataframeHtmlContentStatus}
-      value={dataframeHtmlContent}
-      renderValue={(value) => <DataframeTable htmlContent={value} />}
-      failed={<Text color="gray">Failed to get data</Text>}
-      empty={<Text color="gray">No data available</Text>}
     />
   );
 
@@ -91,12 +79,27 @@ function App() {
     DATAFRAME: {
       type: MULTIMODAL_TABS.DATAFRAME,
       title: "Data",
-      content: () => renderTable(dataframeHtmlContent),
+      content: () => (
+        <div className={styles.heightWrapper}>
+          <DataframeTable
+            dataframeCsvData={dataframeCsvContent}
+            status={dataframeCsvContentStatus}
+          />
+        </div>
+      ),
     },
     CHART: {
       type: MULTIMODAL_TABS.CHART,
       title: "Chart",
-      content: () => renderChart(spec),
+      content: () => (
+        <div className={styles.heightWrapper}>
+          <VegaChart
+            status={specGenerationStatus}
+            specData={specCsvData}
+            specConfig={specConfig}
+          />
+        </div>
+      ),
     },
     DESCRIPTION: {
       type: MULTIMODAL_TABS.DESCRIPTION,
@@ -110,11 +113,22 @@ function App() {
     .filter((tab) => isMultimodalTabType(tab.type));
 
   return (
-    <Theme style={{ minHeight: "300px", maxHeight: "700px" }} asChild>
-      <div className={styles.root}>
-        <Tabs tabs={tabs} onChangeTab={handleChangeTab} />
+    <>
+      <div
+        style={{
+          height: "0",
+          width: "0",
+          overflow: "hidden",
+        }}
+      >
+        <Sprite />
       </div>
-    </Theme>
+      <Theme style={{ minHeight: "300px", maxHeight: "700px" }} asChild>
+        <div className={styles.root}>
+          <Tabs tabs={tabs} onChangeTab={handleChangeTab} />
+        </div>
+      </Theme>
+    </>
   );
 }
 

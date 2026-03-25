@@ -1,4 +1,5 @@
 import { Tabs as RadixTabs, Box } from "@radix-ui/themes";
+import { useCallback, useState } from "react";
 
 import styles from "./tabs.module.css";
 
@@ -14,20 +15,29 @@ export interface TabsProps {
 }
 
 export function Tabs(props: TabsProps) {
-  const handleChangeTab = (value: string) => {
-    props.onChangeTab?.(value);
-  };
+  const { onChangeTab } = props;
+  const [activeTab, setActiveTab] = useState(props.tabs[0]?.type);
+
+  const handleChangeTab = useCallback(
+    (value: string) => {
+      setActiveTab(value);
+      onChangeTab?.(value);
+    },
+    [onChangeTab],
+  );
 
   return (
     <RadixTabs.Root
-      defaultValue={props.tabs[0]?.type}
+      value={activeTab}
       className={styles.root}
       onValueChange={handleChangeTab}
     >
       <RadixTabs.List>
         {props.tabs.map((tab) => {
           return (
-            <RadixTabs.Trigger value={tab.type}>{tab.title}</RadixTabs.Trigger>
+            <RadixTabs.Trigger key={tab.type} value={tab.type}>
+              {tab.title}
+            </RadixTabs.Trigger>
           );
         })}
       </RadixTabs.List>
@@ -35,8 +45,12 @@ export function Tabs(props: TabsProps) {
       <Box className={styles.content}>
         {props.tabs.map((tab) => {
           return (
-            <RadixTabs.Content value={tab.type}>
-              {tab.content()}
+            <RadixTabs.Content key={tab.type} value={tab.type} forceMount>
+              <div
+                style={{ display: activeTab === tab.type ? "block" : "none" }}
+              >
+                {tab.content()}
+              </div>
             </RadixTabs.Content>
           );
         })}

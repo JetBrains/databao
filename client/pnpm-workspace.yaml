@@ -18,3 +18,4 @@ catalog:
   "vite-plugin-lib-inject-css": "2.2.2"
 
   "@radix-ui/themes": 3.2.1
+  "@jetbrains/drt": "0.0.4"

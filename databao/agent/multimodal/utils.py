@@ -1,29 +1,24 @@
-"""Utility functions for multimodal display."""
+"""Utility functions for multimodal content handling."""
 
-from __future__ import annotations
-
-import pandas as pd
+from typing import Any
 
 
-def dataframe_to_html(df: pd.DataFrame) -> str:
-    """Convert a DataFrame to HTML, truncating if necessary.
+def dataframe_to_csv(df: Any, max_rows: int = 1000000, max_columns: int = 100) -> str:
+    """Convert a DataFrame to CSV with row and column limits.
 
     Args:
-        df: A pandas DataFrame to convert to HTML.
+        df: The DataFrame to convert.
+        max_rows: Maximum number of rows to include in the CSV. Defaults to 1000000.
+        max_columns: Maximum number of columns to include in the CSV. Defaults to 100.
 
     Returns:
-        HTML string representation of the DataFrame.
+        CSV string representation of the DataFrame (limited to max_rows and max_columns).
     """
-    if len(df) > 20:
-        first_10 = df.head(10)
-        last_10 = df.tail(10)
-
-        separator_data = {col: "..." for col in df.columns}
-        separator_df = pd.DataFrame([separator_data], index=["..."])
-
-        truncated_df = pd.concat([first_10, separator_df, last_10])
-        html_result = truncated_df.to_html()
-    else:
-        html_result = df.to_html()
-
-    return html_result if html_result is not None else ""
+    if df is None:
+        return ""
+    if len(df) > max_rows:
+        df = df.head(max_rows)
+    if len(df.columns) > max_columns:
+        df = df.iloc[:, :max_columns]
+    csv_result = df.to_csv(index=False)
+    return csv_result if csv_result is not None else ""

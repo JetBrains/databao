@@ -15,9 +15,8 @@ except ImportError as e:
         "anywidget and traitlets are required for Jupyter notebook support. "
         "Install them with: pip install databao[jupyter]"
     ) from e
-from edaplot.data_utils import spec_add_data
 
-from databao.agent.multimodal.utils import dataframe_to_html
+from databao.agent.multimodal.utils import dataframe_to_csv
 from databao.agent.visualizers.vega_chat import VegaChatResult
 
 if TYPE_CHECKING:
@@ -49,12 +48,13 @@ class MultimodalWidget(anywidget.AnyWidget):
 
     spec = traitlets.Dict(default_value=None, allow_none=True).tag(sync=True)
     spec_status = traitlets.Enum(values=LOADING_STATUS_VALUES, default_value="initial").tag(sync=True)
+    spec_csv_data = traitlets.Unicode("").tag(sync=True)
 
     text = traitlets.Unicode("").tag(sync=True)
     text_status = traitlets.Enum(values=LOADING_STATUS_VALUES, default_value="initial").tag(sync=True)
 
-    dataframe_html_content = traitlets.Unicode("").tag(sync=True)
-    dataframe_html_content_status = traitlets.Enum(values=LOADING_STATUS_VALUES, default_value="initial").tag(sync=True)
+    dataframe_csv_content = traitlets.Unicode("").tag(sync=True)
+    dataframe_csv_content_status = traitlets.Enum(values=LOADING_STATUS_VALUES, default_value="initial").tag(sync=True)
 
     def __init__(
         self,
@@ -74,11 +74,6 @@ class MultimodalWidget(anywidget.AnyWidget):
         thread_text = thread.text()
         self.text = thread_text
         self.text_status = "loaded"
-
-        df = thread.df()
-        if df is not None:
-            self.dataframe_html_content = dataframe_to_html(df)
-            self.dataframe_html_content_status = "loaded"
 
         self.on_msg(self._on_client_message)
 
@@ -102,23 +97,23 @@ class MultimodalWidget(anywidget.AnyWidget):
                 self.spec_status = "failed"
                 raise ValueError("Failed to generate visualization")
 
-            spec_with_data = spec_add_data(plot.spec.copy(), plot.spec_df)
+            self.spec_csv_data = dataframe_to_csv(plot.spec_df)
             self.spec_status = "loaded"
-            self.spec = spec_with_data
+            self.spec = plot.spec
 
         elif payload == "DATAFRAME":
-            if self.dataframe_html_content_status != "initial":
+            if self.dataframe_csv_content_status != "initial":
                 return
 
-            self.dataframe_html_content_status = "loading"
+            self.dataframe_csv_content_status = "loading"
             df = self.thread.df()
 
             if df is None:
-                self.dataframe_html_content_status = "failed"
-                raise ValueError("Failed to generate dataframe")
+                self.dataframe_csv_content_status = "failed"
+                raise ValueError("Failed to generate data")
 
-            self.dataframe_html_content_status = "loaded"
-            self.dataframe_html_content = dataframe_to_html(df)
+            self.dataframe_csv_content_status = "loaded"
+            self.dataframe_csv_content = dataframe_to_csv(df)
 
         elif payload == "DESCRIPTION":
             if self.text_status != "initial":

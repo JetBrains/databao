@@ -10,9 +10,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from edaplot.data_utils import spec_add_data
-
-from databao.agent.multimodal.utils import dataframe_to_html
+from databao.agent.multimodal.utils import dataframe_to_csv
 from databao.agent.visualizers.vega_chat import VegaChatResult
 
 if TYPE_CHECKING:
@@ -116,9 +114,10 @@ class MultimodalHTTPRequestHandler(BaseHTTPRequestHandler):
                 if plot.spec is None or plot.spec_df is None:
                     raise ValueError("Failed to generate visualization")
 
-                spec_with_data = spec_add_data(plot.spec.copy(), plot.spec_df)
+                spec_csv_data = dataframe_to_csv(plot.spec_df)
+                result = {"spec": plot.spec, "csvData": spec_csv_data}
 
-                result_queue.put(spec_with_data)
+                result_queue.put(result)
 
             except Exception as exc:
                 result_queue.put(exc)
@@ -212,9 +211,9 @@ def open_html_content(thread: "Thread") -> str:
         )
 
     df = thread.df()
-    df_html = dataframe_to_html(df) if df is not None else "<i>No data available</i>"
+    df_csv = dataframe_to_csv(df) if df is not None else ""
 
-    data_object = {"text": thread.text(), "dataframeHtmlContent": df_html}
+    data_object = {"text": thread.text(), "dataframeCsvContent": df_csv}
     data_json = json.dumps(data_object)
 
     template = TEMPLATE_PATH.read_text(encoding="utf-8")

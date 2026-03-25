@@ -29,7 +29,7 @@ dependencies = [
     "sqlalchemy>=2.0.45",
     "snowflake-sqlalchemy>=1.8.2",
     "sqlalchemy-bigquery>=1.11.0",
-    "databao-context-engine[postgresql,mysql,snowflake]~=0.6.0",
+    "databao-context-engine[postgresql,mysql,snowflake]~=0.7.0",
     "mcp>=1.0.0,<2",
     "watchdog>=6.0.0",
     "pandas-stubs~=2.3.3",
@@ -37,6 +37,7 @@ dependencies = [
     "dbt-core~=1.9.0", # Don't use 1.10 because it outputs a lot of deprecation warnings
     "dbt-duckdb>=1.10.0",
     "claude-agent-sdk>=0.1.48",
+    "anyio>=4.11.0",
 ]
 
 [project.urls]

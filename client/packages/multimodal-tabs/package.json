@@ -20,23 +20,23 @@
     "build:pckg": "tsc && NODE_ENV=production vite build",
     "dev:pckg": "NODE_ENV=development vite build"
   },
-  "dependencies": {
-    "vega": "6.2.0",
-    "vega-embed": "7.1.0",
-    "vega-lite": "6.4.1"
-  },
   "devDependencies": {
+    "@jetbrains/drt": "catalog:",
+    "@radix-ui/themes": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
     "vite": "catalog:",
     "vite-plugin-checker": "catalog:",
     "vite-plugin-lib-inject-css": "catalog:",
     "vite-plugin-dts": "catalog:"
   },
   "peerDependencies": {
-    "@radix-ui/themes": "3.2.1",
+    "@jetbrains/drt": "^0.0.4",
+    "@radix-ui/themes": "^3.0.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
   }

@@ -1,42 +1,61 @@
-import { useEffect, useRef } from "react";
-import embed from "vega-embed";
+import { VisualizationTool } from "@jetbrains/drt";
+import { Text } from "@radix-ui/themes";
+
+import { useDataService } from "@/hooks";
+import { Status } from "@/types";
+
+import { StatusRenderer } from "../StatusRenderer";
 
 interface VegaChartProps {
-  spec: object;
+  status: Status;
+  specConfig: Record<string, unknown> | null;
+  specData: string;
 }
 
-export function VegaChart({ spec }: VegaChartProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
+export function VegaChart(props: VegaChartProps) {
+  const {
+    dataService,
+    tableInfo,
+    status: dataServiceStatus,
+  } = useDataService(props.specData);
 
-  useEffect(() => {
-    const containerEl = containerRef.current;
+  const getStatus = (
+    specGenerationStatus: Status,
+    dataServiceStatus: Status,
+  ): Status => {
+    if (specGenerationStatus === "failed" || dataServiceStatus === "failed") {
+      return "failed";
+    }
+    if (specGenerationStatus === "loaded" && dataServiceStatus === "loaded") {
+      return "loaded";
+    }
+    if (specGenerationStatus === "loading" || dataServiceStatus === "loading") {
+      return "loading";
+    }
+    return "initial";
+  };
 
-    const embedChart = async () => {
-      if (!containerEl || !spec) return;
+  const renderChart = (value: Record<string, unknown>) => {
+    if (!dataService || !tableInfo) {
+      return <Text color="gray">Failed to get data</Text>;
+    }
 
-      try {
-        await embed(containerEl, spec, {
-          actions: {
-            export: true,
-            source: false,
-            compiled: false,
-            editor: false,
-          },
-          renderer: "svg",
-        });
-      } catch (error) {
-        console.error("Failed to render Vega chart:", error);
-      }
-    };
+    return (
+      <VisualizationTool
+        tableInfo={tableInfo}
+        tableDataService={dataService}
+        spec={value}
+      />
+    );
+  };
 
-    embedChart();
-
-    return () => {
-      if (containerEl) {
-        containerEl.innerHTML = "";
-      }
-    };
-  }, [spec]);
-
-  return <div ref={containerRef} />;
+  return (
+    <StatusRenderer
+      getStatus={() => getStatus(props.status, dataServiceStatus)}
+      value={props.specConfig}
+      renderValue={renderChart}
+      failed={<Text color="gray">Failed to get data</Text>}
+      empty={<Text color="gray">No chart available</Text>}
+    />
+  );
 }

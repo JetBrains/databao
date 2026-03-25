@@ -61,20 +61,26 @@ def test_init_sets_text(sample_df: pd.DataFrame) -> None:
     assert widget.text_status == "loaded"
 
 
-def test_init_sets_dataframe_html_when_df_present(sample_df: pd.DataFrame) -> None:
+def test_init_leaves_dataframe_status_initial_when_df_present(sample_df: pd.DataFrame) -> None:
     thread = _make_thread(df=sample_df)
     widget = MultimodalWidget(thread=thread)
 
-    assert widget.dataframe_html_content != ""
-    assert widget.dataframe_html_content_status == "loaded"
+    assert widget.dataframe_csv_content == ""
+    assert widget.dataframe_csv_content_status == "initial"
+
+    msg = {"action": {"type": "SELECT_MODALITY", "payload": json.dumps("DATAFRAME")}}
+    widget._handle_client_message(msg, [])
+
+    assert widget.dataframe_csv_content != ""
+    assert widget.dataframe_csv_content_status == "loaded"
 
 
 def test_init_leaves_dataframe_status_initial_when_no_df() -> None:
     thread = _make_thread(df=None)
     widget = MultimodalWidget(thread=thread)
 
-    assert widget.dataframe_html_content == ""
-    assert widget.dataframe_html_content_status == "initial"
+    assert widget.dataframe_csv_content == ""
+    assert widget.dataframe_csv_content_status == "initial"
 
 
 def test_init_spec_status_is_initial(sample_df: pd.DataFrame) -> None:
@@ -140,17 +146,17 @@ def test_chart_tab_sets_failed_status_when_spec_is_none(sample_df: pd.DataFrame)
 # ---------------------------------------------------------------------------
 
 
-def test_dataframe_tab_loads_html_when_df_available(sample_df: pd.DataFrame) -> None:
+def test_dataframe_tab_loads_csv_when_df_available(sample_df: pd.DataFrame) -> None:
     thread = _make_thread(df=None)  # no df at init
     widget = MultimodalWidget(thread=thread)
-    assert widget.dataframe_html_content_status == "initial"
+    assert widget.dataframe_csv_content_status == "initial"
 
     thread.df.return_value = sample_df
     msg = {"action": {"type": "SELECT_MODALITY", "payload": json.dumps("DATAFRAME")}}
     widget._handle_client_message(msg, [])
 
-    assert widget.dataframe_html_content_status == "loaded"
-    assert widget.dataframe_html_content != ""
+    assert widget.dataframe_csv_content_status == "loaded"
+    assert widget.dataframe_csv_content != ""
 
 
 def test_dataframe_tab_sets_failed_when_df_is_none() -> None:
@@ -160,7 +166,7 @@ def test_dataframe_tab_sets_failed_when_df_is_none() -> None:
     msg = {"action": {"type": "SELECT_MODALITY", "payload": json.dumps("DATAFRAME")}}
     widget._handle_client_message(msg, [])
 
-    assert widget.dataframe_html_content_status == "failed"
+    assert widget.dataframe_csv_content_status == "failed"
 
 
 # ---------------------------------------------------------------------------
