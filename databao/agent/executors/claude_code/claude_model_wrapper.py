@@ -190,7 +190,7 @@ query_id: The ID of the query to submit.""",
             )
             async def search_context(args: dict[str, Any]) -> dict[str, Any]:
                 if retrieve_text := args.get("retrieve_text", ""):
-                    dce_output = await asyncio.to_thread(_search_context, retrieve_text, domain=self._domain) # type: ignore[arg-type]
+                    dce_output = await asyncio.to_thread(_search_context, retrieve_text, domain=self._domain)  # type: ignore[arg-type]
                     return {
                         "content": [
                             {
