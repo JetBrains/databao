@@ -26,7 +26,7 @@ from databao.agent import Domain, ExecutionResult, LLMConfig, Opa
 from databao.agent.configs.agent import AgentConfig
 from databao.agent.core import Cache
 from databao.agent.core.domain import _Domain
-from databao.agent.duckdb.react_tools import execute_duckdb_sql
+from databao.agent.duckdb.utils import execute_duckdb_sql
 from databao.agent.executors.base import DuckDBExecutor
 from databao.agent.executors.claude.memory_manager import MEMORY_FOLDERS, MemoryManager
 from databao.agent.executors.claude_code.utils import cast_claude_message_to_langchain_message
