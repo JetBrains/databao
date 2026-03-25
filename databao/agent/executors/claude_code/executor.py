@@ -60,7 +60,6 @@ class ClaudeCodeExecutor(DuckDBExecutor):
             df_label_fn=lambda name: f"DF {name} (fully qualified name 'temp.main.{name}')",
         )
 
-
         prompt = self._prompt_template.render(
             date=get_today_date_str(),
             db_schema=db_schema,

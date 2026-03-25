@@ -74,5 +74,6 @@ def tool_call_result(contents: list[ClaudeToolResultBlock]) -> dict[str, Any]:
             content.extend(block.content)
     return dict(tool_call_id=contents[0].tool_use_id, content=content)
 
+
 def is_dce_search_enabled(domain: Domain) -> bool:
     return isinstance(domain, _DCEProjectDomain) and domain.is_context_built()

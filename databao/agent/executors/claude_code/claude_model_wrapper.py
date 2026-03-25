@@ -181,6 +181,7 @@ query_id: The ID of the query to submit.""",
         tools.append(submit_query_id)
 
         if is_dce_search_enabled(self._domain):
+
             @tool(
                 "search_context",
                 SEARCH_CONTEXT_TOOL_DESCRIPTION,
