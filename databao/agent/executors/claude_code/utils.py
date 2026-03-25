@@ -10,6 +10,9 @@ from claude_agent_sdk.types import ToolUseBlock as ClaudeToolUseBlock
 from claude_agent_sdk.types import UserMessage as ClaudeUserMessage
 from langchain_core.messages import AIMessage, BaseMessage, ChatMessage, SystemMessage, ToolCall, ToolMessage
 
+from databao.agent import Domain
+from databao.agent.core.domain import _DCEProjectDomain
+
 
 def _separate_content_and_tool_calls(message: ClaudeAssistantMessage) -> tuple[list[ToolCall], list[str]]:
     tool_calls = []
@@ -70,3 +73,6 @@ def tool_call_result(contents: list[ClaudeToolResultBlock]) -> dict[str, Any]:
         elif isinstance(block.content, list):
             content.extend(block.content)
     return dict(tool_call_id=contents[0].tool_use_id, content=content)
+
+def is_dce_search_enabled(domain: Domain) -> bool:
+    return isinstance(domain, _DCEProjectDomain) and domain.is_context_built()

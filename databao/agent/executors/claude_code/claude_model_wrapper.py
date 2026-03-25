@@ -200,6 +200,7 @@ query_id: The ID of the query to submit.""",
                             ]
                         }
                     return {"content": [{"type": "text", "text": json.dumps({"error": "No retrieve text provided"})}]}
+        if is_dce_search_enabled(self._domain):
 
                 tools.append(search_context)
             else:
