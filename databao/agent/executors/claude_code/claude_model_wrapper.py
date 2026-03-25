@@ -25,9 +25,8 @@ from mcp.types import ToolAnnotations
 
 from databao.agent.configs.llm import LLMConfig
 from databao.agent.core import Domain
-from databao.agent.core.domain import _DCEProjectDomain
 from databao.agent.core.executor import ExecutionResult
-from databao.agent.executors.claude_code.utils import cast_claude_message_to_langchain_message
+from databao.agent.executors.claude_code.utils import cast_claude_message_to_langchain_message, is_dce_search_enabled
 from databao.agent.executors.frontend.messages import get_tool_call
 from databao.agent.executors.frontend.text_frontend import TextStreamFrontend
 from databao.agent.executors.langchain_tools import SEARCH_CONTEXT_TOOL_DESCRIPTION
@@ -134,7 +133,8 @@ class ClaudeModelWrapper:
             annotations=ToolAnnotations(readOnlyHint=True),
         )
         async def _run_sql_query(args: dict[str, Any]) -> dict[str, Any]:
-            result = run_sql_query(
+            result = await asyncio.to_thread(
+                run_sql_query,
                 args.get("sql", ""),
                 con=self._duckdb_connection,
                 sql_row_limit=self._limit_max_rows,
@@ -180,31 +180,29 @@ query_id: The ID of the query to submit.""",
 
         tools.append(submit_query_id)
 
-        if self._domain.supports_context:
-            if isinstance(self._domain, _DCEProjectDomain):
-
-                @tool(
-                    "search_context",
-                    SEARCH_CONTEXT_TOOL_DESCRIPTION,
-                    {"retrieve_text": str},
-                    annotations=ToolAnnotations(readOnlyHint=True),
-                )
-                async def search_context(args: dict[str, Any]) -> dict[str, Any]:
-                    if retrieve_text := args.get("retrieve_text", ""):
-                        return {
-                            "content": [
-                                {
-                                    "type": "text",
-                                    "text": json.dumps(_search_context(retrieve_text, domain=self._domain)),  # type: ignore[arg-type]
-                                }
-                            ]
-                        }
-                    return {"content": [{"type": "text", "text": json.dumps({"error": "No retrieve text provided"})}]}
         if is_dce_search_enabled(self._domain):
+            @tool(
+                "search_context",
+                SEARCH_CONTEXT_TOOL_DESCRIPTION,
+                {"retrieve_text": str},
+                annotations=ToolAnnotations(readOnlyHint=True),
+            )
+            async def search_context(args: dict[str, Any]) -> dict[str, Any]:
+                if retrieve_text := args.get("retrieve_text", ""):
+                    dce_output = await asyncio.to_thread(_search_context, retrieve_text, domain=self._domain)
+                    return {
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": json.dumps(dce_output),  # type: ignore[arg-type]
+                            }
+                        ]
+                    }
+                return {"content": [{"type": "text", "text": json.dumps({"error": "No retrieve text provided"})}]}
 
-                tools.append(search_context)
-            else:
-                raise ValueError(f"Search context tool is not supported for domain type: {type(self._domain)}")
+            tools.append(search_context)
+        else:
+            raise ValueError(f"Search context tool is not supported for domain type: {type(self._domain)}")
 
         return tools
 
