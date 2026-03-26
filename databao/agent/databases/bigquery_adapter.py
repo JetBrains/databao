@@ -1,3 +1,5 @@
+import json
+import tempfile
 from typing import Any
 
 from _duckdb import DuckDBPyConnection
@@ -85,6 +87,11 @@ class BigQueryAdapter(DatabaseAdapter):
             raise ValueError(
                 f"Invalid connection config type: expected BigQueryConnectionProperties, got {type(config)}."
             )
+        if isinstance(config.auth, BigQueryServiceAccountJsonAuth):
+            credentials_json = config.auth.credentials_json
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
+                json.dump(json.loads(credentials_json) if isinstance(credentials_json, str) else credentials_json, tmp)
+            config = config.model_copy(update={"auth": BigQueryServiceAccountKeyFileAuth(credentials_file=tmp.name)})
         connection_string = cls._create_connection_string(config)
         shared_conn.execute("INSTALL bigquery FROM community;")
         shared_conn.execute("LOAD bigquery;")

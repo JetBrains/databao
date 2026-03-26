@@ -1,3 +1,5 @@
+import json
+import os
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -243,15 +245,29 @@ class TestRegisterInDuckdb:
         assert "project=my-project" in attach_sql
         assert "dataset=my_dataset" in attach_sql
 
-    def test_json_auth_includes_credentials_json(
+    def test_json_auth_writes_temp_file_and_uses_credentials_file(
         self, adapter: BigQueryAdapter, json_config: BigQueryConnectionProperties
     ) -> None:
         mock_conn = MagicMock()
         adapter.register_in_duckdb(mock_conn, json_config, "bq_ds")
         attach_call = mock_conn.execute.call_args_list[2]
         attach_sql: str = attach_call[0][0]
-        assert "credentials_json=" in attach_sql
+        assert "credentials_json" not in attach_sql
+        assert "credentials_file=" in attach_sql
         assert "location=US" in attach_sql
+        # Extract temp file path and verify contents
+        for part in attach_sql.split():
+            if part.startswith("credentials_file="):
+                tmp_path = part.split("=", 1)[1]
+                # Strip trailing quote from ATTACH SQL
+                tmp_path = tmp_path.rstrip("'")
+                assert os.path.exists(tmp_path)
+                with open(tmp_path) as f:
+                    assert json.load(f) == {"type": "service_account"}
+                os.unlink(tmp_path)
+                break
+        else:
+            pytest.fail("credentials_file not found in ATTACH SQL")
 
     def test_raises_on_wrong_config_type(self, adapter: BigQueryAdapter) -> None:
         from databao_context_engine import DuckDBConnectionConfig
