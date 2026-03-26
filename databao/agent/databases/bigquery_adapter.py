@@ -1,5 +1,3 @@
-import json
-import tempfile
 from typing import Any
 
 from _duckdb import DuckDBPyConnection
@@ -87,14 +85,10 @@ class BigQueryAdapter(DatabaseAdapter):
             raise ValueError(
                 f"Invalid connection config type: expected BigQueryConnectionProperties, got {type(config)}."
             )
-        if isinstance(config.auth, BigQueryServiceAccountJsonAuth):
-            credentials_json = config.auth.credentials_json
-            with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
-                json.dump(json.loads(credentials_json) if isinstance(credentials_json, str) else credentials_json, tmp)
-            config = config.model_copy(update={"auth": BigQueryServiceAccountKeyFileAuth(credentials_file=tmp.name)})
-        connection_string = cls._create_connection_string(config)
         shared_conn.execute("INSTALL bigquery FROM community;")
         shared_conn.execute("LOAD bigquery;")
+        cls._create_secret_if_needed(shared_conn, config, name)
+        connection_string = cls._create_connection_string(config)
         shared_conn.execute(f"ATTACH '{connection_string}' AS \"{name}\" (TYPE bigquery, READ_ONLY);")
         # Workaround for a bug in the DuckDB BigQuery community extension: when ORDER BY and LIMIT
         # appear together DuckDB's optimizer generates a TopN filter that the extension's
@@ -113,18 +107,26 @@ class BigQueryAdapter(DatabaseAdapter):
         return BigQueryDefaultAuth()
 
     @staticmethod
+    def _create_secret_if_needed(conn: DuckDBPyConnection, config: BigQueryConnectionProperties, name: str) -> None:
+        auth = config.auth
+        if isinstance(auth, BigQueryServiceAccountKeyFileAuth):
+            secret_param = f"SERVICE_ACCOUNT_PATH '{auth.credentials_file}'"
+        elif isinstance(auth, BigQueryServiceAccountJsonAuth):
+            escaped = auth.credentials_json.replace("'", "''")
+            secret_param = f"SERVICE_ACCOUNT_JSON '{escaped}'"
+        else:
+            return
+        scope = f"bq://{config.project}"
+        secret_name = f"bq_secret_{name}"
+        conn.execute(f"CREATE SECRET \"{secret_name}\" (TYPE BIGQUERY, SCOPE '{scope}', {secret_param});")
+
+    @staticmethod
     def _create_connection_string(config: BigQueryConnectionProperties) -> str:
         params: dict[str, str] = {PROJECT_KEY: config.project}
         if config.dataset:
             params[DATASET_KEY] = config.dataset
         if config.location:
             params[LOCATION_KEY] = config.location
-
-        auth = config.auth
-        if isinstance(auth, BigQueryServiceAccountKeyFileAuth):
-            params[CREDENTIALS_FILE_KEY] = auth.credentials_file
-        elif isinstance(auth, BigQueryServiceAccountJsonAuth):
-            params[CREDENTIALS_JSON_KEY] = auth.credentials_json
 
         for k, v in config.additional_properties.items():
             params[k] = str(v)

@@ -1,5 +1,3 @@
-import json
-import os
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -234,40 +232,47 @@ class TestRegisterInDuckdb:
         mock_conn.execute.assert_any_call("ATTACH 'project=my-project' AS \"bq_ds\" (TYPE bigquery, READ_ONLY);")
         mock_conn.execute.assert_any_call("SET disabled_optimizers='top_n';")
 
-    def test_key_file_auth_includes_credentials_file(
+    def test_key_file_auth_creates_secret_and_excludes_creds_from_attach(
         self, adapter: BigQueryAdapter, key_file_config: BigQueryConnectionProperties
     ) -> None:
         mock_conn = MagicMock()
         adapter.register_in_duckdb(mock_conn, key_file_config, "bq_ds")
-        attach_call = mock_conn.execute.call_args_list[2]
-        attach_sql: str = attach_call[0][0]
-        assert "credentials_file=/path/to/key.json" in attach_sql
+        calls = [c[0][0] for c in mock_conn.execute.call_args_list]
+        # Secret should be created with SERVICE_ACCOUNT_PATH
+        secret_sql = calls[2]
+        assert "CREATE SECRET" in secret_sql
+        assert "SERVICE_ACCOUNT_PATH '/path/to/key.json'" in secret_sql
+        assert "bq://my-project" in secret_sql
+        # ATTACH should not contain credentials
+        attach_sql = calls[3]
+        assert "credentials_file" not in attach_sql
         assert "project=my-project" in attach_sql
         assert "dataset=my_dataset" in attach_sql
 
-    def test_json_auth_writes_temp_file_and_uses_credentials_file(
+    def test_json_auth_creates_secret_with_inline_json(
         self, adapter: BigQueryAdapter, json_config: BigQueryConnectionProperties
     ) -> None:
         mock_conn = MagicMock()
         adapter.register_in_duckdb(mock_conn, json_config, "bq_ds")
-        attach_call = mock_conn.execute.call_args_list[2]
-        attach_sql: str = attach_call[0][0]
+        calls = [c[0][0] for c in mock_conn.execute.call_args_list]
+        # Secret should be created with SERVICE_ACCOUNT_JSON
+        secret_sql = calls[2]
+        assert "CREATE SECRET" in secret_sql
+        assert "SERVICE_ACCOUNT_JSON" in secret_sql
+        assert "bq://my-project" in secret_sql
+        # ATTACH should not contain credentials
+        attach_sql = calls[3]
         assert "credentials_json" not in attach_sql
-        assert "credentials_file=" in attach_sql
+        assert "credentials_file" not in attach_sql
         assert "location=US" in attach_sql
-        # Extract temp file path and verify contents
-        for part in attach_sql.split():
-            if part.startswith("credentials_file="):
-                tmp_path = part.split("=", 1)[1]
-                # Strip trailing quote from ATTACH SQL
-                tmp_path = tmp_path.rstrip("'")
-                assert os.path.exists(tmp_path)
-                with open(tmp_path) as f:
-                    assert json.load(f) == {"type": "service_account"}
-                os.unlink(tmp_path)
-                break
-        else:
-            pytest.fail("credentials_file not found in ATTACH SQL")
+
+    def test_default_auth_does_not_create_secret(
+        self, adapter: BigQueryAdapter, default_config: BigQueryConnectionProperties
+    ) -> None:
+        mock_conn = MagicMock()
+        adapter.register_in_duckdb(mock_conn, default_config, "bq_ds")
+        calls = [c[0][0] for c in mock_conn.execute.call_args_list]
+        assert not any("CREATE SECRET" in c for c in calls)
 
     def test_raises_on_wrong_config_type(self, adapter: BigQueryAdapter) -> None:
         from databao_context_engine import DuckDBConnectionConfig
@@ -276,7 +281,7 @@ class TestRegisterInDuckdb:
         with pytest.raises(ValueError, match="BigQueryConnectionProperties"):
             adapter.register_in_duckdb(mock_conn, DuckDBConnectionConfig(database_path="/tmp/db.duckdb"), "name")
 
-    def test_install_load_attach_order(
+    def test_install_load_attach_order_default_auth(
         self, adapter: BigQueryAdapter, default_config: BigQueryConnectionProperties
     ) -> None:
         mock_conn = MagicMock()
@@ -287,24 +292,36 @@ class TestRegisterInDuckdb:
         assert calls[2].startswith("ATTACH")
         assert calls[3] == "SET disabled_optimizers='top_n';"
 
+    def test_install_load_secret_attach_order_with_auth(
+        self, adapter: BigQueryAdapter, key_file_config: BigQueryConnectionProperties
+    ) -> None:
+        mock_conn = MagicMock()
+        adapter.register_in_duckdb(mock_conn, key_file_config, "bq_ds")
+        calls = [c[0][0] for c in mock_conn.execute.call_args_list]
+        assert calls[0] == "INSTALL bigquery FROM community;"
+        assert calls[1] == "LOAD bigquery;"
+        assert calls[2].startswith("CREATE SECRET")
+        assert calls[3].startswith("ATTACH")
+        assert calls[4] == "SET disabled_optimizers='top_n';"
+
 
 class TestConnectionString:
     def test_default_auth_only_has_project(self, default_config: BigQueryConnectionProperties) -> None:
         result = BigQueryAdapter._create_connection_string(default_config)
         assert result == "project=my-project"
 
-    def test_key_file_auth_connection_string(self, key_file_config: BigQueryConnectionProperties) -> None:
+    def test_key_file_auth_excludes_credentials(self, key_file_config: BigQueryConnectionProperties) -> None:
         result = BigQueryAdapter._create_connection_string(key_file_config)
         assert "project=my-project" in result
         assert "dataset=my_dataset" in result
-        assert "credentials_file=/path/to/key.json" in result
+        assert "credentials_file" not in result
 
-    def test_json_auth_connection_string(self, json_config: BigQueryConnectionProperties) -> None:
+    def test_json_auth_excludes_credentials(self, json_config: BigQueryConnectionProperties) -> None:
         result = BigQueryAdapter._create_connection_string(json_config)
         assert "project=my-project" in result
         assert "dataset=my_dataset" in result
         assert "location=US" in result
-        assert 'credentials_json={"type":"service_account"}' in result
+        assert "credentials_json" not in result
 
     def test_no_dataset_when_none(self) -> None:
         config = BigQueryConnectionProperties(project="p", dataset=None)
