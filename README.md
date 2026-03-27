@@ -12,10 +12,9 @@
 </p>
 
 <p align="center">
- <a href="https://databao.app">Website</a> •
+ <a href="https://jetbrains.com/databao">Website</a> •
  <a href="#quickstart">Quickstart</a> •
- <a href="#local-models">Local models</a> •
- <a href="#contributing">Contributing</a> •
+ <a href="https://docs.databao.app">Docs</a> •
  <a href="https://discord.gg/hEUqCcWdVh">Discord</a>
 </p>
 
@@ -64,11 +63,14 @@ pip install databao-agent
 
 ## Supported data sources
 
-* <img src="https://cdn.simpleicons.org/pandas/150458" width="16" height="16" alt=""> Pandas DataFrame
-* <img src="https://cdn.simpleicons.org/postgresql/316192" width="16" height="16" alt=""> PostgreSQL
-* <img src="https://cdn.simpleicons.org/mysql/4479A1" width="16" height="16" alt=""> MySQL
-* <img src="https://cdn.simpleicons.org/sqlite/003B57" width="16" height="16" alt=""> SQLite
-* <img src="https://cdn.simpleicons.org/duckdb/FFF000" width="16" height="16" alt=""> DuckDB
+* BigQuery
+* dbt
+* DuckDB
+* MySQL
+* Pandas DataFrame
+* PostgreSQL
+* Snowflake
+* SQLite
 
 For PostgreSQL, MySQL, and SQLite, pass a SQLAlchemy `Engine` to `add_db()`. For DuckDB, pass `DuckDBPyConnection`.
 
@@ -263,6 +265,7 @@ Apache 2.0 — use it however you want. See the [LICENSE](LICENSE.md) file for d
 </p>
 
 <p align="center">
- <a href="https://databao.app">Website</a> •
+ <a href="https://jetbrains.com/databao">Website</a> •
+ <a href="https://docs.databao.app">Docs</a> •
  <a href="https://discord.gg/hEUqCcWdVh">Discord</a>
 </p>
