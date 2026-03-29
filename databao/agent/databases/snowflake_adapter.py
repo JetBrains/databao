@@ -7,6 +7,7 @@ from databao_context_engine import (
     SnowflakeConfigFile,
     SnowflakeConnectionProperties,
     SnowflakeKeyPairAuth,
+    SnowflakeOAuthAuth,
     SnowflakePasswordAuth,
     SnowflakeSSOAuth,
 )
@@ -164,6 +165,9 @@ class SnowflakeAdapter(DatabaseAdapter):
                 raise ValueError("No private key provided.")
             if auth.private_key_file_pwd:
                 params[PRIVATE_KEY_PASSPHRASE_KEY] = auth.private_key_file_pwd
+        elif isinstance(auth, SnowflakeOAuthAuth):
+            params[AUTH_TYPE_KEY] = AUTH_TYPE_OAUTH
+            params[TOKEN_KEY] = auth.token
         elif isinstance(auth, SnowflakeSSOAuth):
             authenticator = auth.authenticator
             if SnowflakeAdapter._is_okta_url(authenticator):
@@ -177,7 +181,9 @@ class SnowflakeAdapter(DatabaseAdapter):
         return params
 
     @staticmethod
-    def _create_auth(content: dict[str, Any]) -> SnowflakePasswordAuth | SnowflakeKeyPairAuth | SnowflakeSSOAuth:
+    def _create_auth(
+        content: dict[str, Any],
+    ) -> SnowflakePasswordAuth | SnowflakeKeyPairAuth | SnowflakeSSOAuth | SnowflakeOAuthAuth:
         if PASSWORD_KEY in content:
             return SnowflakePasswordAuth(password=content[PASSWORD_KEY])
         if content.keys() & {PRIVATE_KEY_KEY, PRIVATE_KEY_FILE_KEY}:
@@ -187,7 +193,7 @@ class SnowflakeAdapter(DatabaseAdapter):
                 private_key=content.get(PRIVATE_KEY_KEY),
             )
         if TOKEN_KEY in content:
-            return SnowflakeSSOAuth(authenticator=AUTH_TYPE_OAUTH)
+            return SnowflakeOAuthAuth(token=content[TOKEN_KEY])
         if OKTA_URL_KEY in content:
             return SnowflakeSSOAuth(authenticator=content[OKTA_URL_KEY])
         raise ValueError("Unsupported Snowflake authentication type.")
