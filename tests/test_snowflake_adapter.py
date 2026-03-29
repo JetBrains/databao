@@ -6,6 +6,7 @@ import pytest
 from databao_context_engine import (
     SnowflakeConnectionProperties,
     SnowflakeKeyPairAuth,
+    SnowflakeOAuthAuth,
     SnowflakePasswordAuth,
     SnowflakeSSOAuth,
 )
@@ -156,6 +157,62 @@ def test_secret_params_sso_oauth() -> None:
     params = SnowflakeAdapter._create_secret_params(config)
 
     assert params["auth_type"] == "oauth"
+
+
+# ---------------------------------------------------------------------------
+# _create_secret_params — OAuth token auth
+# ---------------------------------------------------------------------------
+
+
+def test_secret_params_oauth_token() -> None:
+    auth = SnowflakeOAuthAuth(token="eyJhbGciOi.test.token")
+    config = _make_config(auth)
+    params = SnowflakeAdapter._create_secret_params(config)
+
+    assert params["auth_type"] == "oauth"
+    assert params["token"] == "eyJhbGciOi.test.token"
+    assert "password" not in params
+
+
+def test_secret_params_oauth_token_with_special_chars() -> None:
+    auth = SnowflakeOAuthAuth(token="token'with'quotes")
+    config = _make_config(auth)
+    params = SnowflakeAdapter._create_secret_params(config)
+
+    assert params["token"] == "token'with'quotes"
+
+
+# ---------------------------------------------------------------------------
+# _create_auth — OAuth token from content dict
+# ---------------------------------------------------------------------------
+
+
+def test_create_auth_recognizes_token() -> None:
+    content = {**BASE_CONFIG, "token": "my_oauth_token"}
+    auth = SnowflakeAdapter._create_auth(content)
+
+    assert isinstance(auth, SnowflakeOAuthAuth)
+    assert auth.token == "my_oauth_token"
+
+
+# ---------------------------------------------------------------------------
+# create_config_from_content — OAuth round-trip
+# ---------------------------------------------------------------------------
+
+
+def test_create_config_from_content_oauth() -> None:
+    content = {
+        "type": "snowflake",
+        "connection": {
+            **BASE_CONFIG,
+            "auth": {"token": "my_oauth_token"},
+        },
+    }
+    config = SnowflakeAdapter.create_config_from_content(content)
+
+    assert isinstance(config, SnowflakeConnectionProperties)
+    assert isinstance(config.auth, SnowflakeOAuthAuth)
+    assert config.auth.token == "my_oauth_token"
 
 
 # ---------------------------------------------------------------------------
