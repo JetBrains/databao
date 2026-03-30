@@ -120,17 +120,18 @@ class SnowflakeAdapter(DatabaseAdapter):
             raise ValueError(
                 f"Invalid connection config type: expected SnowflakeConnectionProperties, got {type(config)}."
             )
-        connection_string = cls._create_connection_string(config)
-        # Build the secret SQL before ATTACH so that preparation errors (e.g. unreadable key file)
+        # Build the secret params before ATTACH so that preparation errors (e.g. unreadable key file)
         # don't leave the connection in a partially-registered state.
-        secret_sql = cls._create_secret_sql(config, name)
+        secret_params = cls._create_secret_params(config)
+        formatted_secret_params = cls._format_sql_params(secret_params)
+
         shared_conn.execute("INSTALL snowflake FROM community;")
         shared_conn.execute("LOAD snowflake;")
-        shared_conn.execute(f"ATTACH '{connection_string}' AS \"{name}\" (TYPE snowflake, READ_ONLY);")
-        shared_conn.execute(secret_sql)
+        shared_conn.execute(f'CREATE OR REPLACE SECRET "{name}" (TYPE snowflake, {formatted_secret_params});')
+        shared_conn.execute(f'ATTACH \'\' AS "{name}" (TYPE snowflake, SECRET "{name}", READ_ONLY);')
 
     @staticmethod
-    def _create_secret_sql(config: SnowflakeConnectionProperties, name: str) -> str:
+    def _create_secret_params(config: SnowflakeConnectionProperties) -> dict[str, str]:
         params: dict[str, str] = {
             ACCOUNT_KEY: config.account,
         }
@@ -172,11 +173,7 @@ class SnowflakeAdapter(DatabaseAdapter):
         else:
             raise ValueError("Unsupported Snowflake authentication type.")
 
-        def _escape(v: str) -> str:
-            return v.replace("'", "''")
-
-        kv = ", ".join(f"{k} '{_escape(v)}'" for k, v in params.items())
-        return f'CREATE OR REPLACE SECRET "{name}" (TYPE snowflake, {kv});'
+        return params
 
     @staticmethod
     def _create_auth(content: dict[str, Any]) -> SnowflakePasswordAuth | SnowflakeKeyPairAuth | SnowflakeSSOAuth:
@@ -195,38 +192,11 @@ class SnowflakeAdapter(DatabaseAdapter):
         raise ValueError("Unsupported Snowflake authentication type.")
 
     @staticmethod
-    def _create_connection_string(config: SnowflakeConnectionProperties) -> str:
-        connection_parameters: dict[str, Any] = {
-            ACCOUNT_KEY: config.account,
-            WAREHOUSE_KEY: config.warehouse,
-            DATABASE_KEY: config.database,
-            USER_KEY: config.user,
-            **config.additional_properties,
-        }
+    def _format_sql_params(params: dict[str, str]) -> str:
+        def _escape(v: str) -> str:
+            return v.replace("'", "''")
 
-        auth = config.auth
-        if isinstance(auth, SnowflakePasswordAuth):
-            connection_parameters[PASSWORD_KEY] = auth.password
-        elif isinstance(auth, SnowflakeKeyPairAuth):
-            connection_parameters[AUTH_TYPE_KEY] = AUTH_TYPE_KEY_PAIR
-            connection_parameters[PRIVATE_KEY_PASSPHRASE_KEY] = auth.private_key_file_pwd
-            if auth.private_key:
-                connection_parameters[PRIVATE_KEY_KEY] = auth.private_key
-            elif auth.private_key_file:
-                connection_parameters[PRIVATE_KEY_KEY] = Path(auth.private_key_file).absolute()
-            else:
-                raise ValueError("No private key provided.")
-        elif isinstance(auth, SnowflakeSSOAuth):
-            authenticator = auth.authenticator
-            if SnowflakeAdapter._is_okta_url(authenticator):
-                connection_parameters[AUTH_TYPE_KEY] = AUTH_TYPE_OKTA
-                connection_parameters[OKTA_URL_KEY] = authenticator
-            else:
-                connection_parameters[AUTH_TYPE_KEY] = authenticator
-        else:
-            raise ValueError("Unsupported Snowflake authentication type.")
-
-        return ";".join(f"{k}={v!s}" for k, v in connection_parameters.items() if v is not None)
+        return ", ".join(f"{k} '{_escape(v)}'" for k, v in params.items())
 
     @staticmethod
     def _is_okta_url(authenticator: str) -> bool:
