@@ -137,6 +137,7 @@ class BigQueryAdapter(DatabaseAdapter):
             params[LOCATION_KEY] = config.location
 
         for k, v in config.additional_properties.items():
-            params[k] = str(v)
+            if k not in (CREDENTIALS_FILE_KEY, CREDENTIALS_JSON_KEY):
+                params[k] = str(v)
 
         return " ".join(f"{k}={v}" for k, v in params.items())
