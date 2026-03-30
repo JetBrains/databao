@@ -237,14 +237,16 @@ class TestRegisterInDuckdb:
     ) -> None:
         mock_conn = MagicMock()
         adapter.register_in_duckdb(mock_conn, key_file_config, "bq_ds")
-        calls = [c[0][0] for c in mock_conn.execute.call_args_list]
-        # Secret should be created with SERVICE_ACCOUNT_PATH
-        secret_sql = calls[2]
-        assert "CREATE SECRET" in secret_sql
-        assert "SERVICE_ACCOUNT_PATH '/path/to/key.json'" in secret_sql
-        assert "bq://my-project" in secret_sql
+        # Secret should be created with SERVICE_ACCOUNT_PATH via parameter binding
+        secret_call = mock_conn.execute.call_args_list[2]
+        secret_sql = secret_call[0][0]
+        secret_params = secret_call[0][1]
+        assert "CREATE OR REPLACE SECRET" in secret_sql
+        assert "SERVICE_ACCOUNT_PATH ?" in secret_sql
+        assert "SCOPE ?" in secret_sql
+        assert secret_params == ["bq://my-project", "/path/to/key.json"]
         # ATTACH should not contain credentials
-        attach_sql = calls[3]
+        attach_sql = mock_conn.execute.call_args_list[3][0][0]
         assert "credentials_file" not in attach_sql
         assert "project=my-project" in attach_sql
         assert "dataset=my_dataset" in attach_sql
@@ -254,14 +256,15 @@ class TestRegisterInDuckdb:
     ) -> None:
         mock_conn = MagicMock()
         adapter.register_in_duckdb(mock_conn, json_config, "bq_ds")
-        calls = [c[0][0] for c in mock_conn.execute.call_args_list]
-        # Secret should be created with SERVICE_ACCOUNT_JSON
-        secret_sql = calls[2]
-        assert "CREATE SECRET" in secret_sql
-        assert "SERVICE_ACCOUNT_JSON" in secret_sql
-        assert "bq://my-project" in secret_sql
+        # Secret should be created with SERVICE_ACCOUNT_JSON via parameter binding
+        secret_call = mock_conn.execute.call_args_list[2]
+        secret_sql = secret_call[0][0]
+        secret_params = secret_call[0][1]
+        assert "CREATE OR REPLACE SECRET" in secret_sql
+        assert "SERVICE_ACCOUNT_JSON ?" in secret_sql
+        assert secret_params == ["bq://my-project", '{"type":"service_account"}']
         # ATTACH should not contain credentials
-        attach_sql = calls[3]
+        attach_sql = mock_conn.execute.call_args_list[3][0][0]
         assert "credentials_json" not in attach_sql
         assert "credentials_file" not in attach_sql
         assert "location=US" in attach_sql
@@ -272,7 +275,7 @@ class TestRegisterInDuckdb:
         mock_conn = MagicMock()
         adapter.register_in_duckdb(mock_conn, default_config, "bq_ds")
         calls = [c[0][0] for c in mock_conn.execute.call_args_list]
-        assert not any("CREATE SECRET" in c for c in calls)
+        assert not any("CREATE OR REPLACE SECRET" in c for c in calls)
 
     def test_raises_on_wrong_config_type(self, adapter: BigQueryAdapter) -> None:
         from databao_context_engine import DuckDBConnectionConfig
@@ -300,7 +303,7 @@ class TestRegisterInDuckdb:
         calls = [c[0][0] for c in mock_conn.execute.call_args_list]
         assert calls[0] == "INSTALL bigquery FROM community;"
         assert calls[1] == "LOAD bigquery;"
-        assert calls[2].startswith("CREATE SECRET")
+        assert calls[2].startswith("CREATE OR REPLACE SECRET")
         assert calls[3].startswith("ATTACH")
         assert calls[4] == "SET disabled_optimizers='top_n';"
 

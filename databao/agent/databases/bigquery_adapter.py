@@ -109,16 +109,22 @@ class BigQueryAdapter(DatabaseAdapter):
     @staticmethod
     def _create_secret_if_needed(conn: DuckDBPyConnection, config: BigQueryConnectionProperties, name: str) -> None:
         auth = config.auth
+        params: list[str] = []
         if isinstance(auth, BigQueryServiceAccountKeyFileAuth):
-            secret_param = f"SERVICE_ACCOUNT_PATH '{auth.credentials_file}'"
+            secret_param = "SERVICE_ACCOUNT_PATH ?"
+            params.append(auth.credentials_file)
         elif isinstance(auth, BigQueryServiceAccountJsonAuth):
-            escaped = auth.credentials_json.replace("'", "''")
-            secret_param = f"SERVICE_ACCOUNT_JSON '{escaped}'"
+            secret_param = "SERVICE_ACCOUNT_JSON ?"
+            params.append(auth.credentials_json)
         else:
             return
         scope = f"bq://{config.project}"
-        secret_name = f"bq_secret_{name}"
-        conn.execute(f"CREATE SECRET \"{secret_name}\" (TYPE BIGQUERY, SCOPE '{scope}', {secret_param});")
+        params.insert(0, scope)
+        secret_name_escaped = f"bq_secret_{name}".replace('"', '""')
+        conn.execute(
+            f'CREATE OR REPLACE SECRET "{secret_name_escaped}" (TYPE BIGQUERY, SCOPE ?, {secret_param});',
+            params,
+        )
 
     @staticmethod
     def _create_connection_string(config: BigQueryConnectionProperties) -> str:
