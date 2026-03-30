@@ -1,13 +1,9 @@
 import os
-from pathlib import Path
 from typing import NoReturn
 
-from databao_context_engine import SnowflakeConnectionProperties, SnowflakeSSOAuth, SnowflakeOAuthAuth
-from sqlalchemy import create_engine, text
+from databao_context_engine import SnowflakeConnectionProperties, SnowflakeOAuthAuth
 
 import databao.agent as bao
-
-FILE_DIR = Path(__file__).parent
 
 
 def fail(message: str) -> NoReturn:
@@ -19,14 +15,15 @@ def from_env(key: str) -> str:
 
 
 def main() -> None:
-
     domain = bao.domain()
-    domain.add_db(SnowflakeConnectionProperties(
-        user=from_env("SNOWFLAKE_USER"),
-        account=from_env("SNOWFLAKE_ACCOUNT"),
-        database="CALIFORNIA_TRAFFIC_COLLISION",
-        auth=SnowflakeOAuthAuth(token=from_env("SNOWFLAKE_OAUTH_TOKEN")),
-    ))
+    domain.add_db(
+        SnowflakeConnectionProperties(
+            user=from_env("SNOWFLAKE_USER"),
+            account=from_env("SNOWFLAKE_ACCOUNT"),
+            database="CALIFORNIA_TRAFFIC_COLLISION",
+            auth=SnowflakeOAuthAuth(token=from_env("SNOWFLAKE_OAUTH_TOKEN")),
+        )
+    )
 
     agent = bao.agent(domain=domain, name="my_agent", llm_config=bao.LLMConfig(name="gpt-5.1", temperature=0))
 
