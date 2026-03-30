@@ -89,7 +89,8 @@ class BigQueryAdapter(DatabaseAdapter):
         shared_conn.execute("LOAD bigquery;")
         cls._create_secret_if_needed(shared_conn, config, name)
         connection_string = cls._create_connection_string(config)
-        shared_conn.execute(f"ATTACH '{connection_string}' AS \"{name}\" (TYPE bigquery, READ_ONLY);")
+        escaped_name = name.replace('"', '""')
+        shared_conn.execute(f"ATTACH '{connection_string}' AS \"{escaped_name}\" (TYPE bigquery, READ_ONLY);")
         # Workaround for a bug in the DuckDB BigQuery community extension: when ORDER BY and LIMIT
         # appear together DuckDB's optimizer generates a TopN filter that the extension's
         # TransformFilter method does not handle, causing an INTERNAL error.  Disabling only the
@@ -122,7 +123,7 @@ class BigQueryAdapter(DatabaseAdapter):
         params.insert(0, scope)
         secret_name_escaped = f"bq_secret_{name}".replace('"', '""')
         conn.execute(
-            f'CREATE OR REPLACE SECRET "{secret_name_escaped}" (TYPE BIGQUERY, SCOPE ?, {secret_param});',
+            f'CREATE OR REPLACE SECRET "{secret_name_escaped}" (TYPE bigquery, SCOPE ?, {secret_param});',
             params,
         )
 
