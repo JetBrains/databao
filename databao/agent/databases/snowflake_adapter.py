@@ -113,7 +113,6 @@ class SnowflakeAdapter(DatabaseAdapter):
         config_file = SnowflakeConfigFile.model_validate({"name": "", **content})
         return config_file.connection
 
-    # TODO: url and name should be escaped properly
     @classmethod
     def register_in_duckdb(cls, shared_conn: DuckDBPyConnection, config: DBConnectionConfig, name: str) -> None:
         if not isinstance(config, SnowflakeConnectionProperties):
@@ -124,11 +123,12 @@ class SnowflakeAdapter(DatabaseAdapter):
         # don't leave the connection in a partially-registered state.
         secret_params = cls._create_secret_params(config)
         formatted_secret_params = cls._format_sql_params(secret_params)
+        safe_name = cls._escape(name, '"')
 
         shared_conn.execute("INSTALL snowflake FROM community;")
         shared_conn.execute("LOAD snowflake;")
-        shared_conn.execute(f'CREATE OR REPLACE SECRET "{name}" (TYPE snowflake, {formatted_secret_params});')
-        shared_conn.execute(f'ATTACH \'\' AS "{name}" (TYPE snowflake, SECRET "{name}", READ_ONLY);')
+        shared_conn.execute(f'CREATE OR REPLACE SECRET "{safe_name}" (TYPE snowflake, {formatted_secret_params});')
+        shared_conn.execute(f'ATTACH \'\' AS "{safe_name}" (TYPE snowflake, SECRET "{safe_name}", READ_ONLY);')
 
     @staticmethod
     def _create_secret_params(config: SnowflakeConnectionProperties) -> dict[str, str]:
@@ -192,11 +192,12 @@ class SnowflakeAdapter(DatabaseAdapter):
         raise ValueError("Unsupported Snowflake authentication type.")
 
     @staticmethod
-    def _format_sql_params(params: dict[str, str]) -> str:
-        def _escape(v: str) -> str:
-            return v.replace("'", "''")
+    def _escape(value: str, quote: str) -> str:
+        return value.replace(quote, quote + quote)
 
-        return ", ".join(f"{k} '{_escape(v)}'" for k, v in params.items())
+    @classmethod
+    def _format_sql_params(cls, params: dict[str, str]) -> str:
+        return ", ".join(f"""{k} '{cls._escape(v, "'")}'""" for k, v in params.items())
 
     @staticmethod
     def _is_okta_url(authenticator: str) -> bool:
