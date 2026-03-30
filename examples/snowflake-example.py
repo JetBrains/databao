@@ -1,12 +1,9 @@
 import os
-from pathlib import Path
 from typing import NoReturn
 
 from sqlalchemy import create_engine
 
 import databao.agent as bao
-
-FILE_DIR = Path(__file__).parent
 
 
 def fail(message: str) -> NoReturn:
