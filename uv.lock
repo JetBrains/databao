@@ -793,7 +793,7 @@ requires-dist = [
     { name = "anywidget", marker = "extra == 'examples'", specifier = ">=0.9.0" },
     { name = "anywidget", marker = "extra == 'jupyter'", specifier = ">=0.9.0" },
     { name = "claude-agent-sdk", specifier = ">=0.1.48" },
-    { name = "databao-context-engine", extras = ["mysql", "postgresql", "snowflake"], git = "https://github.com/JetBrains/databao-context-engine.git?rev=f6216a2378053784b61b78f99eadcc48a3a7bbfd" },
+    { name = "databao-context-engine", extras = ["mysql", "postgresql", "snowflake"], specifier = "~=0.7.1.dev2" },
     { name = "dbt-core", specifier = "~=1.9.0" },
     { name = "dbt-duckdb", specifier = ">=1.10.0" },
     { name = "diskcache", specifier = ">=5.6.3" },
@@ -838,8 +838,8 @@ dev = [
 
 [[package]]
 name = "databao-context-engine"
-version = "0.7.1.dev1"
-source = { git = "https://github.com/JetBrains/databao-context-engine.git?rev=f6216a2378053784b61b78f99eadcc48a3a7bbfd#f6216a2378053784b61b78f99eadcc48a3a7bbfd" }
+version = "0.7.1.dev2"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "duckdb" },
     { name = "jinja2" },
@@ -850,6 +850,10 @@ dependencies = [
     { name = "requests" },
     { name = "sqlparse" },
     { name = "xxhash" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ca/c9/3770c53321613b76f536c1a354f37c751d5468b659e00d8f371fda2e1177/databao_context_engine-0.7.1.dev2.tar.gz", hash = "sha256:039c6c3a1dfeb23cf92db626e5038e580528c5e0fdb77d24a0a844c95e55e66c", size = 133266 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a3/f9/70a8c87682fc9c32dd099ab6e5e2bca8187003375f2273a06b7f86cdc364/databao_context_engine-0.7.1.dev2-py3-none-any.whl", hash = "sha256:64f272f63e2e3de06455007bc17b24878597585181bad6f41e41d53a2940f87e", size = 210998 },
 ]
 
 [package.optional-dependencies]
