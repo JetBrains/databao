@@ -169,6 +169,13 @@ def test_secret_params_preserves_single_quotes_in_password() -> None:
     assert params["password"] == "my'password"
 
 
+def test_secret_params_includes_additional_properties() -> None:
+    config = _make_config(SnowflakePasswordAuth(password="pw"), additional_properties={"timeout": 30, "custom": "val"})
+    params = SnowflakeAdapter._create_secret_params(config)
+    assert params["timeout"] == "30"
+    assert params["custom"] == "val"
+
+
 # ---------------------------------------------------------------------------
 # _format_sql_params — SQL formatting and escaping
 # ---------------------------------------------------------------------------

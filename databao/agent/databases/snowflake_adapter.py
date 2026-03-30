@@ -134,6 +134,7 @@ class SnowflakeAdapter(DatabaseAdapter):
     def _create_secret_params(config: SnowflakeConnectionProperties) -> dict[str, str]:
         params: dict[str, str] = {
             ACCOUNT_KEY: config.account,
+            **{k: str(v) for k, v in config.additional_properties.items()},
         }
         if config.user:
             params[USER_KEY] = config.user
