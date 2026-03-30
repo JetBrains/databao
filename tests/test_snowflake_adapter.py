@@ -170,6 +170,19 @@ def test_secret_params_preserves_single_quotes_in_password() -> None:
 
 
 # ---------------------------------------------------------------------------
+# _format_sql_params — SQL formatting and escaping
+# ---------------------------------------------------------------------------
+
+
+def test_format_sql_params_basic() -> None:
+    assert SnowflakeAdapter._format_sql_params({"account": "acct", "user": "me"}) == "account 'acct', user 'me'"
+
+
+def test_format_sql_params_escapes_single_quotes() -> None:
+    assert SnowflakeAdapter._format_sql_params({"password": "my'pass"}) == "password 'my''pass'"
+
+
+# ---------------------------------------------------------------------------
 # _create_secret_params — error handling
 # ---------------------------------------------------------------------------
 
