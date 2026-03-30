@@ -202,6 +202,25 @@ def test_secret_params_key_pair_file_not_found_raises() -> None:
 
 
 # ---------------------------------------------------------------------------
+# register_in_duckdb — statement ordering
+# ---------------------------------------------------------------------------
+
+
+def test_register_in_duckdb_executes_statements_in_order() -> None:
+    config = _make_config(SnowflakePasswordAuth(password="s3cr3t"))
+    conn = MagicMock()
+
+    SnowflakeAdapter.register_in_duckdb(conn, config, "mydb")
+
+    calls = [c.args[0] for c in conn.execute.call_args_list]
+    assert len(calls) == 4
+    assert calls[0] == "INSTALL snowflake FROM community;"
+    assert calls[1] == "LOAD snowflake;"
+    assert calls[2].startswith('CREATE OR REPLACE SECRET "mydb" (TYPE snowflake,')
+    assert calls[3] == """ATTACH '' AS "mydb" (TYPE snowflake, SECRET "mydb", READ_ONLY);"""
+
+
+# ---------------------------------------------------------------------------
 # create_config_from_runtime — account / region reconstruction
 # ---------------------------------------------------------------------------
 
