@@ -349,6 +349,7 @@ def test_create_config_from_runtime_host_not_in_additional_properties() -> None:
             "account": "nameaccount",
             "host": "nameaccount.eu-central-1.snowflakecomputing.com",
             "port": "443",
+            "autocommit": False,
             "user": "user",
             "password": "secret",
         }
@@ -356,3 +357,5 @@ def test_create_config_from_runtime_host_not_in_additional_properties() -> None:
     config = SnowflakeAdapter.create_config_from_runtime(engine)
     assert isinstance(config, SnowflakeConnectionProperties)
     assert "host" not in config.additional_properties
+    assert "port" not in config.additional_properties
+    assert "autocommit" not in config.additional_properties
