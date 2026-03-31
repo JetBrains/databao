@@ -47,6 +47,10 @@ AUTH_KEYS = {
     OKTA_URL_KEY,
 }
 
+# Keys injected by SQLAlchemy's Snowflake dialect that are not valid Snowflake connection properties.
+# Note: "host" is also dialect-internal but handled separately because its value is used to derive the account.
+_SQLALCHEMY_INTERNAL_KEYS = {"port", "autocommit"}
+
 EXCLUDED_QUERY_KEYS = {*MAIN_KEYS, *AUTH_KEYS}
 
 AUTH_TYPE_KEY = "auth_type"
@@ -95,6 +99,8 @@ class SnowflakeAdapter(DatabaseAdapter):
             content[DATABASE_KEY] = content.pop("dbname")
 
         host: str | None = content.pop("host", None)
+        for key in _SQLALCHEMY_INTERNAL_KEYS:
+            content.pop(key, None)
         account: str = content.get(ACCOUNT_KEY, "")
         if host and host.endswith(SNOWFLAKE_HOST_SUFFIX):
             account = host[: -len(SNOWFLAKE_HOST_SUFFIX)]
