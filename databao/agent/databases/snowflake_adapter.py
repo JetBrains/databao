@@ -143,6 +143,9 @@ class SnowflakeAdapter(DatabaseAdapter):
             url_kwargs["password"] = auth.password
         elif isinstance(auth, SnowflakeKeyPairAuth):
             connect_args["private_key"] = cls._load_private_key_bytes(auth)
+        elif isinstance(auth, SnowflakeOAuthAuth):
+            connect_args["authenticator"] = "oauth"
+            connect_args["token"] = auth.token
         elif isinstance(auth, SnowflakeSSOAuth):
             url_kwargs["authenticator"] = auth.authenticator
         else:
