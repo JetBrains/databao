@@ -432,8 +432,8 @@ def test_create_engine_password_auth_omits_none_fields() -> None:
 
 
 def test_create_engine_key_pair_auth(tmp_path: Path) -> None:
-    from cryptography.hazmat.primitives.asymmetric import rsa
     from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
 
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     pem = private_key.private_bytes(

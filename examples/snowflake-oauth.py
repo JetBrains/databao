@@ -30,7 +30,7 @@ def main() -> None:
         domain=domain,
         data_executor=SeparateExecutor(),
         name="my_agent",
-        llm_config=bao.LLMConfig(name="gpt-5.1", temperature=0)
+        llm_config=bao.LLMConfig(name="gpt-5.1", temperature=0),
     )
 
     agent.thread().ask("How many accidents occurred in total?")
