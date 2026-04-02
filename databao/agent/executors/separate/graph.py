@@ -1,5 +1,4 @@
 import json
-import math
 from typing import Annotated, Any, Literal
 
 import pandas as pd
@@ -19,12 +18,7 @@ from databao.agent.core import Domain, ExecutionResult
 from databao.agent.executors.frontend.text_frontend import dataframe_to_markdown
 from databao.agent.executors.langchain_tools import make_search_context_tool
 from databao.agent.executors.llm import chat, model_bind_tools
-
-
-def exception_to_string(e: Exception | str) -> str:
-    if isinstance(e, str):
-        return e
-    return f"Exception Name: {type(e).__name__}. Exception Desc: {e}"
+from databao.agent.executors.utils import exception_to_string, trim_dataframe_values
 
 
 class AgentState(TypedDict):
@@ -43,31 +37,6 @@ def get_query_ids_mapping(messages: list[BaseMessage]) -> dict[str, ToolMessage]
         if isinstance(message, ToolMessage) and isinstance(message.artifact, dict) and "query_id" in message.artifact:
             query_ids[message.artifact["query_id"]] = message
     return query_ids
-
-
-def trim_string_middle(
-    content: str, max_length: int | None, sep: str = "[...trimmed...]", front_percentage: float = 0.7
-) -> str:
-    if max_length is None or len(content) <= max_length:
-        return content
-    take_front = max(0, math.ceil(max_length * front_percentage) - len(sep) // 2)
-    take_end = max(0, max_length - take_front - len(sep))
-    return content[:take_front] + sep + content[len(content) - take_end :]
-
-
-def trim_dataframe_values(df: pd.DataFrame, max_cell_chars: int | None) -> pd.DataFrame:
-    df_sanitized = df.copy()
-    if max_cell_chars is None:
-        return df_sanitized
-
-    def trim_cell(val: Any) -> str:
-        return trim_string_middle(str(val), max_cell_chars)
-
-    for col, dtype in zip(df_sanitized.columns, df_sanitized.dtypes, strict=True):
-        if not pd.api.types.is_object_dtype(dtype) and not pd.api.types.is_string_dtype(dtype):
-            continue
-        df_sanitized[col] = df_sanitized[col].apply(trim_cell)
-    return df_sanitized
 
 
 def _run_sql(engine: Engine, sql: str, limit: int | None) -> pd.DataFrame:

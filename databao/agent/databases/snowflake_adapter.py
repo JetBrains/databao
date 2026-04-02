@@ -162,7 +162,10 @@ class SnowflakeAdapter(DatabaseAdapter):
         if auth.private_key:
             pem_data = auth.private_key.encode()
         elif auth.private_key_file:
-            pem_data = Path(auth.private_key_file).read_bytes()
+            try:
+                pem_data = Path(auth.private_key_file).read_bytes()
+            except OSError as exc:
+                raise ValueError(f"Failed to read private key file at '{auth.private_key_file}'.") from exc
         else:
             raise ValueError("No private key provided.")
 

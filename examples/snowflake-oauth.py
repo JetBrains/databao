@@ -4,6 +4,7 @@ from typing import NoReturn
 from databao_context_engine import SnowflakeConnectionProperties, SnowflakeOAuthAuth
 
 import databao.agent as bao
+from databao.agent.executors.separate.separate_executor import SeparateExecutor
 
 
 def fail(message: str) -> NoReturn:
@@ -25,7 +26,12 @@ def main() -> None:
         )
     )
 
-    agent = bao.agent(domain=domain, name="my_agent", llm_config=bao.LLMConfig(name="gpt-5.1", temperature=0))
+    agent = bao.agent(
+        domain=domain,
+        data_executor=SeparateExecutor(),
+        name="my_agent",
+        llm_config=bao.LLMConfig(name="gpt-5.1", temperature=0)
+    )
 
     agent.thread().ask("How many accidents occurred in total?")
 

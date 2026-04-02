@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from databao_context_engine import (
@@ -359,3 +359,166 @@ def test_create_config_from_runtime_host_not_in_additional_properties() -> None:
     assert "host" not in config.additional_properties
     assert "port" not in config.additional_properties
     assert "autocommit" not in config.additional_properties
+
+
+# ---------------------------------------------------------------------------
+# create_sqlalchemy_engine — helpers
+# ---------------------------------------------------------------------------
+
+
+def _call_create_engine(config: SnowflakeConnectionProperties) -> tuple[dict[str, str], dict[str, Any]]:
+    """Call create_sqlalchemy_engine with mocked URL and create_engine, returning (url_kwargs, connect_args)."""
+    captured_url_kwargs: dict[str, str] = {}
+    captured_connect_args: dict[str, Any] = {}
+
+    def fake_url(**kwargs: str) -> str:
+        captured_url_kwargs.update(kwargs)
+        return "snowflake://fake"
+
+    def fake_create_engine(url: Any, *, connect_args: dict[str, Any] | None = None) -> MagicMock:
+        if connect_args:
+            captured_connect_args.update(connect_args)
+        return MagicMock()
+
+    with (
+        patch("databao.agent.databases.snowflake_adapter.create_engine", side_effect=fake_create_engine),
+        patch.dict("sys.modules", {"snowflake": MagicMock(), "snowflake.sqlalchemy": MagicMock(URL=fake_url)}),
+    ):
+        result = SnowflakeAdapter.create_sqlalchemy_engine(config)
+
+    assert result is not None
+    return captured_url_kwargs, captured_connect_args
+
+
+# ---------------------------------------------------------------------------
+# create_sqlalchemy_engine — password auth
+# ---------------------------------------------------------------------------
+
+
+def test_create_engine_password_auth() -> None:
+    config = _make_config(SnowflakePasswordAuth(password="s3cr3t"))
+    url_kwargs, connect_args = _call_create_engine(config)
+
+    assert url_kwargs["account"] == "myaccount"
+    assert url_kwargs["user"] == "myuser"
+    assert url_kwargs["database"] == "mydb"
+    assert url_kwargs["warehouse"] == "mywh"
+    assert url_kwargs["password"] == "s3cr3t"
+    assert "private_key" not in connect_args
+    assert "token" not in connect_args
+
+
+def test_create_engine_password_auth_with_role() -> None:
+    config = _make_config(SnowflakePasswordAuth(password="pw"), role="ANALYST")
+    url_kwargs, _ = _call_create_engine(config)
+
+    assert url_kwargs["role"] == "ANALYST"
+
+
+def test_create_engine_password_auth_omits_none_fields() -> None:
+    config = SnowflakeConnectionProperties(
+        account="acct", user=None, database=None, warehouse=None, auth=SnowflakePasswordAuth(password="pw")
+    )
+    url_kwargs, _ = _call_create_engine(config)
+
+    assert "user" not in url_kwargs
+    assert "database" not in url_kwargs
+    assert "warehouse" not in url_kwargs
+
+
+# ---------------------------------------------------------------------------
+# create_sqlalchemy_engine — key pair auth
+# ---------------------------------------------------------------------------
+
+
+def test_create_engine_key_pair_auth(tmp_path: Path) -> None:
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.hazmat.primitives import serialization
+
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+    key_file = tmp_path / "rsa_key.pem"
+    key_file.write_bytes(pem)
+
+    auth = SnowflakeKeyPairAuth(private_key_file=str(key_file))
+    config = _make_config(auth)
+    url_kwargs, connect_args = _call_create_engine(config)
+
+    assert "password" not in url_kwargs
+    assert "private_key" in connect_args
+    assert isinstance(connect_args["private_key"], bytes)
+
+
+def test_create_engine_key_pair_auth_bad_file_raises() -> None:
+    auth = SnowflakeKeyPairAuth(private_key_file="/nonexistent/key.pem")
+    config = _make_config(auth)
+
+    with pytest.raises(ValueError, match="Failed to read private key file"):
+        _call_create_engine(config)
+
+
+# ---------------------------------------------------------------------------
+# create_sqlalchemy_engine — OAuth auth
+# ---------------------------------------------------------------------------
+
+
+def test_create_engine_oauth_auth() -> None:
+    auth = SnowflakeOAuthAuth(token="eyJhbGciOi.test.token")
+    config = _make_config(auth)
+    url_kwargs, connect_args = _call_create_engine(config)
+
+    assert "password" not in url_kwargs
+    assert connect_args["authenticator"] == "oauth"
+    assert connect_args["token"] == "eyJhbGciOi.test.token"
+
+
+# ---------------------------------------------------------------------------
+# create_sqlalchemy_engine — SSO auth
+# ---------------------------------------------------------------------------
+
+
+def test_create_engine_sso_externalbrowser() -> None:
+    auth = SnowflakeSSOAuth(authenticator="externalbrowser")
+    config = _make_config(auth)
+    url_kwargs, connect_args = _call_create_engine(config)
+
+    assert url_kwargs["authenticator"] == "externalbrowser"
+    assert "token" not in connect_args
+
+
+def test_create_engine_sso_okta() -> None:
+    auth = SnowflakeSSOAuth(authenticator="https://myorg.okta.com")
+    config = _make_config(auth)
+    url_kwargs, _ = _call_create_engine(config)
+
+    assert url_kwargs["authenticator"] == "https://myorg.okta.com"
+
+
+# ---------------------------------------------------------------------------
+# create_sqlalchemy_engine — additional_properties
+# ---------------------------------------------------------------------------
+
+
+def test_create_engine_includes_additional_properties() -> None:
+    config = _make_config(
+        SnowflakePasswordAuth(password="pw"),
+        additional_properties={"timeout": 30, "client_session_keep_alive": True},
+    )
+    _, connect_args = _call_create_engine(config)
+
+    assert connect_args["timeout"] == 30
+    assert connect_args["client_session_keep_alive"] is True
+
+
+# ---------------------------------------------------------------------------
+# create_sqlalchemy_engine — unsupported config
+# ---------------------------------------------------------------------------
+
+
+def test_create_engine_returns_none_for_non_snowflake_config() -> None:
+    result = SnowflakeAdapter.create_sqlalchemy_engine(MagicMock())
+    assert result is None

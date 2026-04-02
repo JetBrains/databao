@@ -85,7 +85,7 @@ class SeparateExecutor(GraphExecutor):
                 db_tables = inspect_sqlalchemy_schema(engine)
                 # Use the registered name as table_catalog so the LLM can derive
                 # the datasource argument directly from the schema prefix.
-                tables.extend(replace(t, table_catalog=name) for t in db_tables)
+                tables.extend(replace(t, table_catalog=name, columns_catalog=name) for t in db_tables)
             except Exception as e:
                 _LOGGER.warning("Failed to inspect schema for '%s': %s", name, e)
 
