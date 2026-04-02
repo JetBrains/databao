@@ -137,7 +137,7 @@ class SnowflakeAdapter(DatabaseAdapter):
         if config.role:
             url_kwargs["role"] = config.role
 
-        connect_args: dict[str, Any] = {}
+        connect_args: dict[str, Any] = {k: v for k, v in config.additional_properties.items()}
         auth = config.auth
         if isinstance(auth, SnowflakePasswordAuth):
             url_kwargs["password"] = auth.password

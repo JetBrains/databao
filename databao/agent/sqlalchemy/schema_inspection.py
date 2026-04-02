@@ -1,11 +1,8 @@
-import logging
 from collections import defaultdict
 
 from sqlalchemy import Connection, Engine, text
 
 from databao.agent.duckdb.schema_inspection import ColumnInfo, TableInfo
-
-_LOGGER = logging.getLogger(__name__)
 
 
 def inspect_sqlalchemy_schema(conn: Engine | Connection) -> list[TableInfo]:

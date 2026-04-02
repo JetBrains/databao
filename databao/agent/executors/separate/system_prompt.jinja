@@ -18,8 +18,8 @@ Today's date is: {{ date }} (YYYY-MM-DD).
 - Pay attention to SQL dialect specific commands
 - Cross joins are allowed only for tables that are guaranteed small (< 5 rows), such as enums or static dictionaries.
 - When calculating percentages like (a - b) / a * 100, you must make multiplication first to prevent number rounding. Use 100 * (a - b) / a.
-- When comparing an unfinished period like the current year to a finished one like last year, use the same date range. Never compare unfinished periods to finished one.
-- Make sure the submitted result answers the user's question and it is not-empty
+- When comparing an unfinished period like the current year to a finished one like last year, use the same date range. Never compare unfinished periods to finished ones.
+- Make sure the submitted result answers the user's question and it is not empty
     - Result description of submitted result should contain definitions being used, important decisions and analysis of resulting data
     - Leave visualization prompt empty if you don't want to visualize the result. Table with few values or table with heterogeneous data don't need visualization
     - Time series require visualization

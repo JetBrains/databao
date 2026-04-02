@@ -57,7 +57,13 @@ class SeparateExecutor(GraphExecutor):
                 if engine is not None:
                     self._sa_engines[name] = engine
                 else:
-                    _LOGGER.warning("Cannot create SQLAlchemy engine for '%s': unsupported config type", name)
+                    db_type = get_db_type(db_source.config)
+                    _LOGGER.warning(
+                        "SQLAlchemy engine creation not implemented for database '%s' (type '%s'); "
+                        "continuing without SQLAlchemy engine",
+                        name,
+                        db_type,
+                    )
                 self._registered_dbs[name] = db_source
 
         for name, df_source in sources.dfs.items():

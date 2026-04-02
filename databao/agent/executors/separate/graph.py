@@ -186,7 +186,8 @@ class SeparateGraph:
             """
             Call this tool with the ID of the query you want to submit to the user.
             This will return control to the user and must always be the last tool call.
-            The user will see the full query result, not just the first 12 rows. Returns a confirmation message.
+            The user will see the query result up to the configured maximum row limit (which may be larger than the
+            12-row preview shown in tool output). Returns a confirmation message.
 
             Args:
                 query_id: The ID of the query to submit (query_ids are automatically generated when you run queries).
