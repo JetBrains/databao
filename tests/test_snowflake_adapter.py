@@ -522,3 +522,26 @@ def test_create_engine_includes_additional_properties() -> None:
 def test_create_engine_returns_none_for_non_snowflake_config() -> None:
     result = SnowflakeAdapter.create_sqlalchemy_engine(MagicMock())
     assert result is None
+
+
+# ---------------------------------------------------------------------------
+# create_config_from_runtime — TOKEN_KEY excluded from additional_properties
+# ---------------------------------------------------------------------------
+
+
+def test_create_config_from_runtime_excludes_token_from_additional_properties() -> None:
+    """TOKEN_KEY must be in EXCLUDED_QUERY_KEYS so OAuth tokens don't leak into additional_properties."""
+    engine = _make_snowflake_engine(
+        {
+            "account": "acct",
+            "host": "acct.snowflakecomputing.com",
+            "user": "user",
+            "token": "secret-oauth-token",
+        }
+    )
+    config = SnowflakeAdapter.create_config_from_runtime(engine)
+    assert isinstance(config, SnowflakeConnectionProperties)
+    assert "token" not in config.additional_properties
+    # The token should be captured in the auth object
+    assert isinstance(config.auth, SnowflakeOAuthAuth)
+    assert config.auth.token == "secret-oauth-token"

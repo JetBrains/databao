@@ -39,7 +39,40 @@ def get_query_ids_mapping(messages: list[BaseMessage]) -> dict[str, ToolMessage]
     return query_ids
 
 
+_FORBIDDEN_SQL_PREFIXES = (
+    "INSERT",
+    "UPDATE",
+    "DELETE",
+    "DROP",
+    "ALTER",
+    "CREATE",
+    "TRUNCATE",
+    "MERGE",
+    "GRANT",
+    "REVOKE",
+    "CALL",
+    "EXEC",
+    "EXECUTE",
+    "BEGIN",
+    "COMMIT",
+    "ROLLBACK",
+    "COPY",
+    "PUT",
+    "GET",
+    "REMOVE",
+)
+
+
+def _validate_read_only(sql: str) -> None:
+    """Raise ValueError if *sql* looks like a write / DDL statement."""
+    stripped = sql.strip().lstrip("(").strip()
+    first_word = stripped.split(None, 1)[0].upper().rstrip(";") if stripped else ""
+    if first_word in _FORBIDDEN_SQL_PREFIXES:
+        raise ValueError(f"Only SELECT / read-only queries are allowed. Got statement starting with '{first_word}'.")
+
+
 def _run_sql(engine: Engine, sql: str, limit: int | None) -> pd.DataFrame:
+    _validate_read_only(sql)
     with engine.connect() as conn:
         result = conn.execute(text(sql))
         columns = list(result.keys())

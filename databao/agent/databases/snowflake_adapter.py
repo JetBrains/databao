@@ -45,6 +45,7 @@ AUTH_KEYS = {
     PRIVATE_KEY_FILE_KEY,
     PRIVATE_KEY_PASSPHRASE_KEY,
     OKTA_URL_KEY,
+    TOKEN_KEY,
 }
 
 # Keys injected by SQLAlchemy's Snowflake dialect that are not valid Snowflake connection properties.
