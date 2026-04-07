@@ -7,12 +7,13 @@ from databao_context_engine import (
     SnowflakeConfigFile,
     SnowflakeConnectionProperties,
     SnowflakeKeyPairAuth,
+    SnowflakeOAuthAuth,
     SnowflakePasswordAuth,
     SnowflakeSSOAuth,
 )
 from databao_context_engine.pluginlib.build_plugin import AbstractConfigFile
 from snowflake.connector.network import SNOWFLAKE_HOST_SUFFIX
-from sqlalchemy import Connection, Engine, make_url
+from sqlalchemy import Connection, Engine, create_engine, make_url
 
 from databao.agent.databases.database_adapter import DatabaseAdapter
 from databao.agent.databases.database_connection import DBConnection, DBConnectionConfig, DBConnectionRuntime
@@ -44,7 +45,12 @@ AUTH_KEYS = {
     PRIVATE_KEY_FILE_KEY,
     PRIVATE_KEY_PASSPHRASE_KEY,
     OKTA_URL_KEY,
+    TOKEN_KEY,
 }
+
+# Keys injected by SQLAlchemy's Snowflake dialect that are not valid Snowflake connection properties.
+# Note: "host" is also dialect-internal but handled separately because its value is used to derive the account.
+_SQLALCHEMY_INTERNAL_KEYS = {"port", "autocommit"}
 
 EXCLUDED_QUERY_KEYS = {*MAIN_KEYS, *AUTH_KEYS}
 
@@ -94,6 +100,8 @@ class SnowflakeAdapter(DatabaseAdapter):
             content[DATABASE_KEY] = content.pop("dbname")
 
         host: str | None = content.pop("host", None)
+        for key in _SQLALCHEMY_INTERNAL_KEYS:
+            content.pop(key, None)
         account: str = content.get(ACCOUNT_KEY, "")
         if host and host.endswith(SNOWFLAKE_HOST_SUFFIX):
             account = host[: -len(SNOWFLAKE_HOST_SUFFIX)]
@@ -113,6 +121,64 @@ class SnowflakeAdapter(DatabaseAdapter):
         config_file = SnowflakeConfigFile.model_validate({"name": "", **content})
         return config_file.connection
 
+    @classmethod
+    def create_sqlalchemy_engine(cls, config: DBConnectionConfig) -> Engine | None:
+        if not isinstance(config, SnowflakeConnectionProperties):
+            return None
+
+        from snowflake.sqlalchemy import URL  # type: ignore[import-untyped]
+
+        url_kwargs: dict[str, str] = {"account": config.account}
+        if config.user:
+            url_kwargs["user"] = config.user
+        if config.database:
+            url_kwargs["database"] = config.database
+        if config.warehouse:
+            url_kwargs["warehouse"] = config.warehouse
+        if config.role:
+            url_kwargs["role"] = config.role
+
+        connect_args: dict[str, Any] = {k: v for k, v in config.additional_properties.items()}
+        auth = config.auth
+        if isinstance(auth, SnowflakePasswordAuth):
+            url_kwargs["password"] = auth.password
+        elif isinstance(auth, SnowflakeKeyPairAuth):
+            connect_args["private_key"] = cls._load_private_key_bytes(auth)
+        elif isinstance(auth, SnowflakeOAuthAuth):
+            connect_args["authenticator"] = "oauth"
+            connect_args["token"] = auth.token
+        elif isinstance(auth, SnowflakeSSOAuth):
+            url_kwargs["authenticator"] = auth.authenticator
+        else:
+            return None
+
+        if connect_args:
+            return create_engine(URL(**url_kwargs), connect_args=connect_args)
+        return create_engine(URL(**url_kwargs))
+
+    @staticmethod
+    def _load_private_key_bytes(auth: SnowflakeKeyPairAuth) -> bytes:
+        from cryptography.hazmat.primitives import serialization
+
+        if auth.private_key:
+            pem_data = auth.private_key.encode()
+        elif auth.private_key_file:
+            try:
+                pem_data = Path(auth.private_key_file).read_bytes()
+            except OSError as exc:
+                raise ValueError(f"Failed to read private key file at '{auth.private_key_file}'.") from exc
+        else:
+            raise ValueError("No private key provided.")
+
+        passphrase = auth.private_key_file_pwd.encode() if auth.private_key_file_pwd else None
+        private_key = serialization.load_pem_private_key(pem_data, password=passphrase)
+        return private_key.private_bytes(
+            encoding=serialization.Encoding.DER,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+
+    # TODO: url and name should be escaped properly
     @classmethod
     def register_in_duckdb(cls, shared_conn: DuckDBPyConnection, config: DBConnectionConfig, name: str) -> None:
         if not isinstance(config, SnowflakeConnectionProperties):
@@ -164,6 +230,9 @@ class SnowflakeAdapter(DatabaseAdapter):
                 raise ValueError("No private key provided.")
             if auth.private_key_file_pwd:
                 params[PRIVATE_KEY_PASSPHRASE_KEY] = auth.private_key_file_pwd
+        elif isinstance(auth, SnowflakeOAuthAuth):
+            params[AUTH_TYPE_KEY] = AUTH_TYPE_OAUTH
+            params[TOKEN_KEY] = auth.token
         elif isinstance(auth, SnowflakeSSOAuth):
             authenticator = auth.authenticator
             if SnowflakeAdapter._is_okta_url(authenticator):
@@ -177,7 +246,9 @@ class SnowflakeAdapter(DatabaseAdapter):
         return params
 
     @staticmethod
-    def _create_auth(content: dict[str, Any]) -> SnowflakePasswordAuth | SnowflakeKeyPairAuth | SnowflakeSSOAuth:
+    def _create_auth(
+        content: dict[str, Any],
+    ) -> SnowflakePasswordAuth | SnowflakeKeyPairAuth | SnowflakeSSOAuth | SnowflakeOAuthAuth:
         if PASSWORD_KEY in content:
             return SnowflakePasswordAuth(password=content[PASSWORD_KEY])
         if content.keys() & {PRIVATE_KEY_KEY, PRIVATE_KEY_FILE_KEY}:
@@ -187,7 +258,7 @@ class SnowflakeAdapter(DatabaseAdapter):
                 private_key=content.get(PRIVATE_KEY_KEY),
             )
         if TOKEN_KEY in content:
-            return SnowflakeSSOAuth(authenticator=AUTH_TYPE_OAUTH)
+            return SnowflakeOAuthAuth(token=content[TOKEN_KEY])
         if OKTA_URL_KEY in content:
             return SnowflakeSSOAuth(authenticator=content[OKTA_URL_KEY])
         raise ValueError("Unsupported Snowflake authentication type.")

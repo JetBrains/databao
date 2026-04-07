@@ -1,4 +1,4 @@
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from _duckdb import DuckDBPyConnection
 from databao_context_engine.pluginlib.build_plugin import AbstractConfigFile, DatasourceType
@@ -14,6 +14,9 @@ from databao.agent.databases.mysql_adapter import MySQLAdapter
 from databao.agent.databases.postgresql_adapter import PostgreSQLAdapter
 from databao.agent.databases.snowflake_adapter import SnowflakeAdapter
 from databao.agent.databases.sqlite_adapter import SQLiteAdapter
+
+if TYPE_CHECKING:
+    from sqlalchemy import Engine
 
 DATABASE_ADAPTERS: list[DatabaseAdapter] = [
     BigQueryAdapter(),
@@ -59,3 +62,10 @@ def register_db_in_duckdb(shared_conn: DuckDBPyConnection, config: DBConnectionC
             adapter.register_in_duckdb(shared_conn, config, name)
             return
     raise ValueError(f"Cannot register connection for config type {type(config)} in DuckDB.")
+
+
+def try_create_sqlalchemy_engine(config: DBConnectionConfig) -> "Engine | None":
+    for adapter in DATABASE_ADAPTERS:
+        if adapter.accept(config):
+            return adapter.create_sqlalchemy_engine(config)
+    return None
