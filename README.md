@@ -222,6 +222,24 @@ make check
 make test
 ```
 
+### Release
+
+Versions are derived automatically from git tags via [uv-dynamic-versioning](https://github.com/ninoseki/uv-dynamic-versioning). Pushing a tag triggers CI to build and publish to PyPI.
+
+```bash
+# Bump patch version (e.g. 0.2.0 → 0.2.1)
+make minor-release
+
+# Bump minor version (e.g. 0.2.1 → 0.3.0)
+make major-release
+
+# Publish a dev build (triggers CI workflow, version auto-computed)
+make dev-release
+
+# Release an explicit version
+make release VERSION=1.0.0
+```
+
 ### Direct commands
 
 ```bash
