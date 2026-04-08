@@ -228,9 +228,12 @@ Versions are derived automatically from git tags via [uv-dynamic-versioning](htt
 
 ```bash
 # Bump patch version (e.g. 0.2.0 → 0.2.1)
+make patch-release
+
+# Bump minor version (e.g. 0.2.0 → 0.3.0)
 make minor-release
 
-# Bump minor version (e.g. 0.2.1 → 0.3.0)
+# Bump major version (e.g. 0.2.1 → 1.0.0)
 make major-release
 
 # Publish a dev build (triggers CI workflow, version auto-computed)
