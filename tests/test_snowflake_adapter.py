@@ -136,7 +136,7 @@ def test_secret_params_sso_externalbrowser() -> None:
     config = _make_config(auth)
     params = SnowflakeAdapter._create_secret_params(config)
 
-    assert params["auth_type"] == "externalbrowser"
+    assert params["auth_type"] == "ext_browser"
     assert "okta_url" not in params
     assert "password" not in params
 
