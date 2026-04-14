@@ -238,6 +238,8 @@ class SnowflakeAdapter(DatabaseAdapter):
             if SnowflakeAdapter._is_okta_url(authenticator):
                 params[AUTH_TYPE_KEY] = AUTH_TYPE_OKTA
                 params[OKTA_URL_KEY] = authenticator
+            elif authenticator == "externalbrowser":
+                params[AUTH_TYPE_KEY] = "ext_browser"
             else:
                 params[AUTH_TYPE_KEY] = authenticator
         else:
