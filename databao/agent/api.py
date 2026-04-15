@@ -15,6 +15,7 @@ from databao.agent.executors import (
     ReactDuckDBExecutor,
 )
 from databao.agent.executors.dbt.config import DbtConfig
+from databao.agent.executors.separate.separate_executor import SeparateExecutor
 from databao.agent.visualizers.vega_chat import VegaChatVisualizer
 
 
@@ -46,6 +47,8 @@ def agent(
         match executor_type:
             case "lighthouse":
                 data_executor = LighthouseExecutor(writer=writer)
+            case "separate_executor":
+                data_executor = SeparateExecutor(writer=writer)
             case "dbt":
                 if dbt_config is None:
                     dbt_config = DbtConfig()
