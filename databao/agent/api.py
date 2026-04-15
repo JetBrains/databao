@@ -46,6 +46,8 @@ def agent(
         match executor_type:
             case "lighthouse":
                 data_executor = LighthouseExecutor(writer=writer)
+            case "separate_executor":
+                data_executor = SeparateExecutor(writer=writer)
             case "dbt":
                 if dbt_config is None:
                     dbt_config = DbtConfig()
