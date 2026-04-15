@@ -15,6 +15,7 @@ from databao.agent.executors import (
     ReactDuckDBExecutor,
 )
 from databao.agent.executors.dbt.config import DbtConfig
+from databao.agent.executors.separate.separate_executor import SeparateExecutor
 from databao.agent.visualizers.vega_chat import VegaChatVisualizer
 
 
